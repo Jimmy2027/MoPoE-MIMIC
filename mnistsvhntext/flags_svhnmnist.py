@@ -31,7 +31,7 @@ parser.add_argument('--data_multiplications', type=int, default=20, help="number
 parser.add_argument('--likelihood_m1', type=str, default='laplace', help="output distribution")
 parser.add_argument('--likelihood_m2', type=str, default='laplace', help="output distribution")
 parser.add_argument('--likelihood_m3', type=str, default='categorical', help="output distribution")
-parser.add_argument('--num_hidden_layers', type=int, default=2, help="number of channels in images")
+parser.add_argument('--num_hidden_layers', type=int, default=1, help="number of channels in images")
 
 # paths to save models
 parser.add_argument('--encoder_save_m1', type=str, default='encoderM1', help="model save for encoder")
@@ -77,7 +77,7 @@ parser.add_argument('--factorized_representation', action='store_true', default=
 parser.add_argument('--include_prior_expert', action='store_true', default=False, help="factorized_representation")
 
 #weighting of loss terms
-parser.add_argument('--beta', type=float, default=2.5, help="default weight of sum of weighted divergence terms")
+parser.add_argument('--beta', type=float, default=1.0, help="default weight of sum of weighted divergence terms")
 parser.add_argument('--beta_style', type=float, default=1.0, help="default weight of sum of weighted style divergence terms")
 parser.add_argument('--beta_content', type=float, default=1.0, help="default weight of sum of weighted content divergence terms")
 parser.add_argument('--beta_m1_style', type=float, default=1.0, help="default weight divergence term style modality 1")
