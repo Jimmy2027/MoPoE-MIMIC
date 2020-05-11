@@ -26,7 +26,6 @@ def log_prob_img(output_dist, target, norm_value):
     return mean_val_logprob;
 
 def log_prob_text(output_dist, target, norm_value):
-    target = target.transpose(-2,-1)
     log_prob = output_dist.log_prob(target).sum();
     mean_val_logprob = log_prob/norm_value;
     return mean_val_logprob;
