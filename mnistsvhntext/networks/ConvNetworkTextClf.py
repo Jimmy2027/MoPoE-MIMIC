@@ -105,6 +105,7 @@ class ClfText(nn.Module):
 
     def forward(self, x):
         #h = self.text_feature_enc(x);
+        x = x.transpose(-2,-1)
         h = self.conv1(x);
         h = self.resblock_1(h);
         h = self.resblock_2(h);

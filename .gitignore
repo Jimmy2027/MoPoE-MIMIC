@@ -130,5 +130,5 @@ dmypy.json
 
 
 #swapping files from vim
-*.py.swp
-*.swp
+*/*.py.swp
+*/*.swp

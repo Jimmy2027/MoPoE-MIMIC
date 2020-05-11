@@ -29,19 +29,6 @@ def one_hot_encode(len_seq, alphabet, seq):
     return X
 
 
-def create_text_from_target_mnist(args, target, alphabet):
-    X = torch.zeros(args.batch_size, args.len_sequence, len(alphabet))
-    for k in range(0, len(target)):
-        num = target[k];
-        text = digit_text_english[num];
-        sequence = args.len_sequence*[' '];
-        start_index = random.randint(0, args.len_sequence-1);
-        sequence[start_index:start_index+len(text)] = text;
-        sequence_one_hot = one_hot_encode(args, alphabet, sequence);
-        X[k,:,:] = sequence_one_hot;
-    return X;
-
-
 def create_text_from_label_mnist(len_seq, label, alphabet):
     text = digit_text_english[label];
     sequence = len_seq * [' '];
@@ -49,28 +36,6 @@ def create_text_from_label_mnist(len_seq, label, alphabet):
     sequence[start_index:start_index + len(text)] = text;
     sequence_one_hot = one_hot_encode(len_seq, alphabet, sequence);
     return sequence_one_hot
-
-
-# def create_text_from_label_mnist(args, label, alphabet):
-#     text = digit_text[label];
-#     sequence = args.len_sequence * [' '];
-#     start_index = random.randint(0, args.len_sequence - 1 - len(text));
-#     sequence[start_index:start_index + len(text)] = text;
-#     sequence_one_hot = one_hot_encode(args, alphabet, sequence);
-#     return sequence_one_hot
-
-def calc_reconstruct_error_text(args, log_prob, target):
-    if args.output_activation == 'softmax':
-        reconstruct_error_text = F.binary_cross_entropy_with_logits(log_prob, target, size_average=False) / float(args.batch_size);
-    elif args.output_activation == 'sigmoid':
-        if args.loss_function_text == 'binary_cross_entropy':
-            reconstruct_error_text = F.binary_cross_entropy(log_prob, target, size_average=False) / float(args.batch_size);
-        elif args.loss_function_text == 'mse':
-            reconstruct_error_text = F.mse_loss(log_prob, target, reduction='sum') / float(args.batch_size);
-        else:
-            print('loss function not implemented...')
-            sys.exit()
-    return reconstruct_error_text;
 
 
 def seq2text(alphabet, seq):
@@ -81,16 +46,10 @@ def seq2text(alphabet, seq):
 
 def tensor_to_text(alphabet, gen_t):
     gen_t = gen_t.cpu().data.numpy()
-    gen_t = np.argmax(gen_t, axis=1)
+    gen_t = np.argmax(gen_t, axis=-1)
     decoded_samples = []
     for i in range(len(gen_t)):
         decoded = seq2text(alphabet, gen_t[i])
-        decoded_samples.append(tuple(decoded))
+        decoded_samples.append(tuple(decoded)[::-1])
     return decoded_samples;
 
-
-def write_samples_text_to_file(samples, filename):
-    file_samples = open(filename, 'w');
-    for k in range(0, len(samples)):
-        file_samples.write(''.join(samples[k])[::-1] + '\n');
-    file_samples.close();
