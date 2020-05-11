@@ -5,7 +5,9 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
-digit_text = ['null', 'eins', 'zwei', 'drei', 'vier', 'fuenf', 'sechs', 'sieben', 'acht', 'neun'];
+# digit_text = ['null', 'eins', 'zwei', 'drei', 'vier', 'fuenf', 'sechs', 'sieben', 'acht', 'neun'];
+digit_text_german = ['null', 'eins', 'zwei', 'drei', 'vier', 'fuenf', 'sechs', 'sieben', 'acht', 'neun'];
+digit_text_english = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'];
 
 face_text = ['5_o_Clock_Shadow', 'Arched_Eyebrows', 'Attractive', 'Bags_Under_Eyes', 'Bald' 'Bangs' 'Big_Lips',
              'Big_Nose', 'Black_Hair', 'Blond_Hair', 'Blurry', 'Brown_Hair', 'Bushy_Eyebrows', 'Chubby', 'Double_Chin',
@@ -17,22 +19,21 @@ face_text = ['5_o_Clock_Shadow', 'Arched_Eyebrows', 'Attractive', 'Bags_Under_Ey
 def char2Index(alphabet, character):
     return alphabet.find(character)
 
-def one_hot_encode(args, alphabet, seq):
-    X = torch.zeros(len(alphabet), args.len_sequence)
-    if len(seq) > args.len_sequence:
-        seq = seq[:args.len_sequence];
-    # print(sequence[::-1])
+def one_hot_encode(len_seq, alphabet, seq):
+    X = torch.zeros(len_seq, len(alphabet))
+    if len(seq) > len_seq:
+        seq = seq[:len_seq];
     for index_char, char in enumerate(seq[::-1]):
         if char2Index(alphabet, char) != -1:
-            X[char2Index(alphabet, char), index_char] = 1.0
+            X[index_char, char2Index(alphabet, char)] = 1.0
     return X
 
+
 def create_text_from_target_mnist(args, target, alphabet):
-    X = torch.zeros(args.batch_size, len(alphabet), args.len_sequence)
+    X = torch.zeros(args.batch_size, args.len_sequence, len(alphabet))
     for k in range(0, len(target)):
         num = target[k];
-        text = digit_text[num];
-        # print(str(text) + ': ' + str(len(text)))
+        text = digit_text_english[num];
         sequence = args.len_sequence*[' '];
         start_index = random.randint(0, args.len_sequence-1);
         sequence[start_index:start_index+len(text)] = text;
@@ -41,13 +42,22 @@ def create_text_from_target_mnist(args, target, alphabet):
     return X;
 
 
-def create_text_from_label_mnist(args, label, alphabet):
-    text = digit_text[label];
-    sequence = args.len_sequence * [' '];
-    start_index = random.randint(0, args.len_sequence - 1 - len(text));
+def create_text_from_label_mnist(len_seq, label, alphabet):
+    text = digit_text_english[label];
+    sequence = len_seq * [' '];
+    start_index = random.randint(0, len_seq - 1 - len(text));
     sequence[start_index:start_index + len(text)] = text;
-    sequence_one_hot = one_hot_encode(args, alphabet, sequence);
+    sequence_one_hot = one_hot_encode(len_seq, alphabet, sequence);
     return sequence_one_hot
+
+
+# def create_text_from_label_mnist(args, label, alphabet):
+#     text = digit_text[label];
+#     sequence = args.len_sequence * [' '];
+#     start_index = random.randint(0, args.len_sequence - 1 - len(text));
+#     sequence[start_index:start_index + len(text)] = text;
+#     sequence_one_hot = one_hot_encode(args, alphabet, sequence);
+#     return sequence_one_hot
 
 def calc_reconstruct_error_text(args, log_prob, target):
     if args.output_activation == 'softmax':

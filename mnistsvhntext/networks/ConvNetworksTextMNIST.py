@@ -15,6 +15,7 @@ class FeatureEncText(nn.Module):
         self.relu = nn.ReLU()
 
     def forward(self, x):
+        x = x.transpose(-2,-1);
         out = self.conv1(x);
         out = self.relu(out);
         out = self.conv2(out);
@@ -100,5 +101,6 @@ class DecoderText(nn.Module):
         x_hat = self.conv_last(x_hat)
         #x_hat = self.relu(x_hat);
         log_prob = self.out_act(x_hat)
+        log_prob = log_prob.transpose(-2,-1);
         return [log_prob];
 

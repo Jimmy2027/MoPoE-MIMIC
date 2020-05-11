@@ -14,6 +14,9 @@ import numpy as np
 import torch
 import codecs
 
+from utils.text import one_hot_encode
+from utils.text import create_text_from_label_mnist
+from utils.text import char2Index
 
 digit_text_german = ['null', 'eins', 'zwei', 'drei', 'vier', 'fuenf', 'sechs', 'sieben', 'acht', 'neun'];
 digit_text_english = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'];
@@ -33,30 +36,6 @@ def rand_match_on_idx(l1, idx1, l2, idx2, max_d=10000, dm=10):
             _idx1.append(l_idx1[torch.randperm(n)])
             _idx2.append(l_idx2[torch.randperm(n)])
     return torch.cat(_idx1), torch.cat(_idx2)
-
-
-def char2Index(alphabet, character):
-    return alphabet.find(character)
-
-
-def one_hot_encode(len_seq, alphabet, seq):
-    X = torch.zeros(len(alphabet),len_seq)
-    if len(seq) > len_seq:
-        seq = seq[:len_seq];
-    # print(sequence[::-1])
-    for index_char, char in enumerate(seq[::-1]):
-        if char2Index(alphabet, char) != -1:
-            X[char2Index(alphabet, char), index_char] = 1.0
-    return X
-
-
-def create_text_from_label_mnist(len_seq, label, alphabet):
-    text = digit_text_english[label];
-    sequence = len_seq * [' '];
-    start_index = random.randint(0, len_seq - 1 - len(text));
-    sequence[start_index:start_index + len(text)] = text;
-    sequence_one_hot = one_hot_encode(len_seq, alphabet, sequence);
-    return sequence_one_hot
 
 
 class VisionDataset(data.Dataset):

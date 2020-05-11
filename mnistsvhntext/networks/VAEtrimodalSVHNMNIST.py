@@ -187,24 +187,20 @@ class VAEtrimodalSVHNMNIST(nn.Module):
         if input_text is not None:
             num_samples = input_text.shape[0];
             mod_avail += 1;
-        weights = [self.weights_mixture_selection[0]];
         mus = torch.zeros(1, num_samples, self.flags.class_dim).to(self.flags.device);
         logvars = torch.zeros(1, num_samples, self.flags.class_dim).to(self.flags.device);
         if input_mnist is not None:
             mnist_mu, mnist_logvar = latents['img_mnist'][2:];
             mus = torch.cat([mus, mnist_mu.unsqueeze(0)], dim=0);
             logvars = torch.cat([logvars, mnist_logvar.unsqueeze(0)], dim=0);
-            weights.append(self.weights_mixture_selection[1]);
         if input_svhn is not None:
             svhn_mu, svhn_logvar = latents['img_svhn'][2:];
             mus = torch.cat([mus, svhn_mu.unsqueeze(0)], dim=0);
             logvars = torch.cat([logvars, svhn_logvar.unsqueeze(0)], dim=0);
-            weights.append(self.weights_mixture_selection[2]);
         if input_text is not None:
             text_mu, text_logvar = latents['text'][2:];
             mus = torch.cat([mus, text_mu.unsqueeze(0)], dim=0);
             logvars = torch.cat([logvars, text_logvar.unsqueeze(0)], dim=0);
-            weights.append(self.weights_mixture_selection[3]);
         if input_mnist is not None and input_svhn is not None:
             poe_mnist_svhn = poe(torch.cat([mnist_mu.unsqueeze(0),
                                             svhn_mu.unsqueeze(0)], dim=0),
