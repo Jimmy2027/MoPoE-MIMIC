@@ -7,12 +7,12 @@ parser.add_argument('--dataset', type=str, default='SVHN_MNIST_text', help="name
 
 # training
 parser.add_argument('--cuda', type=bool, default=True, help="run the following code on a GPU")
-parser.add_argument('--batch_size', type=int, default=1024, help="batch size for training")
+parser.add_argument('--batch_size', type=int, default=256, help="batch size for training")
 parser.add_argument('--initial_learning_rate', type=float, default=0.0005, help="starting learning rate")
 parser.add_argument('--beta_1', type=float, default=0.9, help="default beta_1 val for adam")
 parser.add_argument('--beta_2', type=float, default=0.999, help="default beta_2 val for adam")
 parser.add_argument('--start_epoch', type=int, default=0, help="flag to set the starting epoch for training")
-parser.add_argument('--end_epoch', type=int, default=200, help="flag to indicate the final epoch of training")
+parser.add_argument('--end_epoch', type=int, default=100, help="flag to indicate the final epoch of training")
 
 
 parser.add_argument('--style_mnist_dim', type=int, default=0, help="dimension of varying factor latent space")
@@ -21,7 +21,7 @@ parser.add_argument('--style_text_dim', type=int, default=0, help="dimension of 
 parser.add_argument('--class_dim', type=int, default=20, help="dimension of common factor latent space")
 parser.add_argument('--num_classes', type=int, default=10, help="number of classes on which the data set trained")
 
-parser.add_argument('--len_sequence', type=int, default=32, help="length of sequence")
+parser.add_argument('--len_sequence', type=int, default=8, help="length of sequence")
 parser.add_argument('--img_size_mnist', type=int, default=28, help="img dimension (width/height)")
 parser.add_argument('--num_channels_mnist', type=int, default=1, help="number of channels in images")
 parser.add_argument('--img_size_svhn', type=int, default=32, help="img dimension (width/height)")
@@ -54,7 +54,7 @@ parser.add_argument('--eval_freq', type=int, default=10, help="frequency of eval
 parser.add_argument('--eval_freq_fid', type=int, default=10, help="frequency of evaluation of latent representation of generative performance (in number of epochs)")
 parser.add_argument('--num_samples_fid', type=int, default=10000,
                     help="number of samples the calculation of fid is based on")
-parser.add_argument('--calc_nll', type=bool, default=False, help="flag to indicate calculation of nll")
+parser.add_argument('--calc_nll', type=bool, default=True, help="flag to indicate calculation of nll")
 
 #fid_score
 parser.add_argument('--inception_state_dict', type=str, default='../inception_state_dict.pth', help="path to inception v3 state dict")
@@ -77,19 +77,16 @@ parser.add_argument('--factorized_representation', action='store_true', default=
 parser.add_argument('--include_prior_expert', action='store_true', default=False, help="factorized_representation")
 
 #weighting of loss terms
-parser.add_argument('--beta', type=float, default=1.0, help="default weight of sum of weighted divergence terms")
+parser.add_argument('--beta', type=float, default=5.0, help="default weight of sum of weighted divergence terms")
 parser.add_argument('--beta_style', type=float, default=1.0, help="default weight of sum of weighted style divergence terms")
 parser.add_argument('--beta_content', type=float, default=1.0, help="default weight of sum of weighted content divergence terms")
 parser.add_argument('--beta_m1_style', type=float, default=1.0, help="default weight divergence term style modality 1")
 parser.add_argument('--beta_m2_style', type=float, default=1.0, help="default weight divergence term style modality 2")
 parser.add_argument('--beta_m3_style', type=float, default=1.0, help="default weight divergence term style modality 2")
-parser.add_argument('--div_weight_m1_content', type=float, default=0.33, help="default weight divergence term content modality 1")
-parser.add_argument('--div_weight_m2_content', type=float, default=0.33, help="default weight divergence term content modality 2")
-parser.add_argument('--div_weight_m3_content', type=float, default=0.33, help="default weight divergence term content modality 2")
-parser.add_argument('--div_weight_uniform_content', type=float, default=0.01, help="default weight divergence term prior")
-parser.add_argument('--rec_weight_m1', type=float, default=0.33, help="weighting of reconstruction vs. divergence")
-parser.add_argument('--rec_weight_m2', type=float, default=0.33, help="weighting of reconstruction vs. divergence")
-parser.add_argument('--rec_weight_m3', type=float, default=0.34, help="weighting of reconstruction vs. divergence")
+parser.add_argument('--div_weight_m1_content', type=float, default=0.25, help="default weight divergence term content modality 1")
+parser.add_argument('--div_weight_m2_content', type=float, default=0.25, help="default weight divergence term content modality 2")
+parser.add_argument('--div_weight_m3_content', type=float, default=0.25, help="default weight divergence term content modality 2")
+parser.add_argument('--div_weight_uniform_content', type=float, default=0.25, help="default weight divergence term prior")
 
 
 #annealing

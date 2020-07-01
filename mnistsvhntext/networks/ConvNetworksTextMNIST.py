@@ -9,8 +9,6 @@ class FeatureEncText(nn.Module):
         self.dim = dim
         self.conv1 = nn.Conv1d(num_features, 2*self.dim, kernel_size=1);
         self.conv2 = nn.Conv1d(2*self.dim, 2*self.dim, kernel_size=4, stride=2, padding=1, dilation=1);
-        self.conv3 = nn.Conv1d(2*self.dim, 2*self.dim, kernel_size=4, stride=2, padding=1, dilation=1);
-        self.conv4 = nn.Conv1d(2*self.dim, 2*self.dim, kernel_size=4, stride=2, padding=1, dilation=1);
         self.conv5 = nn.Conv1d(2*self.dim, 2*self.dim, kernel_size=4, stride=2, padding=0, dilation=1);
         self.relu = nn.ReLU()
 
@@ -19,10 +17,6 @@ class FeatureEncText(nn.Module):
         out = self.conv1(x);
         out = self.relu(out);
         out = self.conv2(out);
-        out = self.relu(out);
-        out = self.conv3(out);
-        out = self.relu(out);
-        out = self.conv4(out);
         out = self.relu(out);
         out = self.conv5(out);
         out = self.relu(out);
@@ -75,13 +69,9 @@ class DecoderText(nn.Module):
                                         kernel_size=4, stride=1, padding=0, dilation=1);
         self.conv2 = nn.ConvTranspose1d(2*flags.dim, 2*flags.dim,
                                         kernel_size=4, stride=2, padding=1, dilation=1);
-        self.conv3 = nn.ConvTranspose1d(2*flags.dim, 2*flags.dim,
-                                        kernel_size=4, stride=2, padding=1, dilation=1);
-        self.conv4 = nn.ConvTranspose1d(2*flags.dim, 2*flags.dim,
-                                        kernel_size=4, stride=2, padding=1, dilation=1);
         self.conv_last = nn.Conv1d(2*flags.dim, flags.num_features, kernel_size=1);
         self.relu = nn.ReLU()
-        self.out_act = nn.LogSoftmax(dim=1);
+        self.out_act = nn.LogSoftmax(dim=-2);
 
     def forward(self, style_latent_space, class_latent_space):
         if self.flags.factorized_representation:
@@ -93,10 +83,6 @@ class DecoderText(nn.Module):
         x_hat = self.conv1(x_hat);
         x_hat = self.relu(x_hat);
         x_hat = self.conv2(x_hat)
-        x_hat = self.relu(x_hat);
-        x_hat = self.conv3(x_hat)
-        x_hat = self.relu(x_hat);
-        x_hat = self.conv4(x_hat)
         x_hat = self.relu(x_hat);
         x_hat = self.conv_last(x_hat)
         log_prob = self.out_act(x_hat)

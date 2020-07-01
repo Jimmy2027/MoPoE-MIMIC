@@ -37,13 +37,19 @@ class VAEtrimodalSVHNMNIST(nn.Module):
         self.lhood_svhn = utils.get_likelihood(flags.likelihood_m2);
         self.lhood_text = utils.get_likelihood(flags.likelihood_m3);
 
-        weights_jsd = utils.reweight_weights(torch.Tensor(flags.alpha_modalities));
-        weights_mixture_selection = utils.reweight_weights(torch.Tensor([0.0,
-                                                                         flags.alpha_modalities[1],
-                                                                         flags.alpha_modalities[2],
-                                                                         flags.alpha_modalities[3]]));
-        self.weights_mixture_selection = weights_mixture_selection.to(flags.device);
-        self.weights_jsd = weights_jsd.to(flags.device);
+        d_size_m1 = flags.img_size_mnist*flags.img_size_mnist;
+        d_size_m2 = flags.num_channels_svhn*flags.img_size_svhn*flags.img_size_svhn;
+        d_size_m3 = flags.len_sequence;
+        total_d_size = d_size_m1 + d_size_m2 + d_size_m3;
+        w1 = d_size_m2/d_size_m1;
+        w2 = 1.0;
+        w3 = d_size_m2/d_size_m3;
+        w_total = w1+w2+w3;
+        self.rec_w1 = w1;
+        self.rec_w2 = w2;
+        self.rec_w3 = w3;
+        weights = utils.reweight_weights(torch.Tensor(flags.alpha_modalities));
+        self.weights = weights.to(flags.device);
         if flags.modality_moe or flags.modality_jsd:
             self.modality_fusion = self.moe_fusion;
             if flags.modality_moe:
@@ -71,7 +77,7 @@ class VAEtrimodalSVHNMNIST(nn.Module):
 
         results_rec = dict();
         if input_mnist is not None:
-            m1_s_mu, m1_s_logvar = latents['img_mnist'][:2];
+            m1_s_mu, m1_s_logvar = latents['img_mnist_style'];
             if self.flags.factorized_representation:
                 m1_s_embeddings = utils.reparameterize(mu=m1_s_mu, logvar=m1_s_logvar);
             else:
@@ -79,7 +85,7 @@ class VAEtrimodalSVHNMNIST(nn.Module):
             m1_rec = self.lhood_mnist(*self.decoder_mnist(m1_s_embeddings, class_embeddings));
             results_rec['img_mnist'] = m1_rec;
         if input_svhn is not None:
-            m2_s_mu, m2_s_logvar = latents['img_svhn'][:2];
+            m2_s_mu, m2_s_logvar = latents['img_svhn_style'];
             if self.flags.factorized_representation:
                 m2_s_embeddings = utils.reparameterize(mu=m2_s_mu, logvar=m2_s_logvar);
             else:
@@ -87,7 +93,7 @@ class VAEtrimodalSVHNMNIST(nn.Module):
             m2_rec = self.lhood_svhn(*self.decoder_svhn(m2_s_embeddings, class_embeddings));
             results_rec['img_svhn'] = m2_rec;
         if input_text is not None:
-            m3_s_mu, m3_s_logvar = latents['text'][:2];
+            m3_s_mu, m3_s_logvar = latents['text_style'];
             if self.flags.factorized_representation:
                 m3_s_embeddings = utils.reparameterize(mu=m3_s_mu, logvar=m3_s_logvar);
             else:
@@ -112,7 +118,10 @@ class VAEtrimodalSVHNMNIST(nn.Module):
 
     def divergence_moe(self, mus, logvars, weights=None):
         if weights is None:
-            weights=self.weights_jsd;
+            weights=self.weights;
+        weights = weights.clone();
+        weights[0] = 0.0;
+        weights = utils.reweight_weights(weights);
         div_measures = calc_group_divergence_moe(self.flags,
                                                  mus,
                                                  logvars,
@@ -124,6 +133,23 @@ class VAEtrimodalSVHNMNIST(nn.Module):
         divs['dyn_prior'] = None;
         return divs;
 
+
+    def divergence_moe_poe(self, mus, logvars, weights=None):
+        if weights is None:
+            weights=self.weights;
+        weights = weights.clone();
+        weights[0] = 0.0;
+        weights = utils.reweight_weights(weights);
+        div_measures = calc_group_divergence_moe(self.flags,
+                                                 mus,
+                                                 logvars,
+                                                 weights,
+                                                 normalization=self.flags.batch_size);
+        divs = dict();
+        divs['joint_divergence'] = div_measures[0];
+        divs['individual_divs'] = div_measures[1];
+        divs['dyn_prior'] = None;
+        return divs;
 
     def divergence_jsd(self, mus, logvars, weights=None):
         if weights is None:
@@ -143,7 +169,10 @@ class VAEtrimodalSVHNMNIST(nn.Module):
 
     def moe_fusion(self, mus, logvars, weights=None):
         if weights is None:
-            weights = self.weights_mixture_selection;
+            weights = self.weights;
+        weights[0] = 0.0;
+        weights = utils.reweight_weights(weights);
+        num_samples = mus[0].shape[0];
         mu_moe, logvar_moe = utils.mixture_component_selection(self.flags,
                                                                mus,
                                                                logvars,
@@ -160,16 +189,25 @@ class VAEtrimodalSVHNMNIST(nn.Module):
         latents = dict();
         if i_mnist is not None:
             latents['img_mnist'] = self.encoder_mnist(i_mnist)
+            latents['img_mnist_style'] = latents['img_mnist'][:2]
+            latents['img_mnist'] = latents['img_mnist'][2:]
         else:
-            latents['img_mnist'] = [None, None, None, None];
+            latents['img_mnist_style'] = [None, None];
+            latents['img_mnist'] = [None, None];
         if i_svhn is not None:
             latents['img_svhn'] = self.encoder_svhn(i_svhn);
+            latents['img_svhn_style'] = latents['img_svhn'][:2];
+            latents['img_svhn'] = latents['img_svhn'][2:];
         else:
-            latents['img_svhn'] = [None, None, None, None];
+            latents['img_svhn_style'] = [None, None];
+            latents['img_svhn'] = [None, None];
         if i_text is not None:
             latents['text'] = self.encoder_text(i_text);
+            latents['text_style'] = latents['text'][:2];
+            latents['text'] = latents['text'][2:];
         else:
-            latents['text'] = [None, None, None, None];
+            latents['text_style'] = [None, None];
+            latents['text'] = [None, None];
         return latents;
 
 
@@ -177,28 +215,24 @@ class VAEtrimodalSVHNMNIST(nn.Module):
         latents = self.encode(i_mnist=input_mnist,
                               i_svhn=input_svhn,
                               i_text=input_text);
-        mod_avail = 0;
         if input_mnist is not None:
             num_samples = input_mnist.shape[0];
-            mod_avail += 1;
         if input_svhn is not None:
             num_samples = input_svhn.shape[0];
-            mod_avail += 1;
         if input_text is not None:
             num_samples = input_text.shape[0];
-            mod_avail += 1;
         mus = torch.zeros(1, num_samples, self.flags.class_dim).to(self.flags.device);
         logvars = torch.zeros(1, num_samples, self.flags.class_dim).to(self.flags.device);
         if input_mnist is not None:
-            mnist_mu, mnist_logvar = latents['img_mnist'][2:];
+            mnist_mu, mnist_logvar = latents['img_mnist'];
             mus = torch.cat([mus, mnist_mu.unsqueeze(0)], dim=0);
             logvars = torch.cat([logvars, mnist_logvar.unsqueeze(0)], dim=0);
         if input_svhn is not None:
-            svhn_mu, svhn_logvar = latents['img_svhn'][2:];
+            svhn_mu, svhn_logvar = latents['img_svhn'];
             mus = torch.cat([mus, svhn_mu.unsqueeze(0)], dim=0);
             logvars = torch.cat([logvars, svhn_logvar.unsqueeze(0)], dim=0);
         if input_text is not None:
-            text_mu, text_logvar = latents['text'][2:];
+            text_mu, text_logvar = latents['text'];
             mus = torch.cat([mus, text_mu.unsqueeze(0)], dim=0);
             logvars = torch.cat([logvars, text_logvar.unsqueeze(0)], dim=0);
         if input_mnist is not None and input_svhn is not None:
@@ -233,6 +267,7 @@ class VAEtrimodalSVHNMNIST(nn.Module):
                                      torch.cat([mnist_logvar.unsqueeze(0),
                                                 svhn_logvar.unsqueeze(0),
                                                 text_logvar.unsqueeze(0)], dim=0))
+            latents['mnist_svhn_text'] = poe_mnist_svhn_text;
             mus = torch.cat([mus, poe_mnist_svhn_text[0].unsqueeze(0)], dim=0);
             logvars = torch.cat([logvars, poe_mnist_svhn_text[1].unsqueeze(0)], dim=0);
         weights = (1/float(mus.shape[0]))*torch.ones(mus.shape[0]).to(self.flags.device);

@@ -88,15 +88,10 @@ class ClfText(nn.Module):
     def __init__(self, flags):
         super(ClfText, self).__init__()
         self.flags = flags
-        #self.text_feature_enc = FeatureEncText(flags.dim, flags.num_features);
         self.conv1 = nn.Conv1d(flags.num_features, 2 * flags.dim, kernel_size=1);
         self.resblock_1 = make_res_block_encoder(2 * flags.dim, 3 * flags.dim, kernelsize=4, stride=2, padding=1,
                                                  dilation=1);
-        self.resblock_2 = make_res_block_encoder(3 * flags.dim, 4 * flags.dim, kernelsize=4, stride=2, padding=1,
-                                                 dilation=1);
-        self.resblock_3 = make_res_block_encoder(4 * flags.dim, 4 * flags.dim, kernelsize=4, stride=2, padding=1,
-                                                 dilation=1);
-        self.resblock_4 = make_res_block_encoder(4 * flags.dim, 2 * flags.dim, kernelsize=4, stride=2, padding=0,
+        self.resblock_4 = make_res_block_encoder(3 * flags.dim, 2 * flags.dim, kernelsize=4, stride=2, padding=0,
                                                  dilation=1);
         self.dropout = nn.Dropout(p=0.5, inplace=False);
         self.linear = nn.Linear(in_features=2*flags.dim, out_features=10, bias=True) # 10 is the number of classes
@@ -104,12 +99,9 @@ class ClfText(nn.Module):
 
 
     def forward(self, x):
-        #h = self.text_feature_enc(x);
         x = x.transpose(-2,-1)
         h = self.conv1(x);
         h = self.resblock_1(h);
-        h = self.resblock_2(h);
-        h = self.resblock_3(h);
         h = self.resblock_4(h);
         h = self.dropout(h);
         h = h.view(h.size(0), -1);

@@ -21,6 +21,7 @@ from PIL import ImageFont
 from PIL import ImageDraw
 
 from utils import utils
+from utils import plot
 from utils.constants_svhnmnist import indices
 from utils.save_samples import write_samples_text_to_file
 from divergence_measures.mm_div import alpha_poe, poe
@@ -45,10 +46,16 @@ def generate_random_samples_plots(flags, epoch, model, alphabet=None):
     plot_svhn = utils.create_fig(fn_svhn, samples_svhn, 10);
     plots = {'img_mnist': plot_mnist, 'img_svhn': plot_svhn};
     if 'text' in random_samples.keys():
-        samples_text = utils.text_to_pil(random_samples['text'], img_size, alphabet);
+        num_random_samples = random_samples['text'].shape[0];
+        tensor_out_text = torch.zeros([int(num_random_samples), 3,
+                                       flags.img_size_mnist, flags.img_size_mnist])
+        samples_text = tensor_out_text.to(flags.device);
+        for k in range(0, num_random_samples):
+            samples_text[k,:,::] = plot.text_to_pil(random_samples['text']
+                                                    [k,:,:].unsqueeze(0), img_size, alphabet);
         fn_text = os.path.join(flags.dir_random_samples, 'random_epoch_' +
                                str(epoch).zfill(4) + '_text.png');
-        plot_text = utils.create_fig(fn_text, samples_text, 10);
+        plot_text = plot.create_fig(fn_text, samples_text, 10);
         plots['text'] = plot_text;
     return plots;
 
@@ -78,10 +85,10 @@ def generate_swapping_plot(flags, epoch, model, samples, alphabet):
     for i in range(len(samples)):
         c_sample_mnist = samples[i][0].squeeze().repeat(3, 1, 1);
         c_sample_svhn = samples[i][1].squeeze();
-        c_sample_text = utils.text_to_pil(samples[i][2].unsqueeze(0), img_size, alphabet);
+        c_sample_text = plot.text_to_pil(samples[i][2].unsqueeze(0), img_size, alphabet);
         s_sample_mnist = samples[i][0].squeeze().repeat(3, 1, 1);
         s_sample_svhn = samples[i][1].squeeze();
-        s_sample_text = utils.text_to_pil(samples[i][2].unsqueeze(0), img_size, alphabet);
+        s_sample_text = plot.text_to_pil(samples[i][2].unsqueeze(0), img_size, alphabet);
         rec_m_in_m_out[i+1, :, :, :] = c_sample_mnist;
         rec_m_in_m_out[(i + 1) * 11, :, :, :] = s_sample_mnist;
         rec_m_in_s_out[i+1, :, :, :] = c_sample_mnist;
@@ -118,17 +125,17 @@ def generate_swapping_plot(flags, epoch, model, samples, alphabet):
 
             l_c_mnist = latents_content['img_mnist'];
             l_c_svhn = latents_content['img_svhn'];
-            l_s_mnist = latents_style['img_mnist'];
-            l_s_svhn = latents_style['img_svhn'];
+            l_s_mnist = latents_style['img_mnist_style'];
+            l_s_svhn = latents_style['img_svhn_style'];
             if model.num_modalities == 3:
-                l_s_text = latents_style['text'];
                 l_c_text = latents_content['text'];
-                c_text_emb = utils.reparameterize(mu=l_c_text[2], logvar=l_c_text[3]);
-                s_text_emb = utils.reparameterize(mu=l_s_text[0], logvar=l_s_text[1]);
-            s_mnist_emb = utils.reparameterize(mu=l_s_mnist[0], logvar=l_s_mnist[1]);
-            c_mnist_emb = utils.reparameterize(mu=l_c_mnist[2], logvar=l_c_mnist[3]);
-            s_svhn_emb = utils.reparameterize(mu=l_s_svhn[0], logvar=l_s_svhn[1]);
-            c_svhn_emb = utils.reparameterize(mu=l_c_svhn[2], logvar=l_c_svhn[3])
+                l_s_text = latents_style['text_style'];
+                c_text_emb = utils.reparameterize(l_c_text[0], l_c_text[1]);
+                s_text_emb = utils.reparameterize(l_s_text[0], l_s_text[1]);
+            s_mnist_emb = utils.reparameterize(l_s_mnist[0], l_s_mnist[1]);
+            c_mnist_emb = utils.reparameterize(l_c_mnist[0], l_c_mnist[1]);
+            s_svhn_emb = utils.reparameterize(l_s_svhn[0], l_s_svhn[1]);
+            c_svhn_emb = utils.reparameterize(l_c_svhn[0], l_c_svhn[1])
             if model.num_modalities == 3:
                 style_emb = {'img_mnist': s_mnist_emb, 'img_svhn': s_svhn_emb, 'text': s_text_emb}
             else:
@@ -156,11 +163,11 @@ def generate_swapping_plot(flags, epoch, model, samples, alphabet):
             rec_s_in_m_out[(i+1) * 11 + (j+1), :, :, :] = s_in_m_out.repeat(1, 3, 1, 1);
             rec_s_in_s_out[(i+1) * 11 + (j+1), :, :, :] = transform_plot(s_in_s_out.squeeze(0).cpu()).cuda().unsqueeze(0);
             if model.num_modalities == 3:
-                rec_m_in_t_out[(i+1) * 11 + (j+1), :, :, :] = utils.text_to_pil(m_in_t_out, img_size, alphabet);
-                rec_s_in_t_out[(i+1) * 11 + (j+1), :, :, :] = utils.text_to_pil(s_in_t_out, img_size, alphabet);
+                rec_m_in_t_out[(i+1) * 11 + (j+1), :, :, :] = plot.text_to_pil(m_in_t_out, img_size, alphabet);
+                rec_s_in_t_out[(i+1) * 11 + (j+1), :, :, :] = plot.text_to_pil(s_in_t_out, img_size, alphabet);
                 rec_t_in_m_out[(i+1) * 11 + (j+1), :, :, :] = t_in_m_out.repeat(1, 3, 1, 1);
                 rec_t_in_s_out[(i+1) * 11 + (j+1), :, :, :] = transform_plot(t_in_s_out.squeeze(0).cpu()).cuda().unsqueeze(0);
-                rec_t_in_t_out[(i+1) * 11 + (j+1), :, :, :] = utils.text_to_pil(t_in_t_out, img_size, alphabet);
+                rec_t_in_t_out[(i+1) * 11 + (j+1), :, :, :] = plot.text_to_pil(t_in_t_out, img_size, alphabet);
 
     fp_m_in_m_out = os.path.join(flags.dir_swapping, 'swap_m_to_m_epoch_' + str(epoch).zfill(4) + '.png');
     fp_m_in_s_out = os.path.join(flags.dir_swapping, 'swap_m_to_s_epoch_' + str(epoch).zfill(4) + '.png');
@@ -215,7 +222,7 @@ def generate_conditional_fig_2a(flags, epoch, model, samples, alphabet=None):
     for i in range(len(samples)):
         c_sample_mnist = samples[i][0].squeeze().repeat(3, 1, 1);
         c_sample_svhn = transform_plot(samples[i][1].squeeze(0).cpu()).cuda().unsqueeze(0);
-        c_sample_text = utils.text_to_pil(samples[i][2].unsqueeze(0), img_size, alphabet);
+        c_sample_text = plot.text_to_pil(samples[i][2].unsqueeze(0), img_size, alphabet);
         rec_mt_in_m_out[i, :, :, :] = c_sample_mnist;
         rec_mt_in_m_out[i+10, :, :, :] = c_sample_text;
         rec_mt_in_s_out[i, :, :, :] = c_sample_mnist;
@@ -277,13 +284,13 @@ def generate_conditional_fig_2a(flags, epoch, model, samples, alphabet=None):
 
             ms_in_m_out = ms_cond_gen['img_mnist'].repeat(1,3,1,1);
             ms_in_s_out = transform_plot(ms_cond_gen['img_svhn'].squeeze(0).cpu()).cuda().unsqueeze(0);
-            ms_in_t_out = utils.text_to_pil(ms_cond_gen['text'], img_size, alphabet);
+            ms_in_t_out = plot.text_to_pil(ms_cond_gen['text'], img_size, alphabet);
             mt_in_m_out = mt_cond_gen['img_mnist'].repeat(1,3,1,1);
             mt_in_s_out = transform_plot(mt_cond_gen['img_svhn'].squeeze(0).cpu()).cuda().unsqueeze(0);
-            mt_in_t_out = utils.text_to_pil(mt_cond_gen['text'], img_size, alphabet);
+            mt_in_t_out = plot.text_to_pil(mt_cond_gen['text'], img_size, alphabet);
             st_in_m_out = mt_cond_gen['img_mnist'].repeat(1,3,1,1);
             st_in_s_out = transform_plot(st_cond_gen['img_svhn'].squeeze(0).cpu()).cuda().unsqueeze(0);
-            st_in_t_out = utils.text_to_pil(st_cond_gen['text'], img_size, alphabet);
+            st_in_t_out = plot.text_to_pil(st_cond_gen['text'], img_size, alphabet);
             rec_ms_in_m_out[(i + 2) * 10 + j, :, :, :] = ms_in_m_out;
             rec_ms_in_s_out[(i + 2) * 10 + j, :, :, :] = ms_in_s_out;
             rec_ms_in_t_out[(i + 2) * 10 + j, :, :, :] = ms_in_t_out;
@@ -361,7 +368,7 @@ def generate_conditional_fig_1a(flags, epoch, model, samples, alphabet):
     for i in range(len(samples)):
         c_sample_mnist = samples[i][0].squeeze().repeat(3, 1, 1);
         c_sample_svhn = samples[i][1].squeeze();
-        c_sample_text = utils.text_to_pil(samples[i][2].unsqueeze(0), img_size, alphabet);
+        c_sample_text = plot.text_to_pil(samples[i][2].unsqueeze(0), img_size, alphabet);
         rec_m_in_m_out[i, :, :, :] = c_sample_mnist;
         rec_m_in_s_out[i, :, :, :] = c_sample_mnist;
         rec_m_in_t_out[i, :, :, :] = c_sample_mnist;
@@ -391,12 +398,12 @@ def generate_conditional_fig_1a(flags, epoch, model, samples, alphabet):
                                           samples[j][1].unsqueeze(0),
                                           samples[j][2].unsqueeze(0))
 
-            c_mnist = latents['img_mnist'][2:];
-            c_svhn = latents['img_svhn'][2:];
+            c_mnist = latents['img_mnist'][:2];
+            c_svhn = latents['img_svhn'][:2];
             mnist_rep = utils.reparameterize(mu=c_mnist[0], logvar=c_mnist[1]);
             svhn_rep = utils.reparameterize(mu=c_svhn[0], logvar=c_svhn[1]);
             if model.num_modalities == 3:
-                c_text = latents['text'][2:];
+                c_text = latents['text'][:2];
                 text_rep = utils.reparameterize(mu=c_text[0], logvar=c_text[1]);
 
             if flags.factorized_representation:
@@ -431,11 +438,11 @@ def generate_conditional_fig_1a(flags, epoch, model, samples, alphabet):
             rec_s_in_m_out[(i+1) * 10 + j, :, :, :] = s_in_m_out.repeat(1,3,1,1);
             rec_s_in_s_out[(i+1) * 10 + j, :, :, :] = transform_plot(s_in_s_out.squeeze(0).cpu()).cuda().unsqueeze(0);
             if model.num_modalities == 3:
-                rec_m_in_t_out[(i+1) * 10 + j, :, :, :] = utils.text_to_pil(m_in_t_out, img_size, alphabet);
-                rec_s_in_t_out[(i+1) * 10 + j, :, :, :] = utils.text_to_pil(s_in_t_out, img_size, alphabet);
+                rec_m_in_t_out[(i+1) * 10 + j, :, :, :] = plot.text_to_pil(m_in_t_out, img_size, alphabet);
+                rec_s_in_t_out[(i+1) * 10 + j, :, :, :] = plot.text_to_pil(s_in_t_out, img_size, alphabet);
                 rec_t_in_m_out[(i+1) * 10 + j, :, :, :] = t_in_m_out.repeat(1,3,1,1);
                 rec_t_in_s_out[(i+1) * 10 + j, :, :, :] = transform_plot(t_in_s_out.squeeze(0).cpu()).cuda().unsqueeze(0);
-                rec_t_in_t_out[(i+1) * 10 + j, :, :, :] = utils.text_to_pil(t_in_t_out, img_size, alphabet);
+                rec_t_in_t_out[(i+1) * 10 + j, :, :, :] = plot.text_to_pil(t_in_t_out, img_size, alphabet);
 
     fp_m_in_m_out = os.path.join(flags.dir_cond_gen_1a, 'cond_gen_m_to_m_epoch_' + str(epoch).zfill(4) + '.png');
     fp_m_in_s_out = os.path.join(flags.dir_cond_gen_1a, 'cond_gen_m_to_s_epoch_' + str(epoch).zfill(4) + '.png');
