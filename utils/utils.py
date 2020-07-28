@@ -12,8 +12,6 @@ from torch.autograd import Variable
 from mpl_toolkits.axes_grid1 import ImageGrid
 from torchvision.transforms import Compose, ToTensor
 
-from PIL import ImageDraw
-
 from sklearn.metrics import confusion_matrix
 from sklearn.utils.multiclass import unique_labels
 
@@ -60,63 +58,6 @@ def reparameterize(mu, logvar):
     std = logvar.mul(0.5).exp_()
     eps = Variable(std.data.new(std.size()).normal_())
     return eps.mul(std).add_(mu)
-
-
-def reparameterize_mixture(flags, training, mus, logvars, indices=None):
-    uniform_mu = torch.zeros(mus[0].shape)
-    uniform_logvar = torch.zeros(logvars[0].shape)
-    reparams_comp = torch.zeros(mus[0].shape)
-    w_modalities = torch.Tensor(flags.alpha_modalities);
-    if indices is not None:
-        w_modalities = w_modalities[indices];
-    if w_modalities.sum() != 1.0:
-        w_modalities = w_modalities / w_modalities.sum();
-    if flags.cuda:
-        uniform_mu = uniform_mu.cuda();
-        uniform_logvar = uniform_logvar.cuda();
-        w_modalities = w_modalities.cuda();
-        reparams_comp = reparams_comp.cuda();
-    mu = [uniform_mu];
-    logvar = [uniform_logvar];
-    for k in range(mus.shape[0]):
-        mu.append(mus[k])
-        logvar.append(logvars[k])
-    for k in range(0, flags.batch_size):
-        m = dist.categorical.Categorical(w_modalities.clone().detach().requires_grad_(True))
-        ind_distr = m.sample()
-        std = torch.exp(0.5 * logvar[ind_distr][k,:])
-        eps = torch.randn_like(std)
-        reparams_comp[k,:] = mu[ind_distr][k,:] + eps * std;
-    return reparams_comp;
-
-
-def weights_init(layer):
-    if isinstance(layer, nn.Conv2d):
-        layer.weight.data.normal_(0.0, 0.05)
-        layer.bias.data.zero_()
-    elif isinstance(layer, nn.BatchNorm2d):
-        layer.weight.data.normal_(1.0, 0.02)
-        layer.bias.data.zero_()
-    elif isinstance(layer, nn.Linear):
-        layer.weight.data.normal_(0.0, 0.05)
-        layer.bias.data.zero_()
-
-
-def imshow_grid(images, shape=[2, 8], name='default', save=False):
-    """Plot images in a grid of a given shape."""
-    fig = plt.figure(1)
-    grid = ImageGrid(fig, 111, nrows_ncols=shape, axes_pad=0.05)
-
-    size = shape[0] * shape[1]
-    for i in range(size):
-        grid[i].axis('off')
-        grid[i].imshow(images[i])  # The AxesGrid object work as a list of axes.
-
-    if save:
-        plt.savefig('reconstructed_images/' + str(name) + '.png')
-        plt.clf()
-    else:
-        plt.show()
 
 
 def plot_confusion_matrix(ax, y_true, y_pred, classes,
@@ -167,15 +108,13 @@ def reweight_weights(w):
 
 def mixture_component_selection(flags, mus, logvars, w_modalities=None, num_samples=None):
     #if not defined, take pre-defined weights
-    if num_samples is None:
-        num_samples = flags.batch_size;
-
+    num_components = mus.shape[0];
+    num_samples = mus.shape[1];
     if w_modalities is None:
-        w_modalities = torch.Tensor(flags.alpha_modalities);
-        w_modalities = w_modalities.to(flags.device);
+        w_modalities = torch.Tensor(flags.alpha_modalities).to(flags.device);
     idx_start = [];
     idx_end = []
-    for k in range(0, w_modalities.shape[0]):
+    for k in range(0, num_components):
         if k == 0:
             i_start = 0;
         else:
@@ -192,6 +131,30 @@ def mixture_component_selection(flags, mus, logvars, w_modalities=None, num_samp
     mu_sel = torch.cat([mus[k, idx_start[k]:idx_end[k], :] for k in range(w_modalities.shape[0])]);
     logvar_sel = torch.cat([logvars[k, idx_start[k]:idx_end[k], :] for k in range(w_modalities.shape[0])]);
     return [mu_sel, logvar_sel];
+
+
+def flow_mixture_component_selection(flags, reps, w_modalities=None, num_samples=None):
+    #if not defined, take pre-defined weights
+    num_samples = reps.shape[1];
+    if w_modalities is None:
+        w_modalities = torch.Tensor(flags.alpha_modalities).to(flags.device);
+    idx_start = [];
+    idx_end = []
+    for k in range(0, w_modalities.shape[0]):
+        if k == 0:
+            i_start = 0;
+        else:
+            i_start = int(idx_end[k-1]);
+        if k == w_modalities.shape[0]-1:
+            i_end = num_samples;
+        else:
+            i_end = i_start + int(torch.floor(num_samples*w_modalities[k]));
+        idx_start.append(i_start);
+        idx_end.append(i_end);
+
+    idx_end[-1] = num_samples;
+    rep_sel = torch.cat([reps[k, idx_start[k]:idx_end[k], :] for k in range(w_modalities.shape[0])]);
+    return rep_sel;
 
 
 def calc_elbo(flags, modality, recs, klds):
@@ -215,13 +178,13 @@ def calc_elbo(flags, modality, recs, klds):
     elif modality == 'img_mnist' or modality == 'img_svhn' or modality == 'text':
         if modality == 'img_mnist':
             beta_style_mod = flags.beta_m1_style;
-            rec_weight_mod = flags.rec_weight_m1;
+            rec_weight_mod = 1.0;
         elif modality == 'img_svhn':
             beta_style_mod = flags.beta_m2_style;
-            rec_weight_mod = flags.rec_weight_m2;
+            rec_weight_mod = 1.0;
         elif modality == 'text':
             beta_style_mod = flags.beta_m3_style;
-            rec_weight_mod = flags.rec_weight_m3;
+            rec_weight_mod = 1.0;
         kld_style = beta_style_mod * klds['style'][modality];
         rec_error = rec_weight_mod * recs[modality];
     div = flags.beta_content * kld_content + flags.beta_style * kld_style;
@@ -272,21 +235,4 @@ def save_and_log_flags(flags):
     return str_args;
 
 
-
-def create_fig(fn, img_data, num_img_row):
-    save_image(img_data.data.cpu(), fn, nrow=num_img_row);
-    grid = make_grid(img_data, nrow=num_img_row);
-    plot = grid.mul(255).add_(0.5).clamp_(0, 255).permute(1, 2, 0).to('cpu', torch.uint8).numpy();
-    return plot;
-
-
-def text_to_pil(t, imgsize, alphabet):
-    blank_img = torch.ones(imgsize);
-    text_sample = text.tensor_to_text(alphabet, t)
-    pil_img = transforms.ToPILImage()(blank_img.cpu()).convert("RGB")
-    draw = ImageDraw.Draw(pil_img)
-    draw.text((0, 15), text_sample, (0, 0, 0));
-    text_pil = transforms.ToTensor()(pil_img);
-    return text_pil;
-    
 
