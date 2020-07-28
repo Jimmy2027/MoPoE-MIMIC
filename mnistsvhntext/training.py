@@ -22,21 +22,21 @@ from utils.loss import log_prob_img, log_prob_text
 from divergence_measures.kl_div import calc_kl_divergence
 from divergence_measures.mm_div import poe
 
-from mnistsvhntext.test_functions_svhnmnist import generate_swapping_plot
-from mnistsvhntext.test_functions_svhnmnist import generate_conditional_fig_1a
-from mnistsvhntext.test_functions_svhnmnist import generate_conditional_fig_2a
-from mnistsvhntext.test_functions_svhnmnist import generate_random_samples_plots
-from mnistsvhntext.test_functions_svhnmnist import calculate_coherence
-from mnistsvhntext.test_functions_svhnmnist import classify_cond_gen_samples
-from mnistsvhntext.test_functions_svhnmnist import classify_latent_representations
-from mnistsvhntext.test_functions_svhnmnist import train_clf_lr
+from mnistsvhntext.testing import generate_swapping_plot
+from mnistsvhntext.testing import generate_conditional_fig_1a
+from mnistsvhntext.testing import generate_conditional_fig_2a
+from mnistsvhntext.testing import generate_random_samples_plots
+from mnistsvhntext.testing import calculate_coherence
+from mnistsvhntext.testing import classify_cond_gen_samples
+from mnistsvhntext.testing import classify_latent_representations
+from mnistsvhntext.testing import train_clf_lr
 from utils.test_functions import calculate_inception_features_for_gen_evaluation
 from utils.test_functions import calculate_fid, calculate_fid_dict
 from utils.test_functions import calculate_prd, calculate_prd_dict
-from mnistsvhntext.likelihood_svhnmnist import calc_log_likelihood_batch
-
 from utils.test_functions import get_clf_activations
 from utils.test_functions import load_inception_activations
+from mnistsvhntext.likelihood import calc_log_likelihood_batch
+
 
 from mnistsvhntext.SVHNMNISTDataset import SVHNMNIST
 from utils.transforms import get_transform_mnist
