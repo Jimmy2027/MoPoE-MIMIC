@@ -268,7 +268,7 @@ def save_and_log_flags(flags):
 
     str_args = '';
     for k, key in enumerate(sorted(flags.__dict__.keys())):
-        str_args = str_args + '\n' + key + ': ' + str(flags.__dict__[key]);
+        str_args = str_args + key + ': ' + str(flags.__dict__[key]) + '\n' + ';';
     return str_args;
 
 
@@ -279,14 +279,4 @@ def create_fig(fn, img_data, num_img_row):
     plot = grid.mul(255).add_(0.5).clamp_(0, 255).permute(1, 2, 0).to('cpu', torch.uint8).numpy();
     return plot;
 
-
-def text_to_pil(t, imgsize, alphabet):
-    blank_img = torch.ones(imgsize);
-    text_sample = text.tensor_to_text(alphabet, t)
-    pil_img = transforms.ToPILImage()(blank_img.cpu()).convert("RGB")
-    draw = ImageDraw.Draw(pil_img)
-    draw.text((0, 15), text_sample, (0, 0, 0));
-    text_pil = transforms.ToTensor()(pil_img);
-    return text_pil;
-    
 
