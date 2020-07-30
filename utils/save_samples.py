@@ -5,7 +5,6 @@ import pandas as pd
 import torch
 from torchvision.utils import save_image
 
-from utils.constants_svhnmnist import indices
 from utils.text import tensor_to_text
 
 def append_list_to_list_linear(l1, l2):
@@ -62,7 +61,7 @@ def save_generated_samples_singlegroup(flags, batch_id, alphabet, group_name, sa
     cnt_samples = batch_id * flags.batch_size;
     for k in range(0, flags.batch_size):
         for i, key in enumerate(samples.keys()):
-            f_out = os.path.join(dir_name,  key, str(cnt_samples).zfill(6) + '.png')
+            f_out = os.path.join(dir_name, key, str(cnt_samples).zfill(6) + '.png')
             if key.startswith('img'):
                 save_image(samples[key][k], f_out, nrow=1);
             elif key == 'text':

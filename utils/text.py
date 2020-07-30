@@ -9,21 +9,16 @@ import torch.nn.functional as F
 digit_text_german = ['null', 'eins', 'zwei', 'drei', 'vier', 'fuenf', 'sechs', 'sieben', 'acht', 'neun'];
 digit_text_english = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'];
 
-face_text = ['5_o_Clock_Shadow', 'Arched_Eyebrows', 'Attractive', 'Bags_Under_Eyes', 'Bald' 'Bangs' 'Big_Lips',
-             'Big_Nose', 'Black_Hair', 'Blond_Hair', 'Blurry', 'Brown_Hair', 'Bushy_Eyebrows', 'Chubby', 'Double_Chin',
-             'Eyeglasses', 'Goatee', 'Gray_Hair', 'Heavy_Makeup', 'High_Cheekbones', 'Male', 'Mouth_Slightly_Open',
-             'Mustache', 'Narrow_Eyes', 'No_Beard', 'Oval_Face', 'Pale_Skin', 'Pointy_Nose', 'Receding_Hairline',
-             'Rosy_Cheeks', 'Sideburns', 'Smiling', 'Straight_Hair', 'Wavy_Hair', 'Wearing_Earrings', 'Wearing_Hat',
-             'Wearing_Lipstick', 'Wearing_Necklace', 'Wearing_Necktie' 'Young']
 
 def char2Index(alphabet, character):
     return alphabet.find(character)
+
 
 def one_hot_encode(len_seq, alphabet, seq):
     X = torch.zeros(len_seq, len(alphabet))
     if len(seq) > len_seq:
         seq = seq[:len_seq];
-    for index_char, char in enumerate(seq[::-1]):
+    for index_char, char in enumerate(seq):
         if char2Index(alphabet, char) != -1:
             X[index_char, char2Index(alphabet, char)] = 1.0
     return X
@@ -44,12 +39,13 @@ def seq2text(alphabet, seq):
         decoded.append(alphabet[seq[j]])
     return decoded
 
+
 def tensor_to_text(alphabet, gen_t):
     gen_t = gen_t.cpu().data.numpy()
     gen_t = np.argmax(gen_t, axis=-1)
     decoded_samples = []
     for i in range(len(gen_t)):
         decoded = seq2text(alphabet, gen_t[i])
-        decoded_samples.append(tuple(decoded)[::-1])
+        decoded_samples.append(decoded)
     return decoded_samples;
 

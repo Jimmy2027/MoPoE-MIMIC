@@ -21,24 +21,24 @@ class VAEtrimodalSVHNMNIST(nn.Module):
         super(VAEtrimodalSVHNMNIST, self).__init__()
         self.num_modalities = 3;
         self.flags = flags;
-        self.encoder_svhn = EncoderSVHN(flags)
-        self.encoder_mnist = EncoderImg(flags)
-        self.encoder_text = EncoderText(flags)
-        self.decoder_mnist = DecoderImg(flags);
-        self.decoder_svhn = DecoderSVHN(flags);
-        self.decoder_text = DecoderText(flags);
-        self.encoder_mnist = self.encoder_mnist.to(flags.device);
-        self.encoder_svhn = self.encoder_svhn.to(flags.device);
-        self.encoder_text = self.encoder_text.to(flags.device);
-        self.decoder_mnist = self.decoder_mnist.to(flags.device);
-        self.decoder_svhn = self.decoder_svhn.to(flags.device);
-        self.decoder_text = self.decoder_text.to(flags.device);
-        self.lhood_mnist = utils.get_likelihood(flags.likelihood_m1);
-        self.lhood_svhn = utils.get_likelihood(flags.likelihood_m2);
-        self.lhood_text = utils.get_likelihood(flags.likelihood_m3);
+        self.encoder_m2 = EncoderSVHN(flags)
+        self.encoder_m1 = EncoderImg(flags)
+        self.encoder_m3 = EncoderText(flags)
+        self.decoder_m1 = DecoderImg(flags);
+        self.decoder_m2 = DecoderSVHN(flags);
+        self.decoder_m3 = DecoderText(flags);
+        self.encoder_m1 = self.encoder_m1.to(flags.device);
+        self.encoder_m2 = self.encoder_m2.to(flags.device);
+        self.encoder_m3 = self.encoder_m3.to(flags.device);
+        self.decoder_m1 = self.decoder_m1.to(flags.device);
+        self.decoder_m2 = self.decoder_m2.to(flags.device);
+        self.decoder_m3 = self.decoder_m3.to(flags.device);
+        self.lhood_m1 = utils.get_likelihood(flags.likelihood_m1);
+        self.lhood_m2 = utils.get_likelihood(flags.likelihood_m2);
+        self.lhood_m3 = utils.get_likelihood(flags.likelihood_m3);
 
-        d_size_m1 = flags.img_size_mnist*flags.img_size_mnist;
-        d_size_m2 = flags.num_channels_svhn*flags.img_size_svhn*flags.img_size_svhn;
+        d_size_m1 = flags.img_size_m1*flags.img_size_m1;
+        d_size_m2 = flags.num_channels_m2*flags.img_size_m2*flags.img_size_m2;
         d_size_m3 = flags.len_sequence;
         total_d_size = d_size_m1 + d_size_m2 + d_size_m3;
         w1 = d_size_m2/d_size_m1;
@@ -61,8 +61,8 @@ class VAEtrimodalSVHNMNIST(nn.Module):
             self.calc_joint_divergence = self.divergence_poe;
 
 
-    def forward(self, input_mnist=None, input_svhn=None, input_text=None):
-        latents = self.inference(input_mnist, input_svhn, input_text);
+    def forward(self, input_m1=None, input_m2=None, input_m3=None):
+        latents = self.inference(input_m1, input_m2, input_m3);
         results = dict();
         results['latents'] = latents;
 
@@ -76,30 +76,30 @@ class VAEtrimodalSVHNMNIST(nn.Module):
             results[key] = div[key];
 
         results_rec = dict();
-        if input_mnist is not None:
-            m1_s_mu, m1_s_logvar = latents['img_mnist_style'];
+        if input_m1 is not None:
+            m1_s_mu, m1_s_logvar = latents['m1_style'];
             if self.flags.factorized_representation:
                 m1_s_embeddings = utils.reparameterize(mu=m1_s_mu, logvar=m1_s_logvar);
             else:
                 m1_s_embeddings = None;
-            m1_rec = self.lhood_mnist(*self.decoder_mnist(m1_s_embeddings, class_embeddings));
-            results_rec['img_mnist'] = m1_rec;
-        if input_svhn is not None:
-            m2_s_mu, m2_s_logvar = latents['img_svhn_style'];
+            m1_rec = self.lhood_m1(*self.decoder_m1(m1_s_embeddings, class_embeddings));
+            results_rec['m1'] = m1_rec;
+        if input_m2 is not None:
+            m2_s_mu, m2_s_logvar = latents['m2_style'];
             if self.flags.factorized_representation:
                 m2_s_embeddings = utils.reparameterize(mu=m2_s_mu, logvar=m2_s_logvar);
             else:
                 m2_s_embeddings = None;
-            m2_rec = self.lhood_svhn(*self.decoder_svhn(m2_s_embeddings, class_embeddings));
-            results_rec['img_svhn'] = m2_rec;
-        if input_text is not None:
-            m3_s_mu, m3_s_logvar = latents['text_style'];
+            m2_rec = self.lhood_m2(*self.decoder_m2(m2_s_embeddings, class_embeddings));
+            results_rec['m2'] = m2_rec;
+        if input_m3 is not None:
+            m3_s_mu, m3_s_logvar = latents['m3_style'];
             if self.flags.factorized_representation:
                 m3_s_embeddings = utils.reparameterize(mu=m3_s_mu, logvar=m3_s_logvar);
             else:
                 m3_s_embeddings = None;
-            m3_rec = self.lhood_text(*self.decoder_text(m3_s_embeddings, class_embeddings));
-            results_rec['text'] = m3_rec;
+            m3_rec = self.lhood_m3(*self.decoder_m3(m3_s_embeddings, class_embeddings));
+            results_rec['m3'] = m3_rec;
         results['rec'] = results_rec;
         return results;
 
@@ -185,91 +185,91 @@ class VAEtrimodalSVHNMNIST(nn.Module):
         return [mu_poe, logvar_poe];
 
 
-    def encode(self, i_mnist=None, i_svhn=None, i_text=None):
+    def encode(self, i_m1=None, i_m2=None, i_m3=None):
         latents = dict();
-        if i_mnist is not None:
-            latents['img_mnist'] = self.encoder_mnist(i_mnist)
-            latents['img_mnist_style'] = latents['img_mnist'][:2]
-            latents['img_mnist'] = latents['img_mnist'][2:]
+        if i_m1 is not None:
+            latents['m1'] = self.encoder_m1(i_m1)
+            latents['m1_style'] = latents['m1'][:2]
+            latents['m1'] = latents['m1'][2:]
         else:
-            latents['img_mnist_style'] = [None, None];
-            latents['img_mnist'] = [None, None];
-        if i_svhn is not None:
-            latents['img_svhn'] = self.encoder_svhn(i_svhn);
-            latents['img_svhn_style'] = latents['img_svhn'][:2];
-            latents['img_svhn'] = latents['img_svhn'][2:];
+            latents['m1_style'] = [None, None];
+            latents['m1'] = [None, None];
+        if i_m2 is not None:
+            latents['m2'] = self.encoder_m2(i_m2);
+            latents['m2_style'] = latents['m2'][:2];
+            latents['m2'] = latents['m2'][2:];
         else:
-            latents['img_svhn_style'] = [None, None];
-            latents['img_svhn'] = [None, None];
-        if i_text is not None:
-            latents['text'] = self.encoder_text(i_text);
-            latents['text_style'] = latents['text'][:2];
-            latents['text'] = latents['text'][2:];
+            latents['m2_style'] = [None, None];
+            latents['m2'] = [None, None];
+        if i_m3 is not None:
+            latents['m3'] = self.encoder_m3(i_m3);
+            latents['m3_style'] = latents['m3'][:2];
+            latents['m3'] = latents['m3'][2:];
         else:
-            latents['text_style'] = [None, None];
-            latents['text'] = [None, None];
+            latents['m3_style'] = [None, None];
+            latents['m3'] = [None, None];
         return latents;
 
 
-    def inference(self, input_mnist=None, input_svhn=None, input_text=None):
-        latents = self.encode(i_mnist=input_mnist,
-                              i_svhn=input_svhn,
-                              i_text=input_text);
-        if input_mnist is not None:
-            num_samples = input_mnist.shape[0];
-        if input_svhn is not None:
-            num_samples = input_svhn.shape[0];
-        if input_text is not None:
-            num_samples = input_text.shape[0];
+    def inference(self, input_m1=None, input_m2=None, input_m3=None):
+        latents = self.encode(i_m1=input_m1,
+                              i_m2=input_m2,
+                              i_m3=input_m3);
+        if input_m1 is not None:
+            num_samples = input_m1.shape[0];
+        if input_m2 is not None:
+            num_samples = input_m2.shape[0];
+        if input_m3 is not None:
+            num_samples = input_m3.shape[0];
         mus = torch.zeros(1, num_samples, self.flags.class_dim).to(self.flags.device);
         logvars = torch.zeros(1, num_samples, self.flags.class_dim).to(self.flags.device);
-        if input_mnist is not None:
-            mnist_mu, mnist_logvar = latents['img_mnist'];
-            mus = torch.cat([mus, mnist_mu.unsqueeze(0)], dim=0);
-            logvars = torch.cat([logvars, mnist_logvar.unsqueeze(0)], dim=0);
-        if input_svhn is not None:
-            svhn_mu, svhn_logvar = latents['img_svhn'];
-            mus = torch.cat([mus, svhn_mu.unsqueeze(0)], dim=0);
-            logvars = torch.cat([logvars, svhn_logvar.unsqueeze(0)], dim=0);
-        if input_text is not None:
-            text_mu, text_logvar = latents['text'];
-            mus = torch.cat([mus, text_mu.unsqueeze(0)], dim=0);
-            logvars = torch.cat([logvars, text_logvar.unsqueeze(0)], dim=0);
-        if input_mnist is not None and input_svhn is not None:
-            poe_mnist_svhn = poe(torch.cat([mnist_mu.unsqueeze(0),
-                                            svhn_mu.unsqueeze(0)], dim=0),
-                                 torch.cat([mnist_logvar.unsqueeze(0),
-                                            svhn_logvar.unsqueeze(0)], dim=0))
-            latents['mnist_svhn'] = poe_mnist_svhn;
-            mus = torch.cat([mus, poe_mnist_svhn[0].unsqueeze(0)], dim=0);
-            logvars = torch.cat([logvars, poe_mnist_svhn[1].unsqueeze(0)], dim=0);
-        if input_mnist is not None and input_text is not None:
-            poe_mnist_text = poe(torch.cat([mnist_mu.unsqueeze(0),
-                                            text_mu.unsqueeze(0)], dim=0),
-                                 torch.cat([mnist_logvar.unsqueeze(0),
-                                            text_logvar.unsqueeze(0)], dim=0))
-            latents['mnist_text'] = poe_mnist_text;
-            mus = torch.cat([mus, poe_mnist_text[0].unsqueeze(0)], dim=0);
-            logvars = torch.cat([logvars, poe_mnist_text[1].unsqueeze(0)], dim=0);
-        if input_svhn is not None and input_text is not None:
-            poe_svhn_text = poe(torch.cat([svhn_mu.unsqueeze(0),
-                                           text_mu.unsqueeze(0)], dim=0),
-                                 torch.cat([svhn_logvar.unsqueeze(0),
-                                            text_logvar.unsqueeze(0)], dim=0))
-            latents['svhn_text'] = poe_svhn_text;
-            mus = torch.cat([mus, poe_svhn_text[0].unsqueeze(0)], dim=0);
-            logvars = torch.cat([logvars, poe_svhn_text[1].unsqueeze(0)], dim=0);
-        if (input_mnist is not None and input_svhn is not None and
-            input_text is not None):
-            poe_mnist_svhn_text = poe(torch.cat([mnist_mu.unsqueeze(0),
-                                                 svhn_mu.unsqueeze(0),
-                                                 text_mu.unsqueeze(0)], dim=0),
-                                     torch.cat([mnist_logvar.unsqueeze(0),
-                                                svhn_logvar.unsqueeze(0),
-                                                text_logvar.unsqueeze(0)], dim=0))
-            latents['mnist_svhn_text'] = poe_mnist_svhn_text;
-            mus = torch.cat([mus, poe_mnist_svhn_text[0].unsqueeze(0)], dim=0);
-            logvars = torch.cat([logvars, poe_mnist_svhn_text[1].unsqueeze(0)], dim=0);
+        if input_m1 is not None:
+            m1_mu, m1_logvar = latents['m1'];
+            mus = torch.cat([mus, m1_mu.unsqueeze(0)], dim=0);
+            logvars = torch.cat([logvars, m1_logvar.unsqueeze(0)], dim=0);
+        if input_m2 is not None:
+            m2_mu, m2_logvar = latents['m2'];
+            mus = torch.cat([mus, m2_mu.unsqueeze(0)], dim=0);
+            logvars = torch.cat([logvars, m2_logvar.unsqueeze(0)], dim=0);
+        if input_m3 is not None:
+            m3_mu, m3_logvar = latents['m3'];
+            mus = torch.cat([mus, m3_mu.unsqueeze(0)], dim=0);
+            logvars = torch.cat([logvars, m3_logvar.unsqueeze(0)], dim=0);
+        if input_m1 is not None and input_m2 is not None:
+            poe_m1_m2 = poe(torch.cat([m1_mu.unsqueeze(0),
+                                            m2_mu.unsqueeze(0)], dim=0),
+                                 torch.cat([m1_logvar.unsqueeze(0),
+                                            m2_logvar.unsqueeze(0)], dim=0))
+            latents['m1_m2'] = poe_m1_m2;
+            mus = torch.cat([mus, poe_m1_m2[0].unsqueeze(0)], dim=0);
+            logvars = torch.cat([logvars, poe_m1_m2[1].unsqueeze(0)], dim=0);
+        if input_m1 is not None and input_m3 is not None:
+            poe_m1_m3 = poe(torch.cat([m1_mu.unsqueeze(0),
+                                            m3_mu.unsqueeze(0)], dim=0),
+                                 torch.cat([m1_logvar.unsqueeze(0),
+                                            m3_logvar.unsqueeze(0)], dim=0))
+            latents['m1_m3'] = poe_m1_m3;
+            mus = torch.cat([mus, poe_m1_m3[0].unsqueeze(0)], dim=0);
+            logvars = torch.cat([logvars, poe_m1_m3[1].unsqueeze(0)], dim=0);
+        if input_m2 is not None and input_m3 is not None:
+            poe_m2_m3 = poe(torch.cat([m2_mu.unsqueeze(0),
+                                           m3_mu.unsqueeze(0)], dim=0),
+                                 torch.cat([m2_logvar.unsqueeze(0),
+                                            m3_logvar.unsqueeze(0)], dim=0))
+            latents['m2_m3'] = poe_m2_m3;
+            mus = torch.cat([mus, poe_m2_m3[0].unsqueeze(0)], dim=0);
+            logvars = torch.cat([logvars, poe_m2_m3[1].unsqueeze(0)], dim=0);
+        if (input_m1 is not None and input_m2 is not None and
+            input_m3 is not None):
+            poe_m1_m2_m3 = poe(torch.cat([m1_mu.unsqueeze(0),
+                                                 m2_mu.unsqueeze(0),
+                                                 m3_mu.unsqueeze(0)], dim=0),
+                                     torch.cat([m1_logvar.unsqueeze(0),
+                                                m2_logvar.unsqueeze(0),
+                                                m3_logvar.unsqueeze(0)], dim=0))
+            latents['m1_m2_m3'] = poe_m1_m2_m3;
+            mus = torch.cat([mus, poe_m1_m2_m3[0].unsqueeze(0)], dim=0);
+            logvars = torch.cat([logvars, poe_m1_m2_m3[1].unsqueeze(0)], dim=0);
         weights = (1/float(mus.shape[0]))*torch.ones(mus.shape[0]).to(self.flags.device);
         joint_mu, joint_logvar = self.modality_fusion(mus, logvars, weights);
         latents['mus'] = mus;
@@ -281,9 +281,9 @@ class VAEtrimodalSVHNMNIST(nn.Module):
 
     def get_random_styles(self, num_samples):
         if self.flags.factorized_representation:
-            z_style_1 = torch.randn(num_samples, self.flags.style_mnist_dim);
-            z_style_2 = torch.randn(num_samples, self.flags.style_svhn_dim);
-            z_style_3 = torch.randn(num_samples, self.flags.style_text_dim);
+            z_style_1 = torch.randn(num_samples, self.flags.style_m1_dim);
+            z_style_2 = torch.randn(num_samples, self.flags.style_m2_dim);
+            z_style_3 = torch.randn(num_samples, self.flags.style_m3_dim);
             z_style_1 = z_style_1.to(self.flags.device);
             z_style_2 = z_style_2.to(self.flags.device);
             z_style_3 = z_style_3.to(self.flags.device);
@@ -291,27 +291,27 @@ class VAEtrimodalSVHNMNIST(nn.Module):
             z_style_1 = None;
             z_style_2 = None;
             z_style_3 = None;
-        styles = {'img_mnist': z_style_1, 'img_svhn': z_style_2, 'text': z_style_3};
+        styles = {'m1': z_style_1, 'm2': z_style_2, 'm3': z_style_3};
         return styles;
 
 
     def get_random_style_dists(self, num_samples):
         s1_mu = torch.zeros(num_samples,
-                            self.flags.style_mnist_dim).to(self.flags.device)
+                            self.flags.style_m1_dim).to(self.flags.device)
         s1_logvar = torch.zeros(num_samples,
-                                self.flags.style_mnist_dim).to(self.flags.device);
+                                self.flags.style_m1_dim).to(self.flags.device);
         s2_mu = torch.zeros(num_samples,
-                            self.flags.style_svhn_dim).to(self.flags.device)
+                            self.flags.style_m2_dim).to(self.flags.device)
         s2_logvar = torch.zeros(num_samples,
-                                self.flags.style_svhn_dim).to(self.flags.device);
+                                self.flags.style_m2_dim).to(self.flags.device);
         s3_mu = torch.zeros(num_samples,
-                            self.flags.style_text_dim).to(self.flags.device)
+                            self.flags.style_m3_dim).to(self.flags.device)
         s3_logvar = torch.zeros(num_samples,
-                                self.flags.style_text_dim).to(self.flags.device);
+                                self.flags.style_m3_dim).to(self.flags.device);
         m1_dist = [s1_mu, s1_logvar];
         m2_dist = [s2_mu, s2_logvar];
         m3_dist = [s3_mu, s3_logvar];
-        styles = {'img_mnist': m1_dist, 'img_svhn': m2_dist, 'text': m3_dist};
+        styles = {'m1': m1_dist, 'm2': m2_dist, 'm3': m3_dist};
         return styles;
 
 
@@ -329,24 +329,24 @@ class VAEtrimodalSVHNMNIST(nn.Module):
 
     def generate_from_latents(self, latents):
         suff_stats = self.generate_sufficient_statistics_from_latents(latents);
-        cond_gen_mnist = suff_stats['img_mnist'].mean;
-        cond_gen_svhn = suff_stats['img_svhn'].mean;
-        cond_gen_text = suff_stats['text'].mean;
-        cond_gen = {'img_mnist': cond_gen_mnist,
-                    'img_svhn': cond_gen_svhn,
-                    'text': cond_gen_text};
+        cond_gen_m1 = suff_stats['m1'].mean;
+        cond_gen_m2 = suff_stats['m2'].mean;
+        cond_gen_m3 = suff_stats['m3'].mean;
+        cond_gen = {'m1': cond_gen_m1,
+                    'm2': cond_gen_m2,
+                    'm3': cond_gen_m3};
         return cond_gen;
 
 
     def generate_sufficient_statistics_from_latents(self, latents):
-        style_mnist = latents['style']['img_mnist'];
-        style_svhn = latents['style']['img_svhn'];
-        style_text = latents['style']['text'];
+        style_m1 = latents['style']['m1'];
+        style_m2 = latents['style']['m2'];
+        style_m3 = latents['style']['m3'];
         content = latents['content']
-        cond_gen_m1 = self.lhood_mnist(*self.decoder_mnist(style_mnist, content));
-        cond_gen_m2 = self.lhood_svhn(*self.decoder_svhn(style_svhn, content));
-        cond_gen_m3 = self.lhood_text(*self.decoder_text(style_text, content));
-        return {'img_mnist': cond_gen_m1, 'img_svhn': cond_gen_m2, 'text': cond_gen_m3}
+        cond_gen_m1 = self.lhood_m1(*self.decoder_m1(style_m1, content));
+        cond_gen_m2 = self.lhood_m2(*self.decoder_m2(style_m2, content));
+        cond_gen_m3 = self.lhood_m3(*self.decoder_m3(style_m3, content));
+        return {'m1': cond_gen_m1, 'm2': cond_gen_m2, 'm3': cond_gen_m3}
 
 
     def cond_generation_1a(self, latent_distributions, num_samples=None):
@@ -387,9 +387,9 @@ class VAEtrimodalSVHNMNIST(nn.Module):
 
 
     def save_networks(self):
-        torch.save(self.encoder_mnist.state_dict(), os.path.join(self.flags.dir_checkpoints, self.flags.encoder_save_m1))
-        torch.save(self.decoder_mnist.state_dict(), os.path.join(self.flags.dir_checkpoints, self.flags.decoder_save_m1))
-        torch.save(self.encoder_svhn.state_dict(), os.path.join(self.flags.dir_checkpoints, self.flags.encoder_save_m2))
-        torch.save(self.decoder_svhn.state_dict(), os.path.join(self.flags.dir_checkpoints, self.flags.decoder_save_m2))
-        torch.save(self.encoder_text.state_dict(), os.path.join(self.flags.dir_checkpoints, self.flags.encoder_save_m3))
-        torch.save(self.decoder_text.state_dict(), os.path.join(self.flags.dir_checkpoints, self.flags.decoder_save_m3))
+        torch.save(self.encoder_m1.state_dict(), os.path.join(self.flags.dir_checkpoints, self.flags.encoder_save_m1))
+        torch.save(self.decoder_m1.state_dict(), os.path.join(self.flags.dir_checkpoints, self.flags.decoder_save_m1))
+        torch.save(self.encoder_m2.state_dict(), os.path.join(self.flags.dir_checkpoints, self.flags.encoder_save_m2))
+        torch.save(self.decoder_m2.state_dict(), os.path.join(self.flags.dir_checkpoints, self.flags.decoder_save_m2))
+        torch.save(self.encoder_m3.state_dict(), os.path.join(self.flags.dir_checkpoints, self.flags.encoder_save_m3))
+        torch.save(self.decoder_m3.state_dict(), os.path.join(self.flags.dir_checkpoints, self.flags.decoder_save_m3))

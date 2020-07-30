@@ -22,21 +22,21 @@ from utils.loss import log_prob_img, log_prob_text
 from divergence_measures.kl_div import calc_kl_divergence
 from divergence_measures.mm_div import poe
 
-from mnistsvhntext.test_functions_svhnmnist import generate_swapping_plot
-from mnistsvhntext.test_functions_svhnmnist import generate_conditional_fig_1a
-from mnistsvhntext.test_functions_svhnmnist import generate_conditional_fig_2a
-from mnistsvhntext.test_functions_svhnmnist import generate_random_samples_plots
-from mnistsvhntext.test_functions_svhnmnist import calculate_coherence
-from mnistsvhntext.test_functions_svhnmnist import classify_cond_gen_samples
-from mnistsvhntext.test_functions_svhnmnist import classify_latent_representations
-from mnistsvhntext.test_functions_svhnmnist import train_clf_lr
+from mnistsvhntext.testing import generate_swapping_plot
+from mnistsvhntext.testing import generate_conditional_fig_1a
+from mnistsvhntext.testing import generate_conditional_fig_2a
+from mnistsvhntext.testing import generate_random_samples_plots
+from mnistsvhntext.testing import calculate_coherence
+from mnistsvhntext.testing import classify_cond_gen_samples
+from mnistsvhntext.testing import classify_latent_representations
+from mnistsvhntext.testing import train_clf_lr
 from utils.test_functions import calculate_inception_features_for_gen_evaluation
 from utils.test_functions import calculate_fid, calculate_fid_dict
 from utils.test_functions import calculate_prd, calculate_prd_dict
-from mnistsvhntext.likelihood_svhnmnist import calc_log_likelihood_batch
-
 from utils.test_functions import get_clf_activations
 from utils.test_functions import load_inception_activations
+from mnistsvhntext.likelihood import calc_log_likelihood_batch
+
 
 from mnistsvhntext.SVHNMNISTDataset import SVHNMNIST
 from utils.transforms import get_transform_mnist
@@ -59,18 +59,18 @@ def get_10_mnist_samples(flags, svhnmnist, num_testing_images):
     samples = []
     for i in range(10):
         while True:
-            img_mnist, img_svhn, text, target = svhnmnist.__getitem__(random.randint(0, num_testing_images-1))
+            m1, m2, m3, target = svhnmnist.__getitem__(random.randint(0, num_testing_images-1))
             if target == i:
-                img_mnist = img_mnist.to(flags.device)
-                img_svhn = img_svhn.to(flags.device)
-                text = text.to(flags.device);
-                samples.append((img_mnist, img_svhn, text, target))
+                m1 = m1.to(flags.device)
+                m2 = m2.to(flags.device)
+                m3 = m3.to(flags.device);
+                samples.append((m1, m2, m3, target))
                 break;
     return samples
 
 
 def run_epoch(epoch, vae_trimodal, optimizer, data, writer, alphabet, train=False, flags={},
-              model_clf_svhn=None, model_clf_mnist=None, model_clf_text = None, clf_lr=None, step_logs=0):
+              model_clf_svhn=None, model_clf_mnist=None, model_clf_m3 = None, clf_lr=None, step_logs=0):
 
     loader = cycle(DataLoader(data, batch_size=flags.batch_size, shuffle=True, num_workers=8, drop_last=True))
 
@@ -98,25 +98,25 @@ def run_epoch(epoch, vae_trimodal, optimizer, data, writer, alphabet, train=Fals
 
     if not train:
         vae_trimodal.eval();
-        ll_mnist_mnist = []; ll_mnist_svhn = []; ll_mnist_text = []; ll_mnist_joint = [];
-        ll_svhn_mnist = []; ll_svhn_svhn = []; ll_svhn_text = []; ll_svhn_joint = [];
-        ll_text_mnist = []; ll_text_svhn = []; ll_text_text = []; ll_text_joint = [];
-        ll_joint_mnist = []; ll_joint_svhn = []; ll_joint_text = []; ll_joint_joint = [];
-        ll_ms_text = []; ll_ms_joint = []; ll_mt_svhn = []; ll_mt_joint = [];
+        ll_mnist_mnist = []; ll_mnist_svhn = []; ll_mnist_m3 = []; ll_mnist_joint = [];
+        ll_svhn_mnist = []; ll_svhn_svhn = []; ll_svhn_m3 = []; ll_svhn_joint = [];
+        ll_m3_mnist = []; ll_m3_svhn = []; ll_m3_m3 = []; ll_m3_joint = [];
+        ll_joint_mnist = []; ll_joint_svhn = []; ll_joint_m3 = []; ll_joint_joint = [];
+        ll_ms_m3 = []; ll_ms_joint = []; ll_mt_svhn = []; ll_mt_joint = [];
         ll_st_mnist = []; ll_st_joint = [];
         lr_acc_m1_c = []; lr_acc_m2_c = []; lr_acc_m3_c = [];
         lr_acc_m1_s = []; lr_acc_m2_s = []; lr_acc_m3_s = [];
         lr_acc_m1m2 = []; lr_acc_m1m3 = []; lr_acc_m2m3 = [];
         lr_acc_joint = []; lr_acc_m1m2m3 = []; lr_acc_dyn_prior = [];
-        cg_acc_m1 = {'img_mnist': [], 'img_svhn': [], 'text': []};
-        cg_acc_m2 = {'img_mnist': [], 'img_svhn': [], 'text': []};
-        cg_acc_m3 = {'img_mnist': [], 'img_svhn': [], 'text': []};
-        cg_acc_m1m2 = {'img_mnist': [], 'img_svhn': [], 'text': []};
-        cg_acc_m1m3 = {'img_mnist': [], 'img_svhn': [], 'text': []};
-        cg_acc_m2m3 = {'img_mnist': [], 'img_svhn': [], 'text': []};
-        cg_acc_dp_m1m2 = {'img_mnist': [], 'img_svhn': [], 'text': []};
-        cg_acc_dp_m1m3 = {'img_mnist': [], 'img_svhn': [], 'text': []};
-        cg_acc_dp_m2m3 = {'img_mnist': [], 'img_svhn': [], 'text': []};
+        cg_acc_m1 = {'m1': [], 'm2': [], 'm3': []};
+        cg_acc_m2 = {'m1': [], 'm2': [], 'm3': []};
+        cg_acc_m3 = {'m1': [], 'm2': [], 'm3': []};
+        cg_acc_m1m2 = {'m1': [], 'm2': [], 'm3': []};
+        cg_acc_m1m3 = {'m1': [], 'm2': [], 'm3': []};
+        cg_acc_m2m3 = {'m1': [], 'm2': [], 'm3': []};
+        cg_acc_dp_m1m2 = {'m1': [], 'm2': [], 'm3': []};
+        cg_acc_dp_m1m3 = {'m1': [], 'm2': [], 'm3': []};
+        cg_acc_dp_m2m3 = {'m1': [], 'm2': [], 'm3': []};
         random_gen_acc = [];
     else:
         vae_trimodal.train();
@@ -139,21 +139,21 @@ def run_epoch(epoch, vae_trimodal, optimizer, data, writer, alphabet, train=Fals
 
         results_joint = vae_trimodal(input_mnist=Variable(m1_batch),
                                      input_svhn=Variable(m2_batch),
-                                     input_text=Variable(m3_batch));
-        m1_reconstruction = results_joint['rec']['img_mnist'];
-        m2_reconstruction = results_joint['rec']['img_svhn'];
-        m3_reconstruction = results_joint['rec']['text'];
+                                     input_m3=Variable(m3_batch));
+        m1_reconstruction = results_joint['rec']['m1'];
+        m2_reconstruction = results_joint['rec']['m2'];
+        m3_reconstruction = results_joint['rec']['m3'];
         latents = results_joint['latents'];
-        [m1_class_mu, m1_class_logvar] = latents['img_mnist'];
-        [m1_style_mu, m1_style_logvar] = latents['img_mnist_style'];
-        [m2_class_mu, m2_class_logvar] = latents['img_svhn'];
-        [m2_style_mu, m2_style_logvar] = latents['img_svhn_style'];
-        [m3_class_mu, m3_class_logvar] = latents['text'];
-        [m3_style_mu, m3_style_logvar] = latents['text_style'];
+        [m1_class_mu, m1_class_logvar] = latents['m1'];
+        [m1_style_mu, m1_style_logvar] = latents['m1_style'];
+        [m2_class_mu, m2_class_logvar] = latents['m2'];
+        [m2_style_mu, m2_style_logvar] = latents['m2_style'];
+        [m3_class_mu, m3_class_logvar] = latents['m3'];
+        [m3_style_mu, m3_style_logvar] = latents['m3_style'];
         [m1m2_c_mu, m1m2_c_logvar] = latents['mnist_svhn'];
-        [m1m3_c_mu, m1m3_c_logvar] = latents['mnist_text'];
-        [m2m3_c_mu, m2m3_c_logvar] = latents['svhn_text'];
-        [m1m2m3_c_mu, m1m2m3_c_logvar] = latents['mnist_svhn_text'];
+        [m1m3_c_mu, m1m3_c_logvar] = latents['mnist_m3'];
+        [m2m3_c_mu, m2m3_c_logvar] = latents['svhn_m3'];
+        [m1m2m3_c_mu, m1m2m3_c_logvar] = latents['mnist_svhn_m3'];
         [group_mu, group_logvar] = results_joint['group_distr'];
         group_divergence = results_joint['joint_divergence'];
         if flags.modality_jsd:
@@ -181,7 +181,7 @@ def run_epoch(epoch, vae_trimodal, optimizer, data, writer, alphabet, train=Fals
         kld_group = calc_kl_divergence(group_mu, group_logvar, norm_value=flags.batch_size);
         rec_error_m1 = -log_prob_img(m1_reconstruction, Variable(m1_batch), flags.batch_size);
         rec_error_m2 = -log_prob_img(m2_reconstruction, Variable(m2_batch), flags.batch_size);
-        rec_error_m3 = -log_prob_text(m3_reconstruction, Variable(m3_batch), flags.batch_size);
+        rec_error_m3 = -log_prob_m3(m3_reconstruction, Variable(m3_batch), flags.batch_size);
 
         rec_error_weighted = rec_weight_m1*rec_error_m1 + rec_weight_m2*rec_error_m2 + rec_weight_m3*rec_error_m3;
         if flags.modality_jsd or flags.modality_moe:
@@ -191,43 +191,43 @@ def run_epoch(epoch, vae_trimodal, optimizer, data, writer, alphabet, train=Fals
             total_loss = rec_weight * rec_error_weighted + beta * kld_weighted_all
         elif flags.modality_poe:
             klds_joint = {'content': group_divergence,
-                          'style': {'img_mnist': kld_m1_style,
-                                    'img_svhn': kld_m2_style,
-                                    'text': kld_m3_style}}
-            recs_joint = {'img_mnist': rec_error_m1,
-                          'img_svhn': rec_error_m2,
-                          'text': rec_error_m3}
+                          'style': {'m1': kld_m1_style,
+                                    'm2': kld_m2_style,
+                                    'm3': kld_m3_style}}
+            recs_joint = {'m1': rec_error_m1,
+                          'm2': rec_error_m2,
+                          'm3': rec_error_m3}
             elbo_joint = utils.calc_elbo(flags, 'joint', recs_joint, klds_joint);
             results_mnist = vae_trimodal(input_mnist=m1_batch,
                                          input_svhn=None,
-                                         input_text=None);
-            mnist_m1_rec = results_mnist['rec']['img_mnist'];
+                                         input_m3=None);
+            mnist_m1_rec = results_mnist['rec']['m1'];
             mnist_m1_rec_error = -log_prob_img(mnist_m1_rec, m1_batch, flags.batch_size);
-            recs_mnist = {'img_mnist': mnist_m1_rec_error}
+            recs_mnist = {'m1': mnist_m1_rec_error}
             klds_mnist = {'content': kld_m1_class,
-                          'style': {'img_mnist': kld_m1_style}};
-            elbo_mnist = utils.calc_elbo(flags, 'img_mnist', recs_mnist, klds_mnist);
+                          'style': {'m1': kld_m1_style}};
+            elbo_mnist = utils.calc_elbo(flags, 'm1', recs_mnist, klds_mnist);
 
             results_svhn = vae_trimodal(input_mnist=None,
                                          input_svhn=m2_batch,
-                                         input_text=None);
-            svhn_m2_rec = results_svhn['rec']['img_svhn']
+                                         input_m3=None);
+            svhn_m2_rec = results_svhn['rec']['m2']
             svhn_m2_rec_error = -log_prob_img(svhn_m2_rec, m2_batch, flags.batch_size);
-            recs_svhn = {'img_svhn': svhn_m2_rec_error};
+            recs_svhn = {'m2': svhn_m2_rec_error};
             klds_svhn = {'content': kld_m2_class,
-                         'style': {'img_svhn': kld_m2_style}}
-            elbo_svhn = utils.calc_elbo(flags, 'img_svhn', recs_svhn, klds_svhn);
+                         'style': {'m2': kld_m2_style}}
+            elbo_svhn = utils.calc_elbo(flags, 'm2', recs_svhn, klds_svhn);
 
-            results_text = vae_trimodal(input_mnist=None,
+            results_m3 = vae_trimodal(input_mnist=None,
                                          input_svhn=None,
-                                         input_text=m3_batch);
-            text_m3_rec = results_text['rec']['text'];
-            text_m3_rec_error = -log_prob_text(text_m3_rec, m3_batch, flags.batch_size);
-            recs_text = {'text': text_m3_rec_error};
-            klds_text = {'content': kld_m3_class,
-                         'style': {'text': kld_m3_style}};
-            elbo_text = utils.calc_elbo(flags, 'text', recs_text, klds_text);
-            total_loss = elbo_joint + elbo_mnist + elbo_svhn + elbo_text;
+                                         input_m3=m3_batch);
+            m3_m3_rec = results_m3['rec']['m3'];
+            m3_m3_rec_error = -log_prob_m3(m3_m3_rec, m3_batch, flags.batch_size);
+            recs_m3 = {'m3': m3_m3_rec_error};
+            klds_m3 = {'content': kld_m3_class,
+                         'style': {'m3': kld_m3_style}};
+            elbo_m3 = utils.calc_elbo(flags, 'm3', recs_m3, klds_m3);
+            total_loss = elbo_joint + elbo_mnist + elbo_svhn + elbo_m3;
 
         data_class_m1 = m1_class_mu.cpu().data.numpy();
         data_class_m2 = m2_class_mu.cpu().data.numpy();
@@ -239,7 +239,7 @@ def run_epoch(epoch, vae_trimodal, optimizer, data, writer, alphabet, train=Fals
         data_class_joint = group_mu.cpu().data.numpy();
         data = {'mnist': data_class_m1,
                 'svhn': data_class_m2,
-                'text': data_class_m3,
+                'm3': data_class_m3,
                 'ms': data_class_m1m2,
                 'mt': data_class_m1m3,
                 'st': data_class_m2m3,
@@ -252,86 +252,92 @@ def run_epoch(epoch, vae_trimodal, optimizer, data, writer, alphabet, train=Fals
             data_style_m3 = m3_style_mu.cpu().data.numpy();
             data['mnist_style'] = data_style_m1;
             data['svhn_style'] = data_style_m2;
-            data['text_style'] = data_style_m3;
+            data['m3_style'] = data_style_m3;
         labels = labels_batch.cpu().data.numpy().reshape(flags.batch_size, 10);
         if (epoch + 1) % flags.eval_freq == 0 or (epoch + 1) == flags.end_epoch:
             if train == False:
                 # log-likelihood
                 if flags.calc_nll:
                     # 12 imp samples because dividible by 3 (needed for joint)
-                    ll_mnist_batch = calc_log_likelihood_batch(flags, 'img_mnist', batch, vae_trimodal, mod_weights, num_imp_samples=12)
-                    ll_svhn_batch = calc_log_likelihood_batch(flags, 'img_svhn', batch, vae_trimodal, mod_weights, num_imp_samples=12)
-                    ll_text_batch = calc_log_likelihood_batch(flags, 'text', batch, vae_trimodal, mod_weights, num_imp_samples=12)
+                    ll_mnist_batch = calc_log_likelihood_batch(flags, 'm1', batch, vae_trimodal, mod_weights, num_imp_samples=12)
+                    ll_svhn_batch = calc_log_likelihood_batch(flags, 'm2', batch, vae_trimodal, mod_weights, num_imp_samples=12)
+                    ll_m3_batch = calc_log_likelihood_batch(flags, 'm3', batch, vae_trimodal, mod_weights, num_imp_samples=12)
                     ll_ms_batch = calc_log_likelihood_batch(flags, 'mnist_svhn', batch, vae_trimodal, mod_weights, num_imp_samples=12);
-                    ll_mt_batch = calc_log_likelihood_batch(flags, 'mnist_text', batch, vae_trimodal, mod_weights, num_imp_samples=12);
-                    ll_st_batch = calc_log_likelihood_batch(flags, 'svhn_text', batch, vae_trimodal, mod_weights, num_imp_samples=12);
+                    ll_mt_batch = calc_log_likelihood_batch(flags, 'mnist_m3', batch, vae_trimodal, mod_weights, num_imp_samples=12);
+                    ll_st_batch = calc_log_likelihood_batch(flags, 'svhn_m3', batch, vae_trimodal, mod_weights, num_imp_samples=12);
                     ll_joint = calc_log_likelihood_batch(flags, 'joint', batch, vae_trimodal, mod_weights, num_imp_samples=12);
-                    ll_mnist_mnist.append(ll_mnist_batch['img_mnist'].item())
-                    ll_mnist_svhn.append(ll_mnist_batch['img_svhn'].item())
-                    ll_mnist_text.append(ll_mnist_batch['text'].item())
+                    ll_mnist_mnist.append(ll_mnist_batch['m1'].item())
+                    ll_mnist_svhn.append(ll_mnist_batch['m2'].item())
+                    ll_mnist_m3.append(ll_mnist_batch['m3'].item())
                     ll_mnist_joint.append(ll_mnist_batch['joint'].item())
-                    ll_svhn_mnist.append(ll_svhn_batch['img_mnist'].item())
-                    ll_svhn_svhn.append(ll_svhn_batch['img_svhn'].item())
-                    ll_svhn_text.append(ll_svhn_batch['text'].item())
+                    ll_svhn_mnist.append(ll_svhn_batch['m1'].item())
+                    ll_svhn_svhn.append(ll_svhn_batch['m2'].item())
+                    ll_svhn_m3.append(ll_svhn_batch['m3'].item())
                     ll_svhn_joint.append(ll_svhn_batch['joint'].item())
-                    ll_text_mnist.append(ll_text_batch['img_mnist'].item())
-                    ll_text_svhn.append(ll_text_batch['img_svhn'].item())
-                    ll_text_text.append(ll_text_batch['text'].item())
-                    ll_text_joint.append(ll_text_batch['joint'].item())
-                    ll_joint_mnist.append(ll_joint['img_mnist'].item())
-                    ll_joint_svhn.append(ll_joint['img_svhn'].item())
-                    ll_joint_text.append(ll_joint['text'].item())
+                    ll_m3_mnist.append(ll_m3_batch['m1'].item())
+                    ll_m3_svhn.append(ll_m3_batch['m2'].item())
+                    ll_m3_m3.append(ll_m3_batch['m3'].item())
+                    ll_m3_joint.append(ll_m3_batch['joint'].item())
+                    ll_joint_mnist.append(ll_joint['m1'].item())
+                    ll_joint_svhn.append(ll_joint['m2'].item())
+                    ll_joint_m3.append(ll_joint['m3'].item())
                     ll_joint_joint.append(ll_joint['joint'].item());
-                    ll_ms_text.append(ll_ms_batch['text'].item());
+                    ll_ms_m3.append(ll_ms_batch['m3'].item());
                     ll_ms_joint.append(ll_ms_batch['joint'].item());
-                    ll_mt_svhn.append(ll_mt_batch['img_svhn'].item());
+                    ll_mt_svhn.append(ll_mt_batch['m2'].item());
                     ll_mt_joint.append(ll_mt_batch['joint'].item());
-                    ll_st_mnist.append(ll_st_batch['img_mnist'].item());
+                    ll_st_mnist.append(ll_st_batch['m1'].item());
                     ll_st_joint.append(ll_st_batch['joint'].item());
 
                 # conditional generation 1 modalitiy available
                 latent_distr = dict();
-                latent_distr['img_mnist'] = [m1_class_mu, m1_class_logvar];
-                latent_distr['img_svhn'] = [m2_class_mu, m2_class_logvar];
-                latent_distr['text'] = [m3_class_mu, m3_class_logvar];
+                latent_distr['m1'] = [m1_class_mu, m1_class_logvar];
+                latent_distr['m2'] = [m2_class_mu, m2_class_logvar];
+                latent_distr['m3'] = [m3_class_mu, m3_class_logvar];
                 if flags.modality_jsd:
                     latent_distr['dynamic_prior'] = [dyn_prior_mu, dyn_prior_logvar];
                     # latent_distr['dynamic_prioremp'] = [mu_emp_batch, logvar_emp_batch];
                 rand_gen_samples = vae_trimodal.generate();
                 cond_gen_samples = vae_trimodal.cond_generation_1a(latent_distr);
-                m1_cond = cond_gen_samples['img_mnist']  # samples conditioned on mnist;
-                m2_cond = cond_gen_samples['img_svhn']  # samples conditioned on svhn;
-                m3_cond = cond_gen_samples['text']  # samples conditioned on svhn;
-                real_samples = {'img_mnist': m1_batch, 'img_svhn': m2_batch, 'text': m3_batch}
+                m1_cond = cond_gen_samples['m1']  # samples conditioned on mnist;
+                m2_cond = cond_gen_samples['m2']  # samples conditioned on svhn;
+                m3_cond = cond_gen_samples['m3']  # samples conditioned on svhn;
+                real_samples = {'m1': m1_batch, 'm2': m2_batch, 'm3': m3_batch}
                 if (flags.batch_size*iteration) < flags.num_samples_fid:
                     save_generated_samples_singlegroup(flags, iteration, alphabet, 'real', real_samples)
                     save_generated_samples_singlegroup(flags, iteration, alphabet, 'random_sampling', rand_gen_samples)
                     save_generated_samples_singlegroup(flags, iteration, alphabet, 'cond_gen_1a2m_mnist', m1_cond)
                     save_generated_samples_singlegroup(flags, iteration, alphabet, 'cond_gen_1a2m_svhn', m2_cond)
-                    save_generated_samples_singlegroup(flags, iteration, alphabet, 'cond_gen_1a2m_text', m3_cond)
+                    save_generated_samples_singlegroup(flags, iteration,
+                                                       alphabet,
+                                                       'cond_gen_1a2m_m3', m3_cond)
 
                 #conditional generation: 2 available modalities
                 latent_distr_pairs = dict();
-                latent_distr_pairs['img_mnist_img_svhn'] = {'latents': {'img_mnist': [m1_class_mu, m1_class_logvar],
-                                                                        'img_svhn': [m2_class_mu, m2_class_logvar]},
+                latent_distr_pairs['m1_m2'] = {'latents': {'m1': [m1_class_mu, m1_class_logvar],
+                                                                        'm2': [m2_class_mu, m2_class_logvar]},
                                                             'weights': [flags.alpha_modalities[1],
                                                                         flags.alpha_modalities[2]]};
-                latent_distr_pairs['img_mnist_text'] = {'latents': {'img_mnist': [m1_class_mu, m1_class_logvar],
-                                                                    'text': [m3_class_mu, m3_class_logvar]},
+                latent_distr_pairs['m1_m3'] = {'latents': {'m1': [m1_class_mu, m1_class_logvar],
+                                                                    'm3': [m3_class_mu, m3_class_logvar]},
                                                         'weights': [flags.alpha_modalities[1],
                                                                     flags.alpha_modalities[3]]};
-                latent_distr_pairs['img_svhn_text'] = {'latents': {'img_svhn': [m2_class_mu, m2_class_logvar],
-                                                                   'text': [m3_class_mu, m3_class_logvar]},
+                latent_distr_pairs['m2_m3'] = {'latents': {'m2': [m2_class_mu, m2_class_logvar],
+                                                                   'm3': [m3_class_mu, m3_class_logvar]},
                                                        'weights': [flags.alpha_modalities[2],
                                                                    flags.alpha_modalities[3]]};
                 cond_gen_2a = vae_trimodal.cond_generation_2a(latent_distr_pairs)
                 if (flags.batch_size*iteration) < flags.num_samples_fid:
                     save_generated_samples_singlegroup(flags, iteration, alphabet, 'cond_gen_2a1m_mnist_svhn',
-                                                       cond_gen_2a['img_mnist_img_svhn']);
-                    save_generated_samples_singlegroup(flags, iteration, alphabet, 'cond_gen_2a1m_mnist_text',
-                                                       cond_gen_2a['img_mnist_text']);
-                    save_generated_samples_singlegroup(flags, iteration, alphabet, 'cond_gen_2a1m_svhn_text',
-                                                       cond_gen_2a['img_svhn_text']);
+                                                       cond_gen_2a['m1_m2']);
+                    save_generated_samples_singlegroup(flags, iteration,
+                                                       alphabet,
+                                                       'cond_gen_2a1m_mnist_m3',
+                                                       cond_gen_2a['m1_m3']);
+                    save_generated_samples_singlegroup(flags, iteration,
+                                                       alphabet,
+                                                       'cond_gen_2a1m_svhn_m3',
+                                                       cond_gen_2a['m2_m3']);
 
                 if flags.modality_jsd:
                     # conditional generation 2 modalities available -> dyn
@@ -356,90 +362,91 @@ def run_epoch(epoch, vae_trimodal, optimizer, data, writer, alphabet, train=Fals
                                             m3_class_logvar.unsqueeze(0)],
                                            dim=0);
                     poe_dp_st = poe(mus_st, logvars_st);
-                    l_poe_dp = {'img_mnist_img_svhn': poe_dp_ms,
-                                'img_mnist_text': poe_dp_mt,
-                                'img_svhn_text': poe_dp_st}
+                    l_poe_dp = {'m1_m2': poe_dp_ms,
+                                'm1_m3': poe_dp_mt,
+                                'm2_m3': poe_dp_st}
                     cond_gen_dp = vae_trimodal.cond_generation_1a(l_poe_dp);
                     if (flags.batch_size*iteration) < flags.num_samples_fid:
                         save_generated_samples_singlegroup(flags, iteration,
                                                            alphabet,
                                                            'dynamic_prior_mnist_svhn',
-                                                           cond_gen_dp['img_mnist_img_svhn']);
+                                                           cond_gen_dp['m1_m2']);
                         save_generated_samples_singlegroup(flags, iteration, alphabet,
-                                                           'dynamic_prior_mnist_text',
-                                                           cond_gen_dp['img_mnist_text']);
+                                                           'dynamic_prior_mnist_m3',
+                                                           cond_gen_dp['m1_m3']);
                         save_generated_samples_singlegroup(flags, iteration,
                                                            alphabet,
-                                                           'dynamic_prior_2a1m_svhn_text',
-                                                           cond_gen_dp['img_svhn_text']);
+                                                           'dynamic_prior_2a1m_svhn_m3',
+                                                           cond_gen_dp['m2_m3']);
 
-                if model_clf_mnist is not None and model_clf_svhn is not None and model_clf_text is not None:
-                    clfs_gen = {'img_mnist': model_clf_mnist,
-                                'img_svhn': model_clf_svhn,
-                                'text': model_clf_text};
+                if model_clf_mnist is not None and model_clf_svhn is not None
+                and model_clf_m3 is not None:
+                    clfs_gen = {'m1': model_clf_mnist,
+                                'm2': model_clf_svhn,
+                                'm3': model_clf_m3};
                     coherence_random_triples = calculate_coherence(clfs_gen, rand_gen_samples);
                     random_gen_acc.append(coherence_random_triples)
 
                     cond_m1_acc = classify_cond_gen_samples(flags, epoch,
                                                             clfs_gen, labels,
                                                             m1_cond)[-1];
-                    cg_acc_m1['img_mnist'].append(cond_m1_acc['img_mnist']);
-                    cg_acc_m1['img_svhn'].append(cond_m1_acc['img_svhn']);
-                    cg_acc_m1['text'].append(cond_m1_acc['text']);
+                    cg_acc_m1['m1'].append(cond_m1_acc['m1']);
+                    cg_acc_m1['m2'].append(cond_m1_acc['m2']);
+                    cg_acc_m1['m3'].append(cond_m1_acc['m3']);
                     cond_m2_acc = classify_cond_gen_samples(flags, epoch,
                                                             clfs_gen, labels,
                                                             m2_cond)[-1];
-                    cg_acc_m2['img_mnist'].append(cond_m2_acc['img_mnist']);
-                    cg_acc_m2['img_svhn'].append(cond_m2_acc['img_svhn']);
-                    cg_acc_m2['text'].append(cond_m2_acc['text']);
+                    cg_acc_m2['m1'].append(cond_m2_acc['m1']);
+                    cg_acc_m2['m2'].append(cond_m2_acc['m2']);
+                    cg_acc_m2['m3'].append(cond_m2_acc['m3']);
                     cond_m3_acc = classify_cond_gen_samples(flags, epoch,
                                                             clfs_gen, labels,
                                                             m3_cond)[-1];
-                    cg_acc_m3['img_mnist'].append(cond_m3_acc['img_mnist']);
-                    cg_acc_m3['img_svhn'].append(cond_m3_acc['img_svhn']);
-                    cg_acc_m3['text'].append(cond_m3_acc['text']);
+                    cg_acc_m3['m1'].append(cond_m3_acc['m1']);
+                    cg_acc_m3['m2'].append(cond_m3_acc['m2']);
+                    cg_acc_m3['m3'].append(cond_m3_acc['m3']);
 
                     cond_ms_acc = classify_cond_gen_samples(flags, epoch, clfs_gen, labels,
-                                                            cond_gen_2a['img_mnist_img_svhn'])[-1];
-                    cg_acc_m1m2['img_mnist'].append(cond_ms_acc['img_mnist']);
-                    cg_acc_m1m2['img_svhn'].append(cond_ms_acc['img_svhn']);
-                    cg_acc_m1m2['text'].append(cond_ms_acc['text']);
+                                                            cond_gen_2a['m1_m2'])[-1];
+                    cg_acc_m1m2['m1'].append(cond_ms_acc['m1']);
+                    cg_acc_m1m2['m2'].append(cond_ms_acc['m2']);
+                    cg_acc_m1m2['m3'].append(cond_ms_acc['m3']);
                     cond_mt_acc = classify_cond_gen_samples(flags, epoch, clfs_gen, labels,
-                                                            cond_gen_2a['img_mnist_text'])[-1];
-                    cg_acc_m1m3['img_mnist'].append(cond_mt_acc['img_mnist']);
-                    cg_acc_m1m3['img_svhn'].append(cond_mt_acc['img_svhn']);
-                    cg_acc_m1m3['text'].append(cond_mt_acc['text']);
+                                                            cond_gen_2a['m1_m3'])[-1];
+                    cg_acc_m1m3['m1'].append(cond_mt_acc['m1']);
+                    cg_acc_m1m3['m2'].append(cond_mt_acc['m2']);
+                    cg_acc_m1m3['m3'].append(cond_mt_acc['m3']);
                     cond_st_acc = classify_cond_gen_samples(flags, epoch, clfs_gen, labels,
-                                                            cond_gen_2a['img_svhn_text'])[-1];
-                    cg_acc_m2m3['img_mnist'].append(cond_st_acc['img_mnist']);
-                    cg_acc_m2m3['img_svhn'].append(cond_st_acc['img_svhn']);
-                    cg_acc_m2m3['text'].append(cond_st_acc['text']);
+                                                            cond_gen_2a['m2_m3'])[-1];
+                    cg_acc_m2m3['m1'].append(cond_st_acc['m1']);
+                    cg_acc_m2m3['m2'].append(cond_st_acc['m2']);
+                    cg_acc_m2m3['m3'].append(cond_st_acc['m3']);
 
                     if flags.modality_jsd:
                         cond_dp_ms_acc = classify_cond_gen_samples(flags,
                                                                    epoch,
                                                                    clfs_gen,
                                                                    labels,
-                                                                   cond_gen_dp['img_mnist_img_svhn'])[-1];
-                        cg_acc_dp_m1m2['img_mnist'].append(cond_dp_ms_acc['img_mnist']);
-                        cg_acc_dp_m1m2['img_svhn'].append(cond_dp_ms_acc['img_svhn']);
-                        cg_acc_dp_m1m2['text'].append(cond_dp_ms_acc['text']);
+                                                                   cond_gen_dp['m1_m2'])[-1];
+                        cg_acc_dp_m1m2['m1'].append(cond_dp_ms_acc['m1']);
+                        cg_acc_dp_m1m2['m2'].append(cond_dp_ms_acc['m2']);
+                        cg_acc_dp_m1m2['m3'].append(cond_dp_ms_acc['m3']);
                         cond_dp_mt_acc = classify_cond_gen_samples(flags,
                                                                epoch,
                                                                clfs_gen,
                                                                labels,
-                                                               cond_gen_dp['img_mnist_text'])[-1];
-                        cg_acc_dp_m1m3['img_mnist'].append(cond_dp_mt_acc['img_mnist']);
-                        cg_acc_dp_m1m3['img_svhn'].append(cond_dp_mt_acc['img_svhn']);
-                        cg_acc_dp_m1m3['text'].append(cond_dp_mt_acc['text']);
+                                                               cond_gen_dp['m1_m3'])[-1];
+                        cg_acc_dp_m1m3['m1'].append(cond_dp_mt_acc['m1']);
+                        cg_acc_dp_m1m3['m2'].append(cond_dp_mt_acc['m2']);
+                        cg_acc_dp_m1m3['m3'].append(cond_dp_mt_acc['m3']);
                         cond_dp_st_acc = classify_cond_gen_samples(flags,
                                                                    epoch,
                                                                    clfs_gen,
                                                                    labels,
-                                                                   cond_gen_dp['img_svhn_text'])[-1];
-                        cg_acc_dp_m2m3['img_mnist'].append(cond_dp_st_acc['img_mnist']);
-                        cg_acc_dp_m2m3['img_svhn'].append(cond_dp_st_acc['img_svhn']);
-                        cg_acc_dp_m2m3['text'].append(cond_dp_st_acc['text']);
+                                                                   cond_gen_dp['m2_m3'])[-1];
+                        cg_acc_dp_m2m3['m1'].append(cond_dp_st_acc['m1']);
+                        cg_acc_dp_m2m3['m2'].append(cond_dp_st_acc['m2']);
+                        cg_acc_dp_m2m3['m3'].append(cond_dp_st_acc['m3']);
 
             if train:
                 if iteration == (num_batches_epoch - 1):
@@ -449,7 +456,7 @@ def run_epoch(epoch, vae_trimodal, optimizer, data, writer, alphabet, train=Fals
                     accuracies = classify_latent_representations(flags, epoch, clf_lr, data, labels);
                     lr_acc_m1_c.append(np.mean(accuracies['mnist']))
                     lr_acc_m2_c.append(np.mean(accuracies['svhn']))
-                    lr_acc_m3_c.append(np.mean(accuracies['text']))
+                    lr_acc_m3_c.append(np.mean(accuracies['m3']))
                     lr_acc_m1m2.append(np.mean(accuracies['ms']))
                     lr_acc_m1m3.append(np.mean(accuracies['mt']))
                     lr_acc_m2m3.append(np.mean(accuracies['st']))
@@ -460,7 +467,7 @@ def run_epoch(epoch, vae_trimodal, optimizer, data, writer, alphabet, train=Fals
                     if flags.factorized_representation:
                         lr_acc_m1_s.append(np.mean(accuracies['mnist_style']))
                         lr_acc_m2_s.append(np.mean(accuracies['svhn_style']))
-                        lr_acc_m3_s.append(np.mean(accuracies['text_style']))
+                        lr_acc_m3_s.append(np.mean(accuracies['m3_style']))
 
         # backprop
         if train == True:
@@ -524,66 +531,66 @@ def run_epoch(epoch, vae_trimodal, optimizer, data, writer, alphabet, train=Fals
             # mnist to mnist: swapping content and style intra modal
             swapping_figs = generate_swapping_plot(flags, epoch, vae_trimodal,
                                                    SAMPLE1, alphabet)
-            swaps_mnist_content = swapping_figs['img_mnist'];
-            swaps_svhn_content = swapping_figs['img_svhn'];
-            swaps_text_content = swapping_figs['text'];
-            swap_mnist_mnist = swaps_mnist_content['img_mnist'];
-            swap_mnist_svhn = swaps_mnist_content['img_svhn'];
-            swap_mnist_text = swaps_mnist_content['text'];
-            swap_svhn_mnist = swaps_svhn_content['img_mnist'];
-            swap_svhn_svhn = swaps_svhn_content['img_svhn'];
-            swap_svhn_text = swaps_svhn_content['text'];
-            swap_text_mnist = swaps_text_content['img_mnist'];
-            swap_text_svhn = swaps_text_content['img_svhn'];
-            swap_text_text = swaps_text_content['text'];
+            swaps_mnist_content = swapping_figs['m1'];
+            swaps_svhn_content = swapping_figs['m2'];
+            swaps_m3_content = swapping_figs['m3'];
+            swap_mnist_mnist = swaps_mnist_content['m1'];
+            swap_mnist_svhn = swaps_mnist_content['m2'];
+            swap_mnist_m3 = swaps_mnist_content['m3'];
+            swap_svhn_mnist = swaps_svhn_content['m1'];
+            swap_svhn_svhn = swaps_svhn_content['m2'];
+            swap_svhn_m3 = swaps_svhn_content['m3'];
+            swap_m3_mnist = swaps_m3_content['m1'];
+            swap_m3_svhn = swaps_m3_content['m2'];
+            swap_m3_m3 = swaps_m3_content['m3'];
             writer.add_image('Swapping mnist to mnist', swap_mnist_mnist, epoch, dataformats="HWC")
             writer.add_image('Swapping mnist to svhn', swap_mnist_svhn, epoch, dataformats="HWC")
-            writer.add_image('Swapping mnist to text', swap_mnist_text, epoch, dataformats="HWC")
+            writer.add_image('Swapping mnist to m3', swap_mnist_m3, epoch, dataformats="HWC")
             writer.add_image('Swapping svhn to mnist', swap_svhn_mnist, epoch, dataformats="HWC")
             writer.add_image('Swapping svhn to svhn', swap_svhn_svhn, epoch, dataformats="HWC")
-            writer.add_image('Swapping svhn to text', swap_svhn_text, epoch, dataformats="HWC")
-            writer.add_image('Swapping text to mnist', swap_text_mnist, epoch, dataformats="HWC")
-            writer.add_image('Swapping text to svhn', swap_text_svhn, epoch, dataformats="HWC")
-            writer.add_image('Swapping text to text', swap_text_text, epoch, dataformats="HWC")
+            writer.add_image('Swapping svhn to m3', swap_svhn_m3, epoch, dataformats="HWC")
+            writer.add_image('Swapping m3 to mnist', swap_m3_mnist, epoch, dataformats="HWC")
+            writer.add_image('Swapping m3 to svhn', swap_m3_svhn, epoch, dataformats="HWC")
+            writer.add_image('Swapping m3 to m3', swap_m3_m3, epoch, dataformats="HWC")
 
         conditional_figs = generate_conditional_fig_1a(flags, epoch, vae_trimodal, SAMPLE1, alphabet)
-        figs_cond_mnist = conditional_figs['img_mnist'];
-        figs_cond_svhn = conditional_figs['img_svhn'];
-        figs_cond_text = conditional_figs['text'];
-        cond_mnist_mnist = figs_cond_mnist['img_mnist'];
-        cond_mnist_svhn = figs_cond_mnist['img_svhn'];
-        cond_mnist_text = figs_cond_mnist['text'];
-        cond_svhn_mnist = figs_cond_svhn['img_mnist'];
-        cond_svhn_svhn = figs_cond_svhn['img_svhn'];
-        cond_svhn_text = figs_cond_svhn['text'];
-        cond_text_mnist = figs_cond_text['img_mnist'];
-        cond_text_svhn = figs_cond_text['img_svhn'];
-        cond_text_text = figs_cond_text['text'];
+        figs_cond_mnist = conditional_figs['m1'];
+        figs_cond_svhn = conditional_figs['m2'];
+        figs_cond_m3 = conditional_figs['m3'];
+        cond_mnist_mnist = figs_cond_mnist['m1'];
+        cond_mnist_svhn = figs_cond_mnist['m2'];
+        cond_mnist_m3 = figs_cond_mnist['m3'];
+        cond_svhn_mnist = figs_cond_svhn['m1'];
+        cond_svhn_svhn = figs_cond_svhn['m2'];
+        cond_svhn_m3 = figs_cond_svhn['m3'];
+        cond_m3_mnist = figs_cond_m3['m1'];
+        cond_m3_svhn = figs_cond_m3['m2'];
+        cond_m3_m3 = figs_cond_m3['m3'];
         writer.add_image('Cond_mnist_to_mnist', cond_mnist_mnist, epoch, dataformats="HWC")
         writer.add_image('Cond_mnist_to_svhn', cond_mnist_svhn, epoch, dataformats="HWC")
-        writer.add_image('Cond_mnist_to_text', cond_mnist_text, epoch, dataformats="HWC")
+        writer.add_image('Cond_mnist_to_m3', cond_mnist_m3, epoch, dataformats="HWC")
         writer.add_image('Cond_svhn_to_mnist', cond_svhn_mnist, epoch, dataformats="HWC")
         writer.add_image('Cond_svhn_to_svhn', cond_svhn_svhn, epoch, dataformats="HWC")
-        writer.add_image('Cond_svhn_to_text', cond_svhn_text, epoch, dataformats="HWC")
-        writer.add_image('Cond_text_to_mnist', cond_text_mnist, epoch, dataformats="HWC")
-        writer.add_image('Cond_text_to_svhn', cond_text_svhn, epoch, dataformats="HWC")
-        writer.add_image('Cond_text_to_text', cond_text_text, epoch, dataformats="HWC")
+        writer.add_image('Cond_svhn_to_m3', cond_svhn_m3, epoch, dataformats="HWC")
+        writer.add_image('Cond_m3_to_mnist', cond_m3_mnist, epoch, dataformats="HWC")
+        writer.add_image('Cond_m3_to_svhn', cond_m3_svhn, epoch, dataformats="HWC")
+        writer.add_image('Cond_m3_to_m3', cond_m3_m3, epoch, dataformats="HWC")
 
         conditional_figs_2a = generate_conditional_fig_2a(flags, epoch,
                                                           vae_trimodal,
                                                           SAMPLE1, alphabet);
         figs_cond_ms = conditional_figs_2a['mnist_svhn'];
-        figs_cond_mt = conditional_figs_2a['mnist_text'];
-        figs_cond_st = conditional_figs_2a['svhn_text'];
-        cond_ms_m = figs_cond_ms['img_mnist'];
-        cond_ms_s = figs_cond_ms['img_svhn'];
-        cond_ms_t = figs_cond_ms['text'];
-        cond_mt_m = figs_cond_mt['img_mnist'];
-        cond_mt_s = figs_cond_mt['img_svhn'];
-        cond_mt_t = figs_cond_mt['text'];
-        cond_st_m = figs_cond_st['img_mnist'];
-        cond_st_s = figs_cond_st['img_svhn'];
-        cond_st_t = figs_cond_st['text'];
+        figs_cond_mt = conditional_figs_2a['mnist_m3'];
+        figs_cond_st = conditional_figs_2a['svhn_m3'];
+        cond_ms_m = figs_cond_ms['m1'];
+        cond_ms_s = figs_cond_ms['m2'];
+        cond_ms_t = figs_cond_ms['m3'];
+        cond_mt_m = figs_cond_mt['m1'];
+        cond_mt_s = figs_cond_mt['m2'];
+        cond_mt_t = figs_cond_mt['m3'];
+        cond_st_m = figs_cond_st['m1'];
+        cond_st_s = figs_cond_st['m2'];
+        cond_st_t = figs_cond_st['m3'];
         writer.add_image('Cond_ms_to_m', cond_ms_m, epoch, dataformats="HWC")
         writer.add_image('Cond_ms_to_s', cond_ms_s, epoch, dataformats="HWC")
         writer.add_image('Cond_ms_to_t', cond_ms_t, epoch, dataformats="HWC")
@@ -596,42 +603,42 @@ def run_epoch(epoch, vae_trimodal, optimizer, data, writer, alphabet, train=Fals
 
         random_figs = generate_random_samples_plots(flags, epoch,
                                                     vae_trimodal, alphabet);
-        random_mnist = random_figs['img_mnist'];
-        random_svhn = random_figs['img_svhn'];
-        random_text = random_figs['text'];
+        random_mnist = random_figs['m1'];
+        random_svhn = random_figs['m2'];
+        random_m3 = random_figs['m3'];
         writer.add_image('Random MNIST', random_mnist, epoch, dataformats="HWC");
         writer.add_image('Random SVHN', random_svhn, epoch, dataformats="HWC");
-        writer.add_image('Random Text', random_text, epoch, dataformats="HWC");
+        writer.add_image('Random Text', random_m3, epoch, dataformats="HWC");
 
         if train == False:
             if (epoch + 1) % flags.eval_freq == 0 or (epoch + 1) == flags.end_epoch:
-                cg_acc_m1['img_mnist'] = np.mean(np.array(cg_acc_m1['img_mnist']))
-                cg_acc_m1['img_svhn'] = np.mean(np.array(cg_acc_m1['img_svhn']))
-                cg_acc_m1['text'] = np.mean(np.array(cg_acc_m1['text']))
-                cg_acc_m2['img_mnist'] = np.mean(np.array(cg_acc_m2['img_mnist']))
-                cg_acc_m2['img_svhn'] = np.mean(np.array(cg_acc_m2['img_svhn']))
-                cg_acc_m2['text'] = np.mean(np.array(cg_acc_m2['text']))
-                cg_acc_m3['img_mnist'] = np.mean(np.array(cg_acc_m3['img_mnist']))
-                cg_acc_m3['img_svhn'] = np.mean(np.array(cg_acc_m3['img_svhn']))
-                cg_acc_m3['text'] = np.mean(np.array(cg_acc_m3['text']))
+                cg_acc_m1['m1'] = np.mean(np.array(cg_acc_m1['m1']))
+                cg_acc_m1['m2'] = np.mean(np.array(cg_acc_m1['m2']))
+                cg_acc_m1['m3'] = np.mean(np.array(cg_acc_m1['m3']))
+                cg_acc_m2['m1'] = np.mean(np.array(cg_acc_m2['m1']))
+                cg_acc_m2['m2'] = np.mean(np.array(cg_acc_m2['m2']))
+                cg_acc_m2['m3'] = np.mean(np.array(cg_acc_m2['m3']))
+                cg_acc_m3['m1'] = np.mean(np.array(cg_acc_m3['m1']))
+                cg_acc_m3['m2'] = np.mean(np.array(cg_acc_m3['m2']))
+                cg_acc_m3['m3'] = np.mean(np.array(cg_acc_m3['m3']))
                 writer.add_scalars('%s/cond_mnist_clf_accuracy' % name,
                                    cg_acc_m1, step_logs)
                 writer.add_scalars('%s/cond_svhn_clf_accuracy' % name,
                                    cg_acc_m2, step_logs)
-                writer.add_scalars('%s/cond_text_clf_accuracy' % name,
+                writer.add_scalars('%s/cond_m3_clf_accuracy' % name,
                                    cg_acc_m3, step_logs)
                 writer.add_scalars('%s/coherence' % name, {
                     'random': np.mean(np.array(random_gen_acc)),
                 }, step_logs)
-                cg_acc_m1m2['img_mnist'] = np.mean(np.array(cg_acc_m1m2['img_mnist']))
-                cg_acc_m1m2['img_svhn'] = np.mean(np.array(cg_acc_m1m2['img_svhn']))
-                cg_acc_m1m2['text'] = np.mean(np.array(cg_acc_m1m2['text']))
-                cg_acc_m1m3['img_mnist'] = np.mean(np.array(cg_acc_m1m3['img_mnist']))
-                cg_acc_m1m3['img_svhn'] = np.mean(np.array(cg_acc_m1m3['img_svhn']))
-                cg_acc_m1m3['text'] = np.mean(np.array(cg_acc_m1m3['text']))
-                cg_acc_m2m3['img_mnist'] = np.mean(np.array(cg_acc_m2m3['img_mnist']))
-                cg_acc_m2m3['img_svhn'] = np.mean(np.array(cg_acc_m2m3['img_svhn']))
-                cg_acc_m2m3['text'] = np.mean(np.array(cg_acc_m2m3['text']))
+                cg_acc_m1m2['m1'] = np.mean(np.array(cg_acc_m1m2['m1']))
+                cg_acc_m1m2['m2'] = np.mean(np.array(cg_acc_m1m2['m2']))
+                cg_acc_m1m2['m3'] = np.mean(np.array(cg_acc_m1m2['m3']))
+                cg_acc_m1m3['m1'] = np.mean(np.array(cg_acc_m1m3['m1']))
+                cg_acc_m1m3['m2'] = np.mean(np.array(cg_acc_m1m3['m2']))
+                cg_acc_m1m3['m3'] = np.mean(np.array(cg_acc_m1m3['m3']))
+                cg_acc_m2m3['m1'] = np.mean(np.array(cg_acc_m2m3['m1']))
+                cg_acc_m2m3['m2'] = np.mean(np.array(cg_acc_m2m3['m2']))
+                cg_acc_m2m3['m3'] = np.mean(np.array(cg_acc_m2m3['m3']))
                 writer.add_scalars('%s/cond_ms_clf_accuracy' % name,
                                    cg_acc_m1m2, step_logs)
                 writer.add_scalars('%s/cond_mt_clf_accuracy' % name,
@@ -639,15 +646,15 @@ def run_epoch(epoch, vae_trimodal, optimizer, data, writer, alphabet, train=Fals
                 writer.add_scalars('%s/cond_st_clf_accuracy' % name,
                                    cg_acc_m2m3, step_logs)
                 if flags.modality_jsd:
-                    cg_acc_dp_m1m2['img_mnist'] = np.mean(np.array(cg_acc_dp_m1m2['img_mnist']))
-                    cg_acc_dp_m1m2['img_svhn'] = np.mean(np.array(cg_acc_dp_m1m2['img_svhn']))
-                    cg_acc_dp_m1m2['text'] = np.mean(np.array(cg_acc_dp_m1m2['text']))
-                    cg_acc_dp_m1m3['img_mnist'] = np.mean(np.array(cg_acc_dp_m1m3['img_mnist']))
-                    cg_acc_dp_m1m3['img_svhn'] = np.mean(np.array(cg_acc_dp_m1m3['img_svhn']))
-                    cg_acc_dp_m1m3['text'] = np.mean(np.array(cg_acc_dp_m1m3['text']))
-                    cg_acc_dp_m2m3['img_mnist'] = np.mean(np.array(cg_acc_dp_m2m3['img_mnist']))
-                    cg_acc_dp_m2m3['img_svhn'] = np.mean(np.array(cg_acc_dp_m2m3['img_svhn']))
-                    cg_acc_dp_m2m3['text'] = np.mean(np.array(cg_acc_dp_m2m3['text']))
+                    cg_acc_dp_m1m2['m1'] = np.mean(np.array(cg_acc_dp_m1m2['m1']))
+                    cg_acc_dp_m1m2['m2'] = np.mean(np.array(cg_acc_dp_m1m2['m2']))
+                    cg_acc_dp_m1m2['m3'] = np.mean(np.array(cg_acc_dp_m1m2['m3']))
+                    cg_acc_dp_m1m3['m1'] = np.mean(np.array(cg_acc_dp_m1m3['m1']))
+                    cg_acc_dp_m1m3['m2'] = np.mean(np.array(cg_acc_dp_m1m3['m2']))
+                    cg_acc_dp_m1m3['m3'] = np.mean(np.array(cg_acc_dp_m1m3['m3']))
+                    cg_acc_dp_m2m3['m1'] = np.mean(np.array(cg_acc_dp_m2m3['m1']))
+                    cg_acc_dp_m2m3['m2'] = np.mean(np.array(cg_acc_dp_m2m3['m2']))
+                    cg_acc_dp_m2m3['m3'] = np.mean(np.array(cg_acc_dp_m2m3['m3']))
                     writer.add_scalars('%s/cond_st_dp_clf_accuracy' % name,
                                        cg_acc_dp_m1m2, step_logs)
                     writer.add_scalars('%s/cond_mt_dp_clf_accuracy' % name,
@@ -678,21 +685,21 @@ def run_epoch(epoch, vae_trimodal, optimizer, data, writer, alphabet, train=Fals
                     writer.add_scalars('%s/marginal_loglikelihood' % name, {
                         'mnist_mnist': np.mean(ll_mnist_mnist),
                         'mnist_svhn': np.mean(ll_mnist_svhn),
-                        'mnist_text': np.mean(ll_mnist_text),
+                        'mnist_m3': np.mean(ll_mnist_m3),
                         'mnist_joint': np.mean(ll_mnist_joint),
                         'svhn_mnist': np.mean(ll_svhn_mnist),
                         'svhn_svhn': np.mean(ll_svhn_svhn),
-                        'svhn_text': np.mean(ll_svhn_text),
+                        'svhn_m3': np.mean(ll_svhn_m3),
                         'svhn_joint': np.mean(ll_svhn_joint),
-                        'text_mnist': np.mean(ll_text_mnist),
-                        'text_svhn': np.mean(ll_text_svhn),
-                        'text_text': np.mean(ll_text_svhn),
-                        'text_joint': np.mean(ll_text_joint),
+                        'm3_mnist': np.mean(ll_m3_mnist),
+                        'm3_svhn': np.mean(ll_m3_svhn),
+                        'm3_m3': np.mean(ll_m3_svhn),
+                        'm3_joint': np.mean(ll_m3_joint),
                         'synergy_mnist': np.mean(ll_joint_mnist),
                         'synergy_svhn': np.mean(ll_joint_svhn),
-                        'synergy_text': np.mean(ll_joint_text),
+                        'synergy_m3': np.mean(ll_joint_m3),
                         'joint': np.mean(ll_joint_joint),
-                        'ms_text': np.mean(ll_ms_text),
+                        'ms_m3': np.mean(ll_ms_m3),
                         'ms_joint': np.mean(ll_ms_joint),
                         'mt_svhn': np.mean(ll_mt_svhn),
                         'mt_joint': np.mean(ll_mt_joint),
@@ -700,15 +707,24 @@ def run_epoch(epoch, vae_trimodal, optimizer, data, writer, alphabet, train=Fals
                         'st_joint': np.mean(ll_st_joint),
                     }, step_logs)
         if ((epoch + 1) % flags.eval_freq_fid == 0 or (epoch + 1) == flags.end_epoch):
-            cond_1a2m = {'img_mnist': os.path.join(flags.dir_gen_eval_fid_cond_gen_1a2m, 'mnist'),
-                         'img_svhn': os.path.join(flags.dir_gen_eval_fid_cond_gen_1a2m, 'svhn'),
-                         'text': os.path.join(flags.dir_gen_eval_fid_cond_gen_1a2m, 'text')}
-            cond_2a1m = {'img_mnist_img_svhn': os.path.join(flags.dir_gen_eval_fid_cond_gen_2a1m, 'mnist_svhn'),
-                         'img_mnist_text': os.path.join(flags.dir_gen_eval_fid_cond_gen_2a1m, 'mnist_text'),
-                         'img_svhn_text': os.path.join(flags.dir_gen_eval_fid_cond_gen_2a1m, 'svhn_text')}
-            dyn_prior_2a = {'img_mnist_img_svhn': os.path.join(flags.dir_gen_eval_fid_dynamicprior, 'mnist_svhn'),
-                            'img_mnist_text': os.path.join(flags.dir_gen_eval_fid_dynamicprior, 'mnist_text'),
-                            'img_svhn_text': os.path.join(flags.dir_gen_eval_fid_dynamicprior, 'svhn_text')}
+            cond_1a2m = {'m1': os.path.join(flags.dir_gen_eval_fid_cond_gen_1a2m, 'mnist'),
+                         'm2': os.path.join(flags.dir_gen_eval_fid_cond_gen_1a2m, 'svhn'),
+                         'm3':
+                         os.path.join(flags.dir_gen_eval_fid_cond_gen_1a2m, 'm3')}
+            cond_2a1m = {'m1_m2': os.path.join(flags.dir_gen_eval_fid_cond_gen_2a1m, 'mnist_svhn'),
+                         'm1_m3':
+                         os.path.join(flags.dir_gen_eval_fid_cond_gen_2a1m,
+                                      'mnist_m3'),
+                         'm2_m3':
+                         os.path.join(flags.dir_gen_eval_fid_cond_gen_2a1m,
+                                      'svhn_m3')}
+            dyn_prior_2a = {'m1_m2': os.path.join(flags.dir_gen_eval_fid_dynamicprior, 'mnist_svhn'),
+                            'm1_m3':
+                            os.path.join(flags.dir_gen_eval_fid_dynamicprior,
+                                         'mnist_m3'),
+                            'm2_m3':
+                            os.path.join(flags.dir_gen_eval_fid_dynamicprior,
+                                         'svhn_m3')}
             if (epoch+1) == flags.eval_freq_fid:
                 paths = {'real': flags.dir_gen_eval_fid_real,
                          'conditional_1a2m': cond_1a2m,
@@ -720,15 +736,17 @@ def run_epoch(epoch, vae_trimodal, optimizer, data, writer, alphabet, train=Fals
                          'random': flags.dir_gen_eval_fid_random}
             if flags.modality_jsd:
                 paths['dynamic_prior'] = dyn_prior_2a;
-            calculate_inception_features_for_gen_evaluation(flags, paths, modality='img_mnist');
-            calculate_inception_features_for_gen_evaluation(flags, paths, modality='img_svhn');
+            calculate_inception_features_for_gen_evaluation(flags, paths,
+                                                            modality='m1');
+            calculate_inception_features_for_gen_evaluation(flags, paths,
+                                                            modality='m2');
             if flags.modality_poe or flags.modality_moe:
                 conds = [cond_1a2m, cond_2a1m];
             else:
                 conds = [cond_1a2m, cond_2a1m, dyn_prior_2a];
-            act_svhn = load_inception_activations(flags, 'img_svhn', num_modalities=3, conditionals=conds);
+            act_svhn = load_inception_activations(flags, 'm2', num_modalities=3, conditionals=conds);
             [act_inc_real_svhn, act_inc_rand_svhn, cond_1a2m_svhn, cond_2a1m_svhn, act_inc_dynprior_svhn] = act_svhn;
-            act_mnist = load_inception_activations(flags, 'img_mnist', num_modalities=3, conditionals=conds)
+            act_mnist = load_inception_activations(flags, 'm1', num_modalities=3, conditionals=conds)
             [act_inc_real_mnist, act_inc_rand_mnist, cond_1a2m_mnist, cond_2a1m_mnist, act_inc_dynprior_mnist] = act_mnist;
             fid_random_svhn = calculate_fid(act_inc_real_svhn, act_inc_rand_svhn);
             fid_cond_2a1m_svhn = calculate_fid_dict(act_inc_real_svhn, cond_2a1m_svhn);
@@ -751,35 +769,35 @@ def run_epoch(epoch, vae_trimodal, optimizer, data, writer, alphabet, train=Fals
             writer.add_scalars('%s/fid' % name, {
                 'mnist_random': fid_random_mnist,
                 'svhn_random': fid_random_svhn,
-                'svhn_cond_1a2m_svhn': fid_cond_1a2m_svhn['img_svhn'],
-                'svhn_cond_1a2m_mnist': fid_cond_1a2m_svhn['img_mnist'],
-                'svhn_cond_1a2m_text': fid_cond_1a2m_svhn['text'],
-                'mnist_cond_1a2m_svhn': fid_cond_1a2m_mnist['img_svhn'],
-                'mnist_cond_1a2m_mnist': fid_cond_1a2m_mnist['img_mnist'],
-                'mnist_cond_1a2m_text': fid_cond_1a2m_mnist['text'],
-                'svhn_2a1m_mnist_text': fid_cond_2a1m_svhn['img_mnist_text'],
-                'mnist_2a1m_svhn_text': fid_cond_2a1m_mnist['img_svhn_text'],
+                'svhn_cond_1a2m_svhn': fid_cond_1a2m_svhn['m2'],
+                'svhn_cond_1a2m_mnist': fid_cond_1a2m_svhn['m1'],
+                'svhn_cond_1a2m_m3': fid_cond_1a2m_svhn['m3'],
+                'mnist_cond_1a2m_svhn': fid_cond_1a2m_mnist['m2'],
+                'mnist_cond_1a2m_mnist': fid_cond_1a2m_mnist['m1'],
+                'mnist_cond_1a2m_m3': fid_cond_1a2m_mnist['m3'],
+                'svhn_2a1m_mnist_m3': fid_cond_2a1m_svhn['m1_m3'],
+                'mnist_2a1m_svhn_m3': fid_cond_2a1m_mnist['m2_m3'],
             }, step_logs)
             writer.add_scalars('%s/prd' % name, {
                 'mnist_random': ap_prd_random_mnist,
                 'svhn_random': ap_prd_random_svhn,
-                'svhn_cond_1a2m_svhn': ap_prd_cond_1a2m_svhn['img_svhn'],
-                'svhn_cond_1a2m_mnist': ap_prd_cond_1a2m_svhn['img_mnist'],
-                'svhn_cond_1a2m_text': ap_prd_cond_1a2m_svhn['text'],
-                'mnist_cond_1a2m_svhn': ap_prd_cond_1a2m_mnist['img_svhn'],
-                'mnist_cond_1a2m_mnist': ap_prd_cond_1a2m_mnist['img_mnist'],
-                'mnist_cond_1a2m_text': ap_prd_cond_1a2m_mnist['text'],
-                'svhn_2a1m_mnist_text': ap_prd_cond_2a1m_svhn['img_mnist_text'],
-                'mnist_2a1m_svhn_text': ap_prd_cond_2a1m_mnist['img_svhn_text'],
+                'svhn_cond_1a2m_svhn': ap_prd_cond_1a2m_svhn['m2'],
+                'svhn_cond_1a2m_mnist': ap_prd_cond_1a2m_svhn['m1'],
+                'svhn_cond_1a2m_m3': ap_prd_cond_1a2m_svhn['m3'],
+                'mnist_cond_1a2m_svhn': ap_prd_cond_1a2m_mnist['m2'],
+                'mnist_cond_1a2m_mnist': ap_prd_cond_1a2m_mnist['m1'],
+                'mnist_cond_1a2m_m3': ap_prd_cond_1a2m_mnist['m3'],
+                'svhn_2a1m_mnist_m3': ap_prd_cond_2a1m_svhn['m1_m3'],
+                'mnist_2a1m_svhn_m3': ap_prd_cond_2a1m_mnist['m2_m3'],
             }, step_logs)
             if flags.modality_jsd:
                 writer.add_scalars('%s/fid' % name, {
-                    'mnist_dp_2a1m_st': fid_dp_2a1m_mnist['img_svhn_text'],
-                    'svhn_dp_2a1m_mt': fid_dp_2a1m_svhn['img_mnist_text'],
+                    'mnist_dp_2a1m_st': fid_dp_2a1m_mnist['m2_m3'],
+                    'svhn_dp_2a1m_mt': fid_dp_2a1m_svhn['m1_m3'],
                 }, step_logs)
                 writer.add_scalars('%s/prd' % name, {
-                    'mnist_dp_2a1m_st': ap_prd_dp_2a1m_mnist['img_svhn_text'],
-                    'svhn_dp_2a1m_mt': ap_prd_dp_2a1m_svhn['img_mnist_text'],
+                    'mnist_dp_2a1m_st': ap_prd_dp_2a1m_mnist['m2_m3'],
+                    'svhn_dp_2a1m_mt': ap_prd_dp_2a1m_svhn['m1_m3'],
                 }, step_logs)
     return step_logs, clf_lr;
 
@@ -816,18 +834,18 @@ def training_svhnmnist(FLAGS):
 
     model_clf_svhn = None;
     model_clf_mnist = None;
-    model_clf_text = None;
+    model_clf_m3 = None;
     if FLAGS.use_clf:
         model_clf_mnist = ClfImgMNIST();
         model_clf_mnist.load_state_dict(torch.load(os.path.join(FLAGS.dir_clf, FLAGS.clf_save_m1)))
         model_clf_svhn = ClfImgSVHN();
         model_clf_svhn.load_state_dict(torch.load(os.path.join(FLAGS.dir_clf, FLAGS.clf_save_m2)))
-        model_clf_text = ClfText(FLAGS);
-        model_clf_text.load_state_dict(torch.load(os.path.join(FLAGS.dir_clf, FLAGS.clf_save_m3)))
+        model_clf_m3 = ClfText(FLAGS);
+        model_clf_m3.load_state_dict(torch.load(os.path.join(FLAGS.dir_clf, FLAGS.clf_save_m3)))
 
     vae_trimodal = vae_trimodal.to(FLAGS.device);
-    if model_clf_text is not None:
-        model_clf_text = model_clf_text.to(FLAGS.device);
+    if model_clf_m3 is not None:
+        model_clf_m3 = model_clf_m3.to(FLAGS.device);
     if model_clf_mnist is not None:
         model_clf_mnist = model_clf_mnist.to(FLAGS.device);
     if model_clf_svhn is not None:
@@ -843,7 +861,7 @@ def training_svhnmnist(FLAGS):
     writer = SummaryWriter(FLAGS.dir_logs)
 
     str_flags = utils.save_and_log_flags(FLAGS);
-    writer.add_text('FLAGS', str_flags, 0)
+    writer.add_m3('FLAGS', str_flags, 0)
 
     print('training epochs progress:')
     it_num_batches = 0;
@@ -854,7 +872,7 @@ def training_svhnmnist(FLAGS):
                                            train=True, flags=FLAGS,
                                            model_clf_svhn=model_clf_svhn,
                                            model_clf_mnist=model_clf_mnist,
-                                           model_clf_text=model_clf_text,
+                                           model_clf_m3=model_clf_m3,
                                            clf_lr=None,
                                            step_logs=it_num_batches)
 
@@ -863,7 +881,7 @@ def training_svhnmnist(FLAGS):
                                                train=False, flags=FLAGS,
                                                model_clf_svhn=model_clf_svhn,
                                                model_clf_mnist=model_clf_mnist,
-                                               model_clf_text=model_clf_text,
+                                               model_clf_m3=model_clf_m3,
                                                clf_lr=clf_lr,
                                                step_logs=it_num_batches)
 

@@ -4,7 +4,7 @@ import shutil
 from datetime import datetime
 
 from utils.constants_celeba import CLASSES_STR
-from utils.constants_dsprites import CATS
+from mimic.constants import LABELS as LABELS_MIMIC
 
 def create_dir(dir_name):
     if not os.path.exists(dir_name):
@@ -20,6 +20,13 @@ def get_str_experiments(flags):
     str_experiments = flags.dataset + '_' + dateStr;
     return str_experiments
 
+
+def create_dir_structure_testing_mimic(flags):
+    for k, label_str in enumerate(LABELS_MIMIC):
+        dir_gen_eval_label = os.path.join(flags.dir_gen_eval, label_str)
+        create_dir(dir_gen_eval_label)
+        dir_inference_label = os.path.join(flags.dir_inference, label_str)
+        create_dir(dir_inference_label)
 
 
 def create_dir_structure_testing_celeba(flags):
@@ -72,8 +79,8 @@ def create_dir_structure(flags, train=True):
     if train and flags.dataset == 'CelebA':
         create_dir_structure_testing_celeba(flags);
 
-    if train and flags.dataset == 'DSprites':
-        create_dir_structure_testing_dsprites(flags);
+    if train and flags.dataset == 'Mimic':
+        create_dir_structure_testing_mimic(flags);
 
     if flags.dir_fid is None:
         flags.dir_fid = flags.dir_experiment_run;
@@ -92,9 +99,8 @@ def create_dir_structure(flags, train=True):
 
     flags.dir_gen_eval_fid_cond_gen_1a2m = os.path.join(flags.dir_fid, 'fid', 'cond_gen_1a2m')
     flags.dir_gen_eval_fid_cond_gen_2a1m = os.path.join(flags.dir_fid, 'fid', 'cond_gen_2a1m')
-    if flags.dataset == 'SVHN_MNIST_text':
-        create_dir(flags.dir_gen_eval_fid_cond_gen_1a2m)
-        create_dir(flags.dir_gen_eval_fid_cond_gen_2a1m)
+    create_dir(flags.dir_gen_eval_fid_cond_gen_1a2m)
+    create_dir(flags.dir_gen_eval_fid_cond_gen_2a1m)
 
 
     flags.dir_plots = os.path.join(flags.dir_experiment_run, 'plots')
@@ -104,18 +110,14 @@ def create_dir_structure(flags, train=True):
     if train:
         create_dir(flags.dir_swapping)
 
-    flags.dir_cond_gen = os.path.join(flags.dir_plots, 'cond_gen')
-    if train:
-        create_dir(flags.dir_cond_gen)
-
     flags.dir_random_samples = os.path.join(flags.dir_plots, 'random_samples')
     if train:
         create_dir(flags.dir_random_samples)
 
     flags.dir_cond_gen_1a = os.path.join(flags.dir_plots, 'cond_gen_1a')
     flags.dir_cond_gen_2a = os.path.join(flags.dir_plots, 'cond_gen_2a')
-    if train and flags.dataset == 'SVHN_MNIST_text':
-        create_dir(flags.dir_cond_gen_1a)
+    if train:
         create_dir(flags.dir_cond_gen_2a)
+        create_dir(flags.dir_cond_gen_1a)
 
     return flags;

@@ -22,10 +22,10 @@ from PIL import ImageDraw
 
 from utils import utils
 from utils import plot
-from utils.constants_svhnmnist import indices
 from utils.save_samples import write_samples_text_to_file
 from divergence_measures.mm_div import alpha_poe, poe
 
+from mnistsvhntext.constants import indices
 
 transform_plot = transforms.Compose([transforms.ToPILImage(),
                                      transforms.Resize(size=(28, 28), interpolation=Image.BICUBIC),
