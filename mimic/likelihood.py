@@ -21,7 +21,9 @@ from divergence_measures.mm_div import alpha_poe
 from mimic.constants_mimic import MODS
 
 
-def calc_log_likelihood_batch(flags, mod, batch, model, mod_weights, num_imp_samples=10):
+def calc_log_likelihood_batch(exp, mod, batch, model, num_imp_samples=10):
+    flags = exp.flags;
+    mod_weights = exp.style_weights;
     pa_batch, lateral_batch, text_batch, labels_batch = batch;
     num_samples_batch, p1, p2, p3 = pa_batch.shape;
     num_samples_batch, l1, l2, l3 = lateral_batch.shape;

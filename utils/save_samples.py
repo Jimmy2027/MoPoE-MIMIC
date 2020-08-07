@@ -5,7 +5,6 @@ import pandas as pd
 import torch
 from torchvision.utils import save_image
 
-from utils.text import tensor_to_text
 
 def append_list_to_list_linear(l1, l2):
     for k in range(0, len(l2)):
@@ -33,37 +32,18 @@ def write_samples_img_to_file(samples, filename, img_per_row=1):
     save_image(samples.data.cpu(), filename, nrow=img_per_row);
 
 
-def save_generated_samples_singlegroup(flags, batch_id, alphabet, group_name, samples):
-    if group_name == 'real':
-        dir_name = flags.dir_gen_eval_fid_real;
-    elif group_name == 'random_sampling':
-        dir_name = flags.dir_gen_eval_fid_random;
-    elif group_name.startswith('dynamic_prior'):
-        mod_store = flags.dir_gen_eval_fid_dynamicprior;
-        dir_name = os.path.join(mod_store, '_'.join(group_name.split('_')[-2:]));
-    elif group_name.startswith('cond_gen_1a2m'):
-        mod_store = flags.dir_gen_eval_fid_cond_gen_1a2m;
-        dir_name = os.path.join(mod_store, group_name.split('_')[-1]);
-    elif group_name.startswith('cond_gen_2a1m'):
-        mod_store = flags.dir_gen_eval_fid_cond_gen_2a1m;
-        dir_name = os.path.join(mod_store, '_'.join(group_name.split('_')[-2:]));
-    elif group_name == 'cond_gen':
-        dir_name = flags.dir_gen_eval_fid_cond_gen;
-    else:
-        print('group name not defined....exit')
-        sys.exit();
-
+def save_generated_samples_singlegroup(exp, batch_id, group_name, samples):
+    dir_save = exp.paths_fid[group_name];
     for k, key in enumerate(samples.keys()):
-        dir_f = os.path.join(dir_name, key);
+        dir_f = os.path.join(dir_save, key);
         if not os.path.exists(dir_f):
             os.makedirs(dir_f);
 
-    cnt_samples = batch_id * flags.batch_size;
-    for k in range(0, flags.batch_size):
+    cnt_samples = batch_id * exp.flags.batch_size;
+    for k in range(0, exp.flags.batch_size):
         for i, key in enumerate(samples.keys()):
-            f_out = os.path.join(dir_name, key, str(cnt_samples).zfill(6) + '.png')
-            if key.startswith('img'):
-                save_image(samples[key][k], f_out, nrow=1);
-            elif key == 'text':
-                write_samples_text_to_file(tensor_to_text(alphabet, samples[key][k].unsqueeze(0)), f_out);
+            mod = exp.modalities[key];
+            fn_out = os.path.join(dir_save, key, str(cnt_samples).zfill(6) +
+                                  mod.file_suffix);
+            mod.save_data(samples[key][k], fn_out, {'img_per_row': 1});
         cnt_samples += 1;

@@ -118,12 +118,13 @@ class SVHNMNIST(VisionDataset):
         warnings.warn("test_data has been renamed data")
         return self.data_mnist
 
-    def __init__(self, dir_data, len_sequence,  alphabet, train=True, transform=None, target_transform=None, data_multiplications=20):
-        super(SVHNMNIST, self).__init__(dir_data)
+    def __init__(self, flags,  alphabet, train=True, transform=None, target_transform=None):
+        super(SVHNMNIST, self).__init__(flags.dir_data)
+        self.flags = flags;
         self.dataset = 'MNIST_SVHN';
         self.dataset_mnist = 'MNIST';
         self.dataset_svhn = 'SVHN';
-        self.len_sequence = len_sequence
+        self.len_sequence = flags.len_sequence
         self.transform = transform
         self.target_transform = target_transform
         self.train = train  # training set or test set
@@ -177,12 +178,13 @@ class SVHNMNIST(VisionDataset):
         self.data_mnist, self.labels_mnist = torch.load(os.path.join(self.processed_folder, data_file_mnist));
 
         # # get transformed indices
-        # self.mnist_idx = torch.load(os.path.join(self.root, self.dataset, 'processed', id_file_mnist));
-        # self.svhn_idx = torch.load(os.path.join(self.root, self.dataset, 'processed', id_file_svhn));
         self.labels_svhn = torch.LongTensor(self.labels_svhn);
         mnist_l, mnist_li = self.labels_mnist.sort()
         svhn_l, svhn_li = self.labels_svhn.sort()
-        self.mnist_idx, self.svhn_idx = rand_match_on_idx(mnist_l, mnist_li, svhn_l, svhn_li, max_d=10000, dm=data_multiplications)
+        self.mnist_idx, self.svhn_idx = rand_match_on_idx(mnist_l, mnist_li,
+                                                          svhn_l, svhn_li,
+                                                          max_d=10000,
+                                                          dm=flags.data_multiplications)
 
     def __getitem__(self, index):
         """
@@ -206,7 +208,6 @@ class SVHNMNIST(VisionDataset):
                 img_mnist = self.transform[0](img_mnist);
                 img_svhn = self.transform[1](img_svhn);
 
-
         if target_mnist == target_svhn:
             text_target = create_text_from_label_mnist(self.len_sequence, target_mnist, self.alphabet)
         else:
@@ -220,7 +221,8 @@ class SVHNMNIST(VisionDataset):
         else:
             target = target_mnist;
 
-        return img_mnist, img_svhn, text_target, target
+        batch = {'mnist': img_mnist, 'svhn': img_svhn, 'text': text_target}
+        return batch, target
 
     def __len__(self):
         return len(self.mnist_idx)

@@ -36,18 +36,12 @@ def create_dir_structure_testing_celeba(flags):
         dir_inference_label = os.path.join(flags.dir_inference, label_str)
         create_dir(dir_inference_label)
 
-def create_dir_structure_testing_dsprites(flags):
-    for k, name_str in enumerate(CATS):
-        dir_gen_eval_label = os.path.join(flags.dir_gen_eval, name_str)
-        create_dir(dir_gen_eval_label)
-        dir_inference_label = os.path.join(flags.dir_inference, name_str)
-        create_dir(dir_inference_label)
-
 
 def create_dir_structure(flags, train=True):
     if train:
         str_experiments = get_str_experiments(flags)
         flags.dir_experiment_run = os.path.join(flags.dir_experiment, str_experiments)
+        flags.str_experiment = str_experiments;
     else:
         flags.dir_experiment_run = flags.dir_experiment;
 
@@ -88,19 +82,21 @@ def create_dir_structure(flags, train=True):
         flags.dir_fid = os.path.join(flags.dir_experiment_run, 'fid_eval');
         if not os.path.exists(flags.dir_fid):
             os.makedirs(flags.dir_fid);
-    flags.dir_gen_eval_fid_cond_gen = os.path.join(flags.dir_fid, 'fid', 'conditional_generation')
-    flags.dir_gen_eval_fid_real = os.path.join(flags.dir_fid, 'fid', 'real')
-    flags.dir_gen_eval_fid_random = os.path.join(flags.dir_fid, 'fid', 'random_sampling')
-    flags.dir_gen_eval_fid_dynamicprior = os.path.join(flags.dir_fid, 'fid', 'dynamic_prior')
-    create_dir(flags.dir_gen_eval_fid_cond_gen)
-    create_dir(flags.dir_gen_eval_fid_real)
-    create_dir(flags.dir_gen_eval_fid_random)
-    create_dir(flags.dir_gen_eval_fid_dynamicprior)
+    flags.dir_gen_eval_fid = os.path.join(flags.dir_fid, 'fid');
+    create_dir(flags.dir_gen_eval_fid)
+    #flags.dir_gen_eval_fid_cond_gen = os.path.join(flags.dir_fid, 'fid', 'conditional_generation')
+    #flags.dir_gen_eval_fid_real = os.path.join(flags.dir_fid, 'fid', 'real')
+    #flags.dir_gen_eval_fid_random = os.path.join(flags.dir_fid, 'fid', 'random_sampling')
+    #flags.dir_gen_eval_fid_dynamicprior = os.path.join(flags.dir_fid, 'fid', 'dynamic_prior')
+    #create_dir(flags.dir_gen_eval_fid_cond_gen)
+    #create_dir(flags.dir_gen_eval_fid_real)
+    #create_dir(flags.dir_gen_eval_fid_random)
+    #create_dir(flags.dir_gen_eval_fid_dynamicprior)
 
-    flags.dir_gen_eval_fid_cond_gen_1a2m = os.path.join(flags.dir_fid, 'fid', 'cond_gen_1a2m')
-    flags.dir_gen_eval_fid_cond_gen_2a1m = os.path.join(flags.dir_fid, 'fid', 'cond_gen_2a1m')
-    create_dir(flags.dir_gen_eval_fid_cond_gen_1a2m)
-    create_dir(flags.dir_gen_eval_fid_cond_gen_2a1m)
+    #flags.dir_gen_eval_fid_cond_gen_1a2m = os.path.join(flags.dir_fid, 'fid', 'cond_gen_1a2m')
+    #flags.dir_gen_eval_fid_cond_gen_2a1m = os.path.join(flags.dir_fid, 'fid', 'cond_gen_2a1m')
+    #create_dir(flags.dir_gen_eval_fid_cond_gen_1a2m)
+    #create_dir(flags.dir_gen_eval_fid_cond_gen_2a1m)
 
 
     flags.dir_plots = os.path.join(flags.dir_experiment_run, 'plots')
@@ -114,9 +110,11 @@ def create_dir_structure(flags, train=True):
     if train:
         create_dir(flags.dir_random_samples)
 
+    flags.dir_cond_gen = os.path.join(flags.dir_plots, 'cond_gen')
     flags.dir_cond_gen_1a = os.path.join(flags.dir_plots, 'cond_gen_1a')
     flags.dir_cond_gen_2a = os.path.join(flags.dir_plots, 'cond_gen_2a')
     if train:
+        create_dir(flags.dir_cond_gen)
         create_dir(flags.dir_cond_gen_2a)
         create_dir(flags.dir_cond_gen_1a)
 

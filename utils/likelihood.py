@@ -9,16 +9,20 @@ from divergence_measures.mm_div import alpha_poe
 LOG2PI = float(np.log(2.0 * math.pi))
 
 
-def get_latent_samples(flags, latents, mod_names):
+def get_latent_samples(flags, latents, n_imp_samples, mod_names=None):
     l_c = latents['content'];
     l_s = latents['style'];
-    c_emb = utils.reparameterize(l_c[0], l_c[1]);
+    l_c_m_rep = l_c[0].unsqueeze(0).repeat(n_imp_samples, 1, 1);
+    l_c_lv_rep = l_c[1].unsqueeze(0).repeat(n_imp_samples, 1, 1);
+    c_emb = utils.reparameterize(l_c_m_rep, l_c_lv_rep);
     styles = dict();
-    c = {'mu': l_c[0], 'logvar': l_c[1], 'z': c_emb}
+    c = {'mu': l_c_m_rep, 'logvar': l_c_lv_rep, 'z': c_emb}
     if flags.factorized_representation:
         for k, key in enumerate(l_s.keys()):
-            s_emb = utils.reparameterize(l_s[key][0], l_s[key][1]);
-            s = {'mu': l_s[key][0], 'logvar': l_s[key][1], 'z': s_emb}
+            l_s_m_rep = l_s[0].unsqueeze(0).repeat(n_imp_samples, 1, 1);
+            l_s_lv_rep = l_s[1].unsqueeze(0).repeat(n_imp_samples, 1, 1);
+            s_emb = utils.reparameterize(l_s_m_rep, l_s_lv_rep);
+            s = {'mu': l_s_m_rep, 'logvar': l_s_lv_rep, 'z': s_emb}
             styles[key] = s;
     else:
         for k, key in enumerate(mod_names):
@@ -97,10 +101,20 @@ def log_marginal_estimate(flags, n_samples, likelihood, image, style, content, d
         style_log_q_z_given_x_2d = gaussian_log_pdf(z_style, mu_style, logvar_style);
         log_p_z_2d_style = unit_gaussian_log_pdf(z_style)
 
+    d_shape = image.shape;
+    if len(d_shape) == 3:
+        image = image.unsqueeze(0).repeat(n_samples, 1, 1, 1);
+        image = image.view(batch_size*n_samples, d_shape[-2], d_shape[-1])
+    elif len(d_shape) == 4:
+        image = image.unsqueeze(0).repeat(n_samples, 1, 1, 1, 1);
+        image = image.view(batch_size*n_samples, d_shape[-3], d_shape[-2],
+                           d_shape[-1])
+    
     z_content = content['z']
     mu_content = content['mu'];
     logvar_content = content['logvar'];
-    log_p_x_given_z_2d = likelihood.log_prob(image).view(batch_size*n_samples,-1).sum(dim=1)
+    log_p_x_given_z_2d = likelihood.log_prob(image).view(batch_size*n_samples,
+                                                        -1).sum(dim=1)
     content_log_q_z_given_x_2d = gaussian_log_pdf(z_content, mu_content, logvar_content);
 
 
@@ -123,6 +137,9 @@ def log_marginal_estimate(flags, n_samples, likelihood, image, style, content, d
     # need to compute normalization constant for weights
     # i.e. log ( mean ( exp ( log_weights ) ) )
     log_p = log_mean_exp(log_weight, dim=1)
+    del image
+    del likelihood
+    torch.cuda.empty_cache()
     return torch.mean(log_p)
 
 
@@ -166,9 +183,17 @@ def log_joint_estimate(flags, n_samples, likelihoods, targets, styles, content, 
     log_px_zs = torch.zeros(num_mods, batch_size * n_samples);
     log_px_zs = log_px_zs.to(flags.device);
     for k, key in enumerate(styles.keys()):
-        batch = targets[key]
+        batch_d = targets[key]
+        d_shape = batch_d.shape;
+        if len(d_shape) == 3:
+            batch_d = batch_d.unsqueeze(0).repeat(n_samples, 1, 1, 1);
+            batch_d = batch_d.view(batch_size*n_samples, d_shape[-2], d_shape[-1])
+        elif len(d_shape) == 4:
+            batch_d = batch_d.unsqueeze(0).repeat(n_samples, 1, 1, 1, 1);
+            batch_d = batch_d.view(batch_size*n_samples, d_shape[-3], d_shape[-2],
+                               d_shape[-1])
         lhood = likelihoods[key]
-        log_p_x_given_z_2d = lhood.log_prob(batch).view(batch_size * n_samples, -1).sum(dim=1);
+        log_p_x_given_z_2d = lhood.log_prob(batch_d).view(batch_size * n_samples, -1).sum(dim=1);
         log_px_zs[k] = log_p_x_given_z_2d;
 
     # compute components of likelihood estimate
@@ -179,7 +204,7 @@ def log_joint_estimate(flags, n_samples, likelihoods, targets, styles, content, 
     else:
         mu_prior = dynamic_prior['mu'];
         logvar_prior = dynamic_prior['logvar'];
-        log_p_z_2d_content = gaussian_log_pdf(z2d_content, mu_prior, logvar_prior);
+        log_p_z_2d_content = gaussian_log_pdf(z_content, mu_prior, logvar_prior);
 
     content_log_q_z_given_x_2d = gaussian_log_pdf(z_content, mu_content, logvar_content);
     log_p_z_2d = log_p_z_2d_content;
@@ -193,6 +218,11 @@ def log_joint_estimate(flags, n_samples, likelihoods, targets, styles, content, 
     log_weight_2d = log_joint_zs_2d + log_p_z_2d - log_q_z_given_x_2d;
     log_weight = log_weight_2d.view(batch_size, n_samples)
     log_p = log_mean_exp(log_weight, dim=1)
+    del likelihoods
+    del targets
+    del styles
+    del content
+    torch.cuda.empty_cache()
     return torch.mean(log_p)
 
 

@@ -19,8 +19,7 @@ def create_fig(fn, img_data, num_img_row):
     return plot;
 
 
-def text_to_pil(t, imgsize, alphabet):
-    w = 128; h=128;
+def text_to_pil(t, imgsize, alphabet, w=128, h=128):
     blank_img = torch.ones([3, w, h]);
     pil_img = transforms.ToPILImage()(blank_img.cpu()).convert("RGB")
     draw = ImageDraw.Draw(pil_img)

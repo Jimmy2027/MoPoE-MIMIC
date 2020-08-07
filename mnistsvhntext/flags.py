@@ -3,10 +3,10 @@ import argparse
 
 parser = argparse.ArgumentParser()
 
+parser.add_argument('--name', type=str, default='MNISTSVHNText', help="name of the dataset")
 parser.add_argument('--dataset', type=str, default='SVHN_MNIST_text', help="name of the dataset")
 
 # training
-parser.add_argument('--cuda', type=bool, default=True, help="run the following code on a GPU")
 parser.add_argument('--batch_size', type=int, default=256, help="batch size for training")
 parser.add_argument('--initial_learning_rate', type=float, default=0.0005, help="starting learning rate")
 parser.add_argument('--beta_1', type=float, default=0.9, help="default beta_1 val for adam")
@@ -15,6 +15,7 @@ parser.add_argument('--start_epoch', type=int, default=0, help="flag to set the 
 parser.add_argument('--end_epoch', type=int, default=100, help="flag to indicate the final epoch of training")
 
 
+parser.add_argument('--num_mods', type=int, default=3, help="dimension of varying factor latent space")
 parser.add_argument('--style_m1_dim', type=int, default=0, help="dimension of varying factor latent space")
 parser.add_argument('--style_m2_dim', type=int, default=0, help="dimension of varying factor latent space")
 parser.add_argument('--style_m3_dim', type=int, default=0, help="dimension of varying factor latent space")
@@ -40,7 +41,7 @@ parser.add_argument('--encoder_save_m3', type=str, default='encoderM3', help="mo
 parser.add_argument('--decoder_save_m1', type=str, default='decoderM1', help="model save for decoder")
 parser.add_argument('--decoder_save_m2', type=str, default='decoderM2', help="model save for decoder")
 parser.add_argument('--decoder_save_m3', type=str, default='decoderM3', help="model save for decoder")
-parser.add_argument('--vae_trimodal_save', type=str, default='vae_trimodal', help="model save for vae_bimodal")
+parser.add_argument('--mm_vae_save', type=str, default='mm_vae', help="model save for vae_bimodal")
 parser.add_argument('--load_saved', type=bool, default=False, help="flag to indicate if a saved model will be loaded")
 
 #classifiers
@@ -54,7 +55,13 @@ parser.add_argument('--eval_freq', type=int, default=10, help="frequency of eval
 parser.add_argument('--eval_freq_fid', type=int, default=10, help="frequency of evaluation of latent representation of generative performance (in number of epochs)")
 parser.add_argument('--num_samples_fid', type=int, default=10000,
                     help="number of samples the calculation of fid is based on")
-parser.add_argument('--calc_nll', type=bool, default=True, help="flag to indicate calculation of nll")
+parser.add_argument('--num_samples_lr', type=int, default=256,
+                    help="number of training samples for the training of the latent representation clf")
+parser.add_argument('--calc_nll', type=bool, default=False, help="flag to indicate calculation of nll")
+parser.add_argument('--eval_lr', type=bool, default=True,
+                    help="flag to indicate evaluation of lr")
+parser.add_argument('--calc_prd', type=bool, default=True,
+                    help="flag to indicate calculation of prec-rec for gen model")
 
 #fid_score
 parser.add_argument('--inception_state_dict', type=str, default='../inception_state_dict.pth', help="path to inception v3 state dict")
