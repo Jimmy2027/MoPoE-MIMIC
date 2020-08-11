@@ -4,7 +4,7 @@ import json
 
 import torch
 
-from mnistsvhntext.training import run_epochs
+from run_epochs import run_epochs
 
 from utils.filehandling import create_dir_structure
 from mnistsvhntext.flags import parser

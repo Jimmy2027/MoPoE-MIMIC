@@ -8,17 +8,23 @@ import torch
 import torch.nn as nn
 from torch.autograd import Variable
 
-from sklearn.metrics import precision_score
-from sklearn.metrics import recall_score
-from sklearn.metrics import f1_score
-from sklearn.metrics import confusion_matrix
-from sklearn.metrics import accuracy_score
-from sklearn.linear_model import LogisticRegression
-
 from utils import utils
 from utils import plot
 
-from mnistsvhntext.constants import indices
+
+def generate_plots(exp, epoch):
+    plots = dict();
+    if exp.flags.factorized_representation:
+        # mnist to mnist: swapping content and style intra modal
+        swapping_figs = generate_swapping_plot(exp, epoch)
+        plots['swapping'] = swapping_figs;
+
+    for k in range(len(exp.modalities.keys())):
+        cond_k = generate_conditional_fig_M(exp, epoch, k+1)
+        plots['cond_gen_' + str(k+1).zfill(2)] = cond_k;
+
+    plots['random'] = generate_random_samples_plots(exp, epoch);
+    return plots;
 
 
 def generate_random_samples_plots(exp, epoch):
@@ -150,64 +156,4 @@ def generate_conditional_fig_M(exp, epoch, M):
                 plot_out = plot.create_fig(fn_out, rec, 10);
                 cond_plots[s_key_in + '__' + mod_out.name] = plot_out;
     return cond_plots;
-
-
-def classify_cond_gen_samples(exp, epoch, labels, cond_samples):
-    clfs = exp.clfs;
-    evals = dict();
-    for key in clfs:
-        if key in cond_samples:
-            mod_cond_gen = cond_samples[key];
-            mod_clf = clfs[key];
-            attr_hat = mod_clf(mod_cond_gen);
-            pred = np.argmax(attr_hat.cpu().data.numpy(), axis=1).astype(int);
-            evals[key] = exp.eval_metric(labels, pred);
-        else:
-            print(str(key) + 'not existing in cond_gen_samples');
-    return evals;
-
-
-def classify_latent_representations(exp, epoch, clf_lr, data, labels):
-    evals = dict()
-    for key in clf_lr:
-        data_rep = data[key];
-        clf_lr_rep = clf_lr[key];
-        y_pred_rep = clf_lr_rep.predict(data_rep);
-        eval_rep = exp.eval_metric(labels.cpu().data.numpy().ravel(),
-                                   y_pred_rep.ravel());
-        evals[key] = eval_rep;
-    return evals;
-
-
-def train_clf_lr(exp, data, labels):
-    clf_lr = dict();
-    for k, key in enumerate(data.keys()):
-        data_rep = data[key];
-        clf_lr_rep = LogisticRegression(random_state=0, solver='lbfgs', multi_class='auto', max_iter=1000);
-        clf_lr_rep.fit(data_rep, labels.cpu().data.numpy().ravel());
-        clf_lr[key] = clf_lr_rep;
-    return clf_lr;
-
-
-def calculate_coherence(exp, samples):
-    clfs = exp.clfs;
-    mods = exp.modalities;
-    pred_mods = np.zeros((len(mods.keys()), exp.flags.batch_size))
-    for k, m_key in enumerate(mods.keys()):
-        mod = mods[m_key];
-        clf_mod = clfs[mod.name];
-        samples_mod = samples[mod.name];
-        attr_mod = clf_mod(samples_mod);
-        output_prob_mod = attr_mod.cpu().data.numpy();
-        pred_mod = np.argmax(output_prob_mod, axis=1).astype(int);
-        pred_mods[k,:] = pred_mod;
-
-    for k, m_key in enumerate(mods.keys()):
-        if k > 0:
-            coh = (coh == pred_mods[k-1,:]);
-        else:
-            coh = (pred_mods[k,:] == pred_mods[k,:])
-
-    coherence = np.sum(coh) / np.sum(np.ones(coh.shape));
-    return coherence;
 

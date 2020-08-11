@@ -28,7 +28,7 @@ parser.add_argument('--num_channels_m1', type=int, default=1, help="number of ch
 parser.add_argument('--img_size_m2', type=int, default=32, help="img dimension (width/height)")
 parser.add_argument('--num_channels_m2', type=int, default=3, help="number of channels in images")
 parser.add_argument('--dim', type=int, default=64, help="number of classes on which the data set trained")
-parser.add_argument('--data_multiplications', type=int, default=20, help="number of pairs per sample")
+parser.add_argument('--data_multiplications', type=int, default=1, help="number of pairs per sample")
 parser.add_argument('--likelihood_m1', type=str, default='laplace', help="output distribution")
 parser.add_argument('--likelihood_m2', type=str, default='laplace', help="output distribution")
 parser.add_argument('--likelihood_m3', type=str, default='categorical', help="output distribution")
@@ -51,7 +51,7 @@ parser.add_argument('--clf_save_m2', type=str, default='clf_m2', help="model sav
 parser.add_argument('--clf_save_m3', type=str, default='clf_m3', help="model save for clf")
 parser.add_argument('--use_clf', type=bool, default=True, help="flag to indicate if generates samples should be classified")
 
-parser.add_argument('--eval_freq', type=int, default=10, help="frequency of evaluation of latent representation of generative performance (in number of epochs)")
+parser.add_argument('--eval_freq', type=int, default=1, help="frequency of evaluation of latent representation of generative performance (in number of epochs)")
 parser.add_argument('--eval_freq_fid', type=int, default=10, help="frequency of evaluation of latent representation of generative performance (in number of epochs)")
 parser.add_argument('--num_samples_fid', type=int, default=10000,
                     help="number of samples the calculation of fid is based on")

@@ -13,8 +13,7 @@ class TBLogger():
         self.step = 0;
 
 
-    def write_log_probs(self, name, log_probs):
-        self.writer.add_scalars('%s/LogProb' % name,
+    def write_log_probs(self, name, log_probs): self.writer.add_scalars('%s/LogProb' % name,
                                 log_probs,
                                 self.step)
 
@@ -50,10 +49,9 @@ class TBLogger():
                                 self.step)
 
 
-
     def write_coherence_logs(self, gen_eval):
         for k, key in enumerate(gen_eval.keys()):
-            if not key == 'random':
+            if key != 'random':
                 self.writer.add_scalars('%s/Generation %s' %
                                         (self.testing_prefix, key),
                                         gen_eval[key],
@@ -63,6 +61,8 @@ class TBLogger():
                                         (self.testing_prefix, key),
                                         {'coherence': gen_eval[key]},
                                         self.step)
+
+
     def write_lhood_logs(self, lhoods):
         for k, key in enumerate(lhoods.keys()):
             self.writer.add_scalars('%s/Likelihoods ' + key %

@@ -9,8 +9,6 @@ from PIL import ImageDraw
 from PIL import ImageFont
 from PIL import Image
 
-FONT = ImageFont.truetype('/cluster/home/suttetho/code/mmvae/FreeSerif.ttf',
-                          38)
 
 def create_fig(fn, img_data, num_img_row):
     save_image(img_data.data.cpu(), fn, nrow=num_img_row);
@@ -19,7 +17,7 @@ def create_fig(fn, img_data, num_img_row):
     return plot;
 
 
-def text_to_pil(t, imgsize, alphabet, w=128, h=128):
+def text_to_pil(t, imgsize, alphabet, font, w=128, h=128):
     blank_img = torch.ones([3, w, h]);
     pil_img = transforms.ToPILImage()(blank_img.cpu()).convert("RGB")
     draw = ImageDraw.Draw(pil_img)
@@ -28,16 +26,15 @@ def text_to_pil(t, imgsize, alphabet, w=128, h=128):
     y_text = h
     num_lines = len(lines);
     for l, line in enumerate(lines):
-        width, height = FONT.getsize(line)
-        draw.text((0, (h/2) - (num_lines/2 - l)*height), line, (0, 0, 0), font=FONT)
+        width, height = font.getsize(line)
+        draw.text((0, (h/2) - (num_lines/2 - l)*height), line, (0, 0, 0), font=font)
         y_text += height
     text_pil = transforms.ToTensor()(pil_img.resize((imgsize[1], imgsize[2]),
                                                     Image.ANTIALIAS));
     return text_pil;
 
 
-def text_to_pil_celeba(t, imgsize, alphabet):
-    w = 256; h=256;
+def text_to_pil_celeba(t, imgsize, alphabet, font, w=256, h=256):
     blank_img = torch.ones([3, w, h]);
     pil_img = transforms.ToPILImage()(blank_img.cpu()).convert("RGB")
     draw = ImageDraw.Draw(pil_img)
@@ -47,16 +44,15 @@ def text_to_pil_celeba(t, imgsize, alphabet):
     y_text = h
     num_lines = len(lines);
     for l, line in enumerate(lines):
-        width, height = FONT.getsize(line)
-        draw.text((0, (h/2) - (num_lines/2 - l)*height), line, (0, 0, 0), font=FONT)
+        width, height = font.getsize(line)
+        draw.text((0, (h/2) - (num_lines/2 - l)*height), line, (0, 0, 0), font=font)
         y_text += height
     text_pil = transforms.ToTensor()(pil_img.resize((imgsize[1], imgsize[2]),
                                                     Image.ANTIALIAS));
     return text_pil;
 
 
-def text_to_pil_mimic(t, imgsize, alphabet):
-    w = 512; h=512;
+def text_to_pil_mimic(t, imgsize, alphabet, font, w=512, h=512):
     blank_img = torch.ones([1, w, h]);
     pil_img = transforms.ToPILImage()(blank_img.cpu()).convert("RGB")
     draw = ImageDraw.Draw(pil_img)
@@ -66,8 +62,8 @@ def text_to_pil_mimic(t, imgsize, alphabet):
     y_text = h
     num_lines = len(lines);
     for l, line in enumerate(lines):
-        width, height = FONT.getsize(line)
-        draw.text((0, (h/2) - (num_lines/2 - l)*height), line, (0, 0, 0), font=FONT)
+        width, height = font.getsize(line)
+        draw.text((0, (h/2) - (num_lines/2 - l)*height), line, (0, 0, 0), font=font)
         y_text += height
     text_pil = transforms.ToTensor()(pil_img.resize((imgsize[1], imgsize[2]),
                                                     Image.ANTIALIAS).convert('L'));

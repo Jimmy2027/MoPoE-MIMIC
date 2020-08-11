@@ -11,6 +11,7 @@ import PIL.Image as Image
 from sklearn.metrics import accuracy_score
 
 #from utils.BaseExperiment import BaseExperiment
+from PIL import ImageFont
 
 from modalities.MNIST import MNIST
 from modalities.SVHN import SVHN
@@ -33,6 +34,8 @@ class MNISTSVHNText():
         self.dataset_name = flags.dataset;
         self.num_modalities = flags.num_mods;
         self.plot_img_size = torch.Size((3, 28, 28))
+        self.font = ImageFont.truetype('/cluster/home/suttetho/code/mmvae/FreeSerif.ttf',
+                                       38)
         self.alphabet = alphabet;
         self.flags.num_features = len(alphabet);
 
@@ -65,7 +68,8 @@ class MNISTSVHNText():
         mod3 = Text(EncoderText(self.flags), DecoderText(self.flags),
                     self.flags.len_sequence,
                     self.alphabet,
-                    self.plot_img_size);
+                    self.plot_img_size,
+                    self.font);
         mods = {mod1.name: mod1, mod2.name: mod2, mod3.name: mod3};
         return mods;
 

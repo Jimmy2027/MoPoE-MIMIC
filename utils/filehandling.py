@@ -3,7 +3,6 @@ import os
 import shutil
 from datetime import datetime
 
-from utils.constants_celeba import CLASSES_STR
 from mimic.constants import LABELS as LABELS_MIMIC
 
 def create_dir(dir_name):

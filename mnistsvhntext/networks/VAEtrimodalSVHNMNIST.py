@@ -210,27 +210,24 @@ class VAEtrimodalSVHNMNIST(nn.Module):
     def inference(self, input_batch):
         if 'mnist' in input_batch.keys():
             input_m1 = input_batch['mnist'];
+            num_samples = input_m1.shape[0];
         else:
             input_m1 = None;
         if 'svhn' in input_batch.keys():
             input_m2 = input_batch['svhn'];
+            num_samples = input_m2.shape[0];
         else:
             input_m2 = None;
         if 'text' in input_batch.keys():
             input_m3 = input_batch['text'];
+            num_samples = input_m3.shape[0];
         else:
             input_m3 = None;
         latents = dict();
         enc_mods = self.encode(i_m1=input_m1,
-                              i_m2=input_m2,
-                              i_m3=input_m3);
+                               i_m2=input_m2,
+                               i_m3=input_m3);
         latents['modalities'] = enc_mods;
-        if input_m1 is not None:
-            num_samples = input_m1.shape[0];
-        if input_m2 is not None:
-            num_samples = input_m2.shape[0];
-        if input_m3 is not None:
-            num_samples = input_m3.shape[0];
         mus = [torch.zeros(1, num_samples,
                            self.flags.class_dim).to(self.flags.device)];
         logvars = [torch.zeros(1, num_samples,
@@ -337,13 +334,13 @@ class VAEtrimodalSVHNMNIST(nn.Module):
         return {'mnist': cond_gen_m1, 'svhn': cond_gen_m2, 'text': cond_gen_m3}
 
 
-    def cond_generation_1a(self, latent_distributions, num_samples=None):
+    def cond_generation(self, latent_distributions, num_samples=None):
         if num_samples is None:
             num_samples = self.flags.batch_size;
 
         style_latents = self.get_random_styles(num_samples);
         cond_gen_samples = dict();
-        for k, key in enumerate(latent_distributions):
+        for k, key in enumerate(latent_distributions.keys()):
             [mu, logvar] = latent_distributions[key];
             content_rep = utils.reparameterize(mu=mu, logvar=logvar);
             latents = {'content': content_rep, 'style': style_latents}

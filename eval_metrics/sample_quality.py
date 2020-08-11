@@ -1,15 +1,7 @@
 import os
 
 import numpy as np
-import glob
-
-try:
-    from tqdm import tqdm
-except ImportError:
-    # If not tqdm is not available, provide a mock version of it
-    def tqdm(x): return x
-
-from scipy.misc import imread
+import glob 
 
 import torch
 from torch.autograd import Variable
@@ -64,55 +56,6 @@ def load_inception_activations(exp):
                     acts[mod.name][key] = feats;
     return acts;
 
-
-    #if modality is None:
-    #    filename_real = os.path.join(flags.dir_gen_eval_fid_real, 'real_img_activations.npy');
-    #    filename_random = os.path.join(flags.dir_gen_eval_fid_random, 'random_img_activations.npy')
-    #    filename_conditional = os.path.join(flags.dir_gen_eval_fid_cond_gen, 'conditional_img_activations.npy')
-    #    feats_real = np.load(filename_real);
-    #    feats_random = np.load(filename_random);
-    #    feats_cond = np.load(filename_conditional);
-    #    feats = [feats_real, feats_random, feats_cond];
-    #else:
-    #    filename_real = os.path.join(flags.dir_gen_eval_fid_real, 'real_' + modality + '_activations.npy');
-    #    filename_random = os.path.join(flags.dir_gen_eval_fid_random, 'random_sampling_' + modality + '_activations.npy')
-    #    feats_real = np.load(filename_real);
-    #    feats_random = np.load(filename_random);
-
-    #    if num_modalities == 2:
-    #        filename_cond_gen = os.path.join(flags.dir_gen_eval_fid_cond_gen, 'cond_gen_' + modality + '_activations.npy')
-    #        feats_cond_gen = np.load(filename_cond_gen);
-    #        feats = [feats_real, feats_random, feats_cond_gen];
-    #    elif num_modalities > 2:
-    #        if conditionals is None:
-    #            raise RuntimeError('conditionals are needed for num(M) > 2...')
-    #        feats_cond_1a2m = dict()
-    #        for k, key in enumerate(conditionals[0].keys()):
-    #            filename_cond_1a2m = os.path.join(conditionals[0][key], key + '_' + modality + '_activations.npy')
-    #            feats_cond_key = np.load(filename_cond_1a2m);
-    #            feats_cond_1a2m[key] = feats_cond_key
-
-    #        feats_cond_2a1m = dict()
-    #        for k, key in enumerate(conditionals[1].keys()):
-    #            filename_cond_1a2m = os.path.join(conditionals[1][key], key + '_' + modality + '_activations.npy')
-    #            feats_cond_key = np.load(filename_cond_1a2m);
-    #            feats_cond_2a1m[key] = feats_cond_key
-
-    #        if flags.modality_jsd:
-    #            if conditionals is None:
-    #                raise RuntimeError('conditionals are needed for num(M) > 2...')
-    #            feats_cond_dyn_prior_2a1m = dict()
-    #            for k, key in enumerate(conditionals[2].keys()):
-    #                filename_dp_2a1m = os.path.join(conditionals[2][key], key + '_' + modality + '_activations.npy')
-    #                feats_dp_key = np.load(filename_dp_2a1m);
-    #                feats_cond_dyn_prior_2a1m[key] = feats_dp_key
-    #        else:
-    #            feats_cond_dyn_prior_2a1m = None;
-
-    #        feats = [feats_real, feats_random, feats_cond_1a2m, feats_cond_2a1m, feats_cond_dyn_prior_2a1m];
-    #    else:
-    #        print('combinations of feature names and number of modalities is not correct');
-    #return feats;
 
 def calculate_inception_features_for_gen_evaluation(flags, paths, modality=None, dims=2048, batch_size=128):
     block_idx = InceptionV3.BLOCK_INDEX_BY_DIM[dims]
@@ -234,6 +177,20 @@ def get_clf_activations(flags, data, model):
     return act;
 
 
+def calc_prd_score(exp):
+    calc_inception_features(exp);
+    acts = load_inception_activations(exp);
+    ap_prds = dict();
+    for m, m_key in enumerate(exp.modalities.keys()):
+        mod = exp.modalities[m_key];
+        if mod.gen_quality_eval:
+            for k, key in enumerate(exp.subsets):
+                if key == '':
+                    continue;
+                ap_prd = calculate_prd(acts[mod.name]['real'],
+                                       acts[mod.name][key]);
+                ap_prds[key + '_' + mod.name] = ap_prd;
+    return ap_prds;
 
 
 

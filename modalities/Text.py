@@ -10,13 +10,14 @@ from utils.text import tensor_to_text
 
 
 class Text(Modality):
-    def __init__(self, enc, dec, len_sequence, alphabet, plotImgSize):
+    def __init__(self, enc, dec, len_sequence, alphabet, plotImgSize, font):
         self.name = 'text';
         self.likelihood_name = 'categorical';
         self.alphabet = alphabet;
         self.len_sequence = len_sequence;
         self.data_size = torch.Size((len(alphabet), len_sequence));
         self.plot_img_size = plotImgSize;
+        self.font = font;
         self.gen_quality_eval = False;
         self.file_suffix = '.txt';
         self.encoder = enc;
@@ -31,5 +32,6 @@ class Text(Modality):
 
  
     def plot_data(self, d):
-        out = plot.text_to_pil(d.unsqueeze(0), self.plot_img_size, self.alphabet)
+        out = plot.text_to_pil(d.unsqueeze(0), self.plot_img_size,
+                               self.alphabet, self.font)
         return out;
