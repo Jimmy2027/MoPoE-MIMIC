@@ -132,3 +132,10 @@ dmypy.json
 #swapping files from vim
 */*.py.swp
 */*.swp
+
+
+# project-specific
+data/
+runs/
+trained_classifiers/
+*.backup
