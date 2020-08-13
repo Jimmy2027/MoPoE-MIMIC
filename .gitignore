@@ -139,3 +139,6 @@ data/
 runs/
 trained_classifiers/
 *.backup
+pt_inception-2015-12-05-6726825d.pth
+*/lsf.o*
+lsf.o*
