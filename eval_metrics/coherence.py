@@ -30,6 +30,7 @@ def classify_cond_gen_samples(exp, epoch, labels, cond_samples):
 def calculate_coherence(exp, samples):
     clfs = exp.clfs;
     mods = exp.modalities;
+    # TODO: make work for num samples NOT EQUAL to batch_size
     pred_mods = np.zeros((len(mods.keys()), exp.flags.batch_size))
     for k, m_key in enumerate(mods.keys()):
         mod = mods[m_key];
@@ -40,23 +41,22 @@ def calculate_coherence(exp, samples):
         pred_mod = np.argmax(output_prob_mod, axis=1).astype(int);
         pred_mods[k,:] = pred_mod;
 
-    for k, m_key in enumerate(mods.keys()):
-        if k > 0:
-            coh = (coh == pred_mods[k-1,:]);
-        else:
-            coh = (pred_mods[k,:] == pred_mods[k,:])
-
-    coherence = np.sum(coh) / np.sum(np.ones(coh.shape));
+    coh_mods = np.all(pred_mods == pred_mods[0,:], axis = 0)
+    coherence = np.sum(coh_mods.astype(int))/float(exp.flags.batch_size);
     return coherence;
 
 
 def test_generation(epoch, exp):
     mods = exp.modalities;
     mm_vae = exp.mm_vae;
+    subsets = exp.subsets;
 
-    dict_mods = dict();
-    for m, m_key in enumerate(mods.keys()):
-        dict_mods[m_key] = [];
+    gen_perf = dict();
+    for k, s_key in enumerate(subsets.keys()):
+        if s_key != '':
+            gen_perf[s_key] = dict();
+            for m, m_key in enumerate(mods.keys()):
+                gen_perf[s_key][m_key] = [];
 
     d_loader = DataLoader(exp.dataset_test,
                           batch_size=exp.flags.batch_size,
@@ -64,8 +64,7 @@ def test_generation(epoch, exp):
                           num_workers=8, drop_last=True);
 
     num_batches_epoch = int(exp.dataset_test.__len__() /float(exp.flags.batch_size));
-    print('num batches test:' + str(num_batches_epoch))
-    gen_perf = dict();
+    cnt_s = 0;
     for iteration, batch in enumerate(d_loader):
         batch_d = batch[0];
         batch_l = batch[1];
@@ -89,9 +88,6 @@ def test_generation(epoch, exp):
         lr_subsets = inferred['subsets'];
         cg = mm_vae.cond_generation(lr_subsets)
         for k, s_key in enumerate(cg.keys()):
-            if s_key not in gen_perf.keys():
-                gen_perf[s_key] = dict_mods.copy();
-
             clf_cg = classify_cond_gen_samples(exp, epoch,
                                                batch_l,
                                                cg[s_key]);
