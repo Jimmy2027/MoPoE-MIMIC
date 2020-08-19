@@ -348,29 +348,6 @@ class VAEtrimodalSVHNMNIST(nn.Module):
         return cond_gen_samples;
 
 
-    def cond_generation_2a(self, latent_distribution_pairs, num_samples=None):
-        if num_samples is None:
-            num_samples = self.flags.batch_size;
-
-        style_latents = self.get_random_styles(num_samples);
-        cond_gen_2a = dict();
-        for p, pair in enumerate(latent_distribution_pairs.keys()):
-            ld_pair = latent_distribution_pairs[pair];
-            mu_list = []; logvar_list = [];
-            for k, key in enumerate(ld_pair['latents'].keys()):
-                mu_list.append(ld_pair['latents'][key][0].unsqueeze(0));
-                logvar_list.append(ld_pair['latents'][key][1].unsqueeze(0));
-            mus = torch.cat(mu_list, dim=0);
-            logvars = torch.cat(logvar_list, dim=0);
-            #weights_pair = utils.reweight_weights(torch.Tensor(ld_pair['weights']));
-            #mu_joint, logvar_joint = self.modality_fusion(mus, logvars, weights_pair)
-            mu_joint, logvar_joint = poe(mus, logvars);
-            c_emb = utils.reparameterize(mu_joint, logvar_joint);
-            l_2a = {'content': c_emb, 'style': style_latents};
-            cond_gen_2a[pair] = self.generate_from_latents(l_2a);
-        return cond_gen_2a;
-
-
     def save_networks(self):
         torch.save(self.encoder_m1.state_dict(), os.path.join(self.flags.dir_checkpoints, self.flags.encoder_save_m1))
         torch.save(self.decoder_m1.state_dict(), os.path.join(self.flags.dir_checkpoints, self.flags.decoder_save_m1))
