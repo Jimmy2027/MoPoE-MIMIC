@@ -206,7 +206,7 @@ def test(epoch, exp, tb_logger):
             lhoods = estimate_likelihoods(exp);
             tb_logger.write_lhood_logs(lhoods);
 
-        if exp.flags.calc_prd:
+        if exp.flags.calc_prd and (exp.flags.eval_freq_fid % (epoch + 1) == 0):
             prd_scores = calc_prd_score(exp);
             tb_logger.write_prd_scores(prd_scores)
 
