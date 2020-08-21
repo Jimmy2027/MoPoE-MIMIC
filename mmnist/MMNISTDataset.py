@@ -122,7 +122,7 @@ class MMNISTDataset(Dataset):
         """
         files = [self.file_paths[dp][index] for dp in self.unimodal_datapaths]
         images = [Image.open(files[m]) for m in range(self.num_modalities)]
-        labels = [int(files[m].split(".")[1]) for m in range(self.num_modalities)]
+        labels = [int(files[m].split(".")[-2]) for m in range(self.num_modalities)]
 
         # transforms
         if self.transform:
