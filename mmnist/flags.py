@@ -66,6 +66,8 @@ parser.add_argument('--eval_lr', type=bool, default=True,
                     help="flag to indicate evaluation of lr")
 parser.add_argument('--calc_prd', type=bool, default=True,
                     help="flag to indicate calculation of prec-rec for gen model")
+parser.add_argument('--save_figure', default=False, action="store_true",
+                    help="flag to indicate if figures should be saved to disk (in addition to tensorboard logs)")
 
 #fid_score
 parser.add_argument('--inception_state_dict', type=str, default='../inception_state_dict.pth', help="path to inception v3 state dict")

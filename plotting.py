@@ -46,7 +46,7 @@ def generate_random_samples_plots(exp, epoch):
         fn = os.path.join(exp.flags.dir_random_samples, 'random_epoch_' +
                              str(epoch).zfill(4) + '_' + m_key + '.png');
         mod_plot = random_plots[m_key];
-        p = plot.create_fig(fn, mod_plot, 10);
+        p = plot.create_fig(fn, mod_plot, 10, save_figure=exp.flags.save_figure);
         random_plots[m_key] = p;
     return random_plots;
 
@@ -83,7 +83,7 @@ def generate_swapping_plot(exp, epoch):
                     fn_comb = (mod_in.name + '_to_' + mod_out.name + '_epoch_'
                                + str(epoch).zfill(4) + '.png');
                     fn = os.path.join(exp.flags.dir_swapping, fn_comb);
-                    swap_plot = plot.create_fig(fn, rec, 11);
+                    swap_plot = plot.create_fig(fn, rec, 11, save_figure=exp.flags.save_figure);
                     swap_plots[mod_in.name + '_' + mod_out.name] = swap_plot;
     return swap_plots;
 
@@ -152,7 +152,7 @@ def generate_conditional_fig_M(exp, epoch, M):
                 fn_comb = (s_key_in + '_to_' + mod_out.name + '_epoch_' +
                            str(epoch).zfill(4) + '.png')
                 fn_out = os.path.join(exp.flags.dir_cond_gen, fn_comb);
-                plot_out = plot.create_fig(fn_out, rec, 10);
+                plot_out = plot.create_fig(fn_out, rec, 10, save_figure=exp.flags.save_figure);
                 cond_plots[s_key_in + '__' + mod_out.name] = plot_out;
     return cond_plots;
 
