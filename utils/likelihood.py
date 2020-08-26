@@ -137,9 +137,6 @@ def log_marginal_estimate(flags, n_samples, likelihood, image, style, content, d
     # need to compute normalization constant for weights
     # i.e. log ( mean ( exp ( log_weights ) ) )
     log_p = log_mean_exp(log_weight, dim=1)
-    del image
-    del likelihood
-    torch.cuda.empty_cache()
     return torch.mean(log_p)
 
 
@@ -218,11 +215,6 @@ def log_joint_estimate(flags, n_samples, likelihoods, targets, styles, content, 
     log_weight_2d = log_joint_zs_2d + log_p_z_2d - log_q_z_given_x_2d;
     log_weight = log_weight_2d.view(batch_size, n_samples)
     log_p = log_mean_exp(log_weight, dim=1)
-    del likelihoods
-    del targets
-    del styles
-    del content
-    torch.cuda.empty_cache()
     return torch.mean(log_p)
 
 

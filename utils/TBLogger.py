@@ -40,11 +40,10 @@ class TBLogger():
                 self.writer.add_scalars('%s/logvar' % name,
                                         {key: l_mods[key][1].mean().item()},
                                         self.step)
-    
+
 
     def write_lr_eval(self, lr_eval):
-        self.writer.add_scalars('%s/Latent Representation' %
-                                self.testing_prefix,
+        self.writer.add_scalars('Latent Representation',
                                 lr_eval,
                                 self.step)
 
@@ -52,30 +51,28 @@ class TBLogger():
     def write_coherence_logs(self, gen_eval):
         for k, key in enumerate(gen_eval.keys()):
             if key != 'random':
-                self.writer.add_scalars('%s/Generation %s' %
-                                        (self.testing_prefix, key),
+                self.writer.add_scalars('Generation/%s' %
+                                        (key),
                                         gen_eval[key],
                                         self.step)
             else:
-                self.writer.add_scalars('%s/Generation %s'%
-                                        (self.testing_prefix, key),
+                self.writer.add_scalars('Generation/%s'%
+                                        (key),
                                         {'coherence': gen_eval[key]},
                                         self.step)
 
 
     def write_lhood_logs(self, lhoods):
         for k, key in enumerate(lhoods.keys()):
-            self.writer.add_scalars('%s/Likelihoods ' + key %
-                                    self.testing_prefix,
+            self.writer.add_scalars('Likelihoods/%s'%
+                                    (key),
                                     lhoods[key],
                                     self.step)
 
     def write_prd_scores(self, prd_scores):
-        self.writer.add_scalars('%s/PRD' %
-                                self.testing_prefix,
+        self.writer.add_scalars('PRD',
                                 prd_scores,
                                 self.step)
-
 
 
     def write_plots(self, plots, epoch):

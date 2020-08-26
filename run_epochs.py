@@ -167,48 +167,49 @@ def train(epoch, exp, tb_logger):
 
 
 def test(epoch, exp, tb_logger):
-    mm_vae = exp.mm_vae;
-    mm_vae.eval();
-    exp.mm_vae = mm_vae;
+    with torch.no_grad():
+        mm_vae = exp.mm_vae;
+        mm_vae.eval();
+        exp.mm_vae = mm_vae;
 
-    # set up weights
-    beta_style = exp.flags.beta_style;
-    beta_content = exp.flags.beta_content;
-    beta = exp.flags.beta;
-    rec_weight = 1.0;
+        # set up weights
+        beta_style = exp.flags.beta_style;
+        beta_content = exp.flags.beta_content;
+        beta = exp.flags.beta;
+        rec_weight = 1.0;
 
-    d_loader = DataLoader(exp.dataset_test, batch_size=exp.flags.batch_size,
-                        shuffle=True,
-                        num_workers=8, drop_last=True);
+        d_loader = DataLoader(exp.dataset_test, batch_size=exp.flags.batch_size,
+                            shuffle=True,
+                            num_workers=8, drop_last=True);
 
-    for iteration, batch in enumerate(d_loader):
-        basic_routine = basic_routine_epoch(exp, batch);
-        results = basic_routine['results'];
-        total_loss = basic_routine['total_loss'];
-        klds = basic_routine['klds'];
-        log_probs = basic_routine['log_probs'];
-        tb_logger.write_testing_logs(results, total_loss, log_probs, klds);
+        for iteration, batch in enumerate(d_loader):
+            basic_routine = basic_routine_epoch(exp, batch);
+            results = basic_routine['results'];
+            total_loss = basic_routine['total_loss'];
+            klds = basic_routine['klds'];
+            log_probs = basic_routine['log_probs'];
+            tb_logger.write_testing_logs(results, total_loss, log_probs, klds);
 
-    plots = generate_plots(exp, epoch);
-    tb_logger.write_plots(plots, epoch);
+        plots = generate_plots(exp, epoch);
+        tb_logger.write_plots(plots, epoch);
 
-    if (epoch + 1) % exp.flags.eval_freq == 0 or (epoch + 1) == exp.flags.end_epoch:
-        if exp.flags.eval_lr:
-            clf_lr = train_clf_lr_all_subsets(exp);
-            lr_eval = test_clf_lr_all_subsets(epoch, clf_lr, exp);
-            tb_logger.write_lr_eval(lr_eval);
+        if (epoch + 1) % exp.flags.eval_freq == 0 or (epoch + 1) == exp.flags.end_epoch:
+            if exp.flags.eval_lr:
+                clf_lr = train_clf_lr_all_subsets(exp);
+                lr_eval = test_clf_lr_all_subsets(epoch, clf_lr, exp);
+                tb_logger.write_lr_eval(lr_eval);
 
-        if exp.flags.use_clf:
-            gen_eval = test_generation(epoch, exp);
-            tb_logger.write_coherence_logs(gen_eval);
+            if exp.flags.use_clf:
+                gen_eval = test_generation(epoch, exp);
+                tb_logger.write_coherence_logs(gen_eval);
 
-        if exp.flags.calc_nll:
-            lhoods = estimate_likelihoods(exp);
-            tb_logger.write_lhood_logs(lhoods);
+            if exp.flags.calc_nll:
+                lhoods = estimate_likelihoods(exp);
+                tb_logger.write_lhood_logs(lhoods);
 
-        if exp.flags.calc_prd:
-            prd_scores = calc_prd_score(exp);
-            tb_logger.write_prd_scores(prd_scores)
+            if exp.flags.calc_prd:
+                prd_scores = calc_prd_score(exp);
+                tb_logger.write_prd_scores(prd_scores)
 
 
 def run_epochs(exp):

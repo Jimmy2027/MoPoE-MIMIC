@@ -30,11 +30,10 @@ def calc_log_likelihood_batch(exp, latents, subset_key, subset, batch, num_imp_s
     model = exp.mm_vae;
     mod_weights = exp.style_weights;
     mods = exp.modalities;
-     
+
     s_dist = latents['subsets'][subset_key]
     n_total_samples = s_dist[0].shape[0]*num_imp_samples;
 
-    style = dict();
     if flags.factorized_representation:
         enc_mods = latents['modalities'];
         style = model.get_random_style_dists(flags.batch_size);
@@ -75,6 +74,7 @@ def calc_log_likelihood_batch(exp, latents, subset_key, subset, batch, num_imp_s
             l_dec['style'][m_key] = None;
 
     gen = model.generate_sufficient_statistics_from_latents(l_dec);
+
     l_lin_rep_style = l_lin_rep['style'];
     l_lin_rep_content = l_lin_rep['content'];
     ll = dict();
@@ -97,11 +97,6 @@ def calc_log_likelihood_batch(exp, latents, subset_key, subset, batch, num_imp_s
                                   l_lin_rep_style,
                                   l_lin_rep_content);
     ll['joint'] = ll_joint;
-    del gen
-    del l_lin_rep
-    del l
-    del l_dec
-    torch.cuda.empty_cache()
     return ll;
 
 
@@ -117,6 +112,13 @@ def estimate_likelihoods(exp):
 
     subsets = exp.subsets;
     lhoods = dict()
+    for k, s_key in enumerate(subsets.keys()):
+        if s_key != '':
+            lhoods[s_key] = dict();
+            for m, m_key in enumerate(mods.keys()):
+                lhoods[s_key][m_key] = [];
+            lhoods[s_key]['joint'] = [];
+
     for iteration, batch in enumerate(d_loader):
         batch_d = batch[0];
         for m, m_key in enumerate(mods.keys()):
@@ -125,19 +127,13 @@ def estimate_likelihoods(exp):
         latents = model.inference(batch_d);
         for k, s_key in enumerate(subsets.keys()): 
             if s_key != '':
-                if not s_key in lhoods.keys():
-                    lhoods[s_key] = dict();
                 subset = subsets[s_key];
                 ll_batch = calc_log_likelihood_batch(exp, latents,
                                                      s_key, subset,
                                                      batch_d,
                                                      num_imp_samples=12)
                 for l, m_key in enumerate(ll_batch.keys()):
-                    if m_key not in lhoods[s_key].keys():
-                        lhoods[s_key][m_key] = [];
-                    lhoods[s_key][m_key].append(ll_batch[m_key]);
-        #del batch_d;
-        #torch.cuda.empty_cache()
+                    lhoods[s_key][m_key].append(ll_batch[m_key].item());
 
     for k, s_key in enumerate(lhoods.keys()):
         lh_subset = lhoods[s_key];
@@ -148,86 +144,4 @@ def estimate_likelihoods(exp):
     return lhoods;
 
 
-def estimate_likelihoods(exp):
-    model = exp.mm_vae;
-    mods = exp.modalities;
-    bs_normal = exp.flags.batch_size;
-    exp.flags.batch_size = 64;
-    d_loader = DataLoader(exp.dataset_test,
-                          batch_size=exp.flags.batch_size,
-                          shuffle=True,
-                          num_workers=8, drop_last=True);
-
-    subsets = exp.subsets;
-    lhoods = dict()
-    for iteration, batch in enumerate(d_loader):
-        batch_d = batch[0];
-        for m, m_key in enumerate(mods.keys()):
-            batch_d[m_key] = batch_d[m_key].to(exp.flags.device);
-
-        latents = model.inference(batch_d);
-        for k, s_key in enumerate(subsets.keys()): 
-            if s_key != '':
-                if not s_key in lhoods.keys():
-                    lhoods[s_key] = dict();
-                subset = subsets[s_key];
-                ll_batch = calc_log_likelihood_batch(exp, latents,
-                                                     s_key, subset,
-                                                     batch_d,
-                                                     num_imp_samples=12)
-                for l, m_key in enumerate(ll_batch.keys()):
-                    if m_key not in lhoods[s_key].keys():
-                        lhoods[s_key][m_key] = [];
-                    lhoods[s_key][m_key].append(ll_batch[m_key]);
-        #del batch_d;
-        #torch.cuda.empty_cache()
-
-    for k, s_key in enumerate(lhoods.keys()):
-        lh_subset = lhoods[s_key];
-        for l, m_key in enumerate(lh_subset.keys()):
-            mean_val = np.mean(np.array(lh_subset[m_key]))
-            lhoods[s_key][m_key] = mean_val;
-    exp.flags.batch_size = bs_normal;
-    return lhoods;
-def estimate_likelihoods(exp):
-    model = exp.mm_vae;
-    mods = exp.modalities;
-    bs_normal = exp.flags.batch_size;
-    exp.flags.batch_size = 64;
-    d_loader = DataLoader(exp.dataset_test,
-                          batch_size=exp.flags.batch_size,
-                          shuffle=True,
-                          num_workers=8, drop_last=True);
-
-    subsets = exp.subsets;
-    lhoods = dict()
-    for iteration, batch in enumerate(d_loader):
-        batch_d = batch[0];
-        for m, m_key in enumerate(mods.keys()):
-            batch_d[m_key] = batch_d[m_key].to(exp.flags.device);
-
-        latents = model.inference(batch_d);
-        for k, s_key in enumerate(subsets.keys()): 
-            if s_key != '':
-                if not s_key in lhoods.keys():
-                    lhoods[s_key] = dict();
-                subset = subsets[s_key];
-                ll_batch = calc_log_likelihood_batch(exp, latents,
-                                                     s_key, subset,
-                                                     batch_d,
-                                                     num_imp_samples=12)
-                for l, m_key in enumerate(ll_batch.keys()):
-                    if m_key not in lhoods[s_key].keys():
-                        lhoods[s_key][m_key] = [];
-                    lhoods[s_key][m_key].append(ll_batch[m_key]);
-        #del batch_d;
-        #torch.cuda.empty_cache()
-
-    for k, s_key in enumerate(lhoods.keys()):
-        lh_subset = lhoods[s_key];
-        for l, m_key in enumerate(lh_subset.keys()):
-            mean_val = np.mean(np.array(lh_subset[m_key]))
-            lhoods[s_key][m_key] = mean_val;
-    exp.flags.batch_size = bs_normal;
-    return lhoods;
 
