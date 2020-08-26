@@ -10,8 +10,9 @@ from PIL import ImageFont
 from PIL import Image
 
 
-def create_fig(fn, img_data, num_img_row):
-    save_image(img_data.data.cpu(), fn, nrow=num_img_row);
+def create_fig(fn, img_data, num_img_row, save_figure=False):
+    if save_figure:
+        save_image(img_data.data.cpu(), fn, nrow=num_img_row);
     grid = make_grid(img_data, nrow=num_img_row);
     plot = grid.mul(255).add_(0.5).clamp_(0, 255).permute(1, 2, 0).to('cpu', torch.uint8).numpy();
     return plot;

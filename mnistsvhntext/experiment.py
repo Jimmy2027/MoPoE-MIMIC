@@ -34,8 +34,7 @@ class MNISTSVHNText():
         self.dataset_name = flags.dataset;
         self.num_modalities = flags.num_mods;
         self.plot_img_size = torch.Size((3, 28, 28))
-        self.font = ImageFont.truetype('/cluster/home/suttetho/code/mmvae/FreeSerif.ttf',
-                                       38)
+        self.font = ImageFont.truetype('FreeSerif.ttf', 38)
         self.alphabet = alphabet;
         self.flags.num_features = len(alphabet);
 
