@@ -15,7 +15,8 @@ class Text(Modality):
         self.likelihood_name = 'categorical';
         self.alphabet = alphabet;
         self.len_sequence = len_sequence;
-        self.data_size = torch.Size((len(alphabet), len_sequence));
+        #self.data_size = torch.Size((len(alphabet), len_sequence));
+        self.data_size = torch.Size([len_sequence]);
         self.plot_img_size = plotImgSize;
         self.font = font;
         self.gen_quality_eval = False;
