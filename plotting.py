@@ -70,8 +70,10 @@ def generate_swapping_plot(exp, epoch):
             # style transfer
             for i in range(len(samples)):
                 for j in range(len(samples)):
-                    l_style = model.inference(samples[i][mod_out.name])
-                    l_content = model.inference(samples[j][mod_in.name])
+                    l_style = model.inference(samples[i][mod_out.name],
+                                              num_samples=1)
+                    l_content = model.inference(samples[j][mod_in.name],
+                                                num_samples=1)
 
                     s_emb = utils.reparameterize(l_style[0], l_style[1]);
                     c_emb = utils.reparameterize(l_content[0], l_content[1]);
@@ -120,7 +122,7 @@ def generate_conditional_fig_M(exp, epoch, M):
                     i_batch = dict();
                     for o, mod in enumerate(s_in):
                         i_batch[mod.name] = samples[j][mod.name].unsqueeze(0);
-                    latents = model.inference(i_batch)
+                    latents = model.inference(i_batch, num_samples=1)
                     c_in = latents['subsets'][s_key];
                     c_rep = utils.reparameterize(mu=c_in[0], logvar=c_in[1]);
 

@@ -2,7 +2,6 @@ import os
 
 import random
 import numpy as np 
-from itertools import chain, combinations
 
 import torch
 from torchvision import transforms
@@ -27,12 +26,11 @@ from mnistsvhntext.networks.ConvNetworksImgMNIST import EncoderImg, DecoderImg
 from mnistsvhntext.networks.ConvNetworksImgSVHN import EncoderSVHN, DecoderSVHN
 from mnistsvhntext.networks.ConvNetworksTextMNIST import EncoderText, DecoderText
 
-class MNISTSVHNText():
+from utils.BaseExperiment import BaseExperiment
+
+class MNISTSVHNText(BaseExperiment):
     def __init__(self, flags, alphabet):
-        self.flags = flags;
-        self.name = flags.name;
-        self.dataset_name = flags.dataset;
-        self.num_modalities = flags.num_mods;
+        super().__init__(flags)
         self.plot_img_size = torch.Size((3, 28, 28))
         self.font = ImageFont.truetype('FreeSerif.ttf', 38)
         self.alphabet = alphabet;
@@ -54,6 +52,9 @@ class MNISTSVHNText():
         self.eval_metric = accuracy_score; 
         self.paths_fid = self.set_paths_fid();
 
+        self.labels = ['digit'];
+
+
     def set_model(self):
         model = VAEtrimodalSVHNMNIST(self.flags, self.modalities, self.subsets)
         model = model.to(self.flags.device);
@@ -73,25 +74,17 @@ class MNISTSVHNText():
         return mods;
 
 
-    def set_subsets(self):
-        num_mods = len(list(self.modalities.keys()));
+    def get_transform_mnist(self):
+        transform_mnist = transforms.Compose([transforms.ToTensor(),
+                                              transforms.ToPILImage(),
+                                              transforms.Resize(size=(28, 28), interpolation=Image.BICUBIC),
+                                              transforms.ToTensor()])
+        return transform_mnist;
 
-        """
-        powerset([1,2,3]) --> () (1,) (2,) (3,) (1,2) (1,3) (2,3)
-        (1,2,3)
-        """
-        xs = list(self.modalities)
-        # note we return an iterator rather than a list
-        subsets_list = chain.from_iterable(combinations(xs, n) for n in
-                                          range(len(xs)+1))
-        subsets = dict();
-        for k, mod_names in enumerate(subsets_list):
-            mods = [];
-            for l, mod_name in enumerate(mod_names):
-                mods.append(self.modalities[mod_name])
-            key = '_'.join(mod_names);
-            subsets[key] = mods;
-        return subsets;
+
+    def get_transform_svhn(self):
+        transform_svhn = transforms.Compose([transforms.ToTensor()])
+        return transform_svhn;
 
 
     def set_dataset(self):
@@ -163,17 +156,6 @@ class MNISTSVHNText():
         return weights;
 
 
-    def get_transform_mnist(self):
-        transform_mnist = transforms.Compose([transforms.ToTensor(),
-                                              transforms.ToPILImage(),
-                                              transforms.Resize(size=(28, 28), interpolation=Image.BICUBIC),
-                                              transforms.ToTensor()])
-        return transform_mnist;
-
-
-    def get_transform_svhn(self):
-        transform_svhn = transforms.Compose([transforms.ToTensor()])
-        return transform_svhn;
 
 
     def get_test_samples(self, num_images=10):
@@ -194,16 +176,8 @@ class MNISTSVHNText():
         return np.mean(np.array(values));
 
 
-    def set_paths_fid(self):
-        dir_real = os.path.join(self.flags.dir_gen_eval_fid, 'real');
-        dir_random = os.path.join(self.flags.dir_gen_eval_fid, 'random');
-        paths = {'real': dir_real,
-                 'random': dir_random}
-        dir_cond = self.flags.dir_gen_eval_fid;
-        for k, name in enumerate(self.subsets):
-            paths[name] = os.path.join(dir_cond, name);
-        print(paths.keys())
-        return paths;
-
+    def get_prediction_from_attr(self, attr):
+        pred = np.argmax(attr, axis=1).astype(int);
+        return pred;
 
 

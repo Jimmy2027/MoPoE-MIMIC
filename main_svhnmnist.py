@@ -22,9 +22,15 @@ if __name__ == '__main__':
         FLAGS.modality_moe=True;
     elif FLAGS.method == 'jsd':
         FLAGS.modality_jsd=True;
+    elif FLAGS.method == 'joint_elbo':
+        FLAGS.joint_elbo=True;
     else:
         print('method implemented...exit!')
         sys.exit();
+    print(FLAGS.modality_poe)
+    print(FLAGS.modality_moe)
+    print(FLAGS.modality_jsd)
+    print(FLAGS.joint_elbo)
 
     FLAGS.alpha_modalities = [FLAGS.div_weight_uniform_content, FLAGS.div_weight_m1_content,
                               FLAGS.div_weight_m2_content, FLAGS.div_weight_m3_content];

@@ -43,23 +43,22 @@ class TBLogger():
 
 
     def write_lr_eval(self, lr_eval):
-        self.writer.add_scalars('Latent Representation',
-                                lr_eval,
-                                self.step)
+        for s, l_key in enumerate(lr_eval.keys()):
+            self.writer.add_scalars('Latent Representation/%s'%(l_key),
+                                    lr_eval[l_key],
+                                    self.step)
 
 
     def write_coherence_logs(self, gen_eval):
-        for k, key in enumerate(gen_eval.keys()):
-            if key != 'random':
-                self.writer.add_scalars('Generation/%s' %
-                                        (key),
-                                        gen_eval[key],
+        for j, l_key in enumerate(gen_eval['cond'].keys()):
+            for k, s_key in enumerate(gen_eval['cond'][l_key].keys()):
+                self.writer.add_scalars('Generation/%s/%s' %
+                                        (l_key, s_key),
+                                        gen_eval['cond'][l_key][s_key],
                                         self.step)
-            else:
-                self.writer.add_scalars('Generation/%s'%
-                                        (key),
-                                        {'coherence': gen_eval[key]},
-                                        self.step)
+        self.writer.add_scalars('Generation/Random',
+                                gen_eval['random'],
+                                self.step)
 
 
     def write_lhood_logs(self, lhoods):

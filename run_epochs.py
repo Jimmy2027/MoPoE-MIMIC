@@ -58,12 +58,22 @@ def calc_klds(exp, result):
     return klds;
 
 
+def calc_klds_style(exp, result):
+    latents = result['latents']['modalities'];
+    klds = dict();
+    for m, key in enumerate(latents.keys()):
+        mu, logvar = latents[key + '_style'];
+        klds[key] = calc_kl_divergence(mu, logvar,
+                                       norm_value=exp.flags.batch_size)
+    return klds;
+
+
 def calc_style_kld(exp, klds):
     mods = exp.modalities;
     style_weights = exp.style_weights;
     weighted_klds = 0.0;
-    for m, mod in enumerate(mods.keys()):
-        weighted_klds += style_weights[mod.name]*klds[mod.name+'_style'];
+    for m, m_key in enumerate(mods.keys()):
+        weighted_klds += style_weights[m_key]*klds[m_key+'_style'];
     return weighted_klds;
 
 
@@ -87,10 +97,13 @@ def basic_routine_epoch(exp, batch):
     group_divergence = results['joint_divergence'];
 
     klds = calc_klds(exp, results);
+    if exp.flags.factorized_representation:
+        klds_style = calc_klds_style(exp, results);
 
-    if exp.flags.modality_jsd or exp.flags.modality_moe:
+    if (exp.flags.modality_jsd or exp.flags.modality_moe
+        or exp.flags.joint_elbo):
         if exp.flags.factorized_representation:
-            kld_style = calc_style_kld(exp, klds);
+            kld_style = calc_style_kld(exp, klds_style);
         else:
             kld_style = 0.0;
         kld_content = group_divergence;
@@ -98,43 +111,29 @@ def basic_routine_epoch(exp, batch):
         total_loss = rec_weight * weighted_log_prob + beta * kld_weighted;
     elif exp.flags.modality_poe:
         klds_joint = {'content': group_divergence,
-                      'style': {'m1': kld_m1_style,
-                                'm2': kld_m2_style,
-                                'm3': kld_m3_style}}
-        recs_joint = {'m1': rec_error_m1,
-                      'm2': rec_error_m2,
-                      'm3': rec_error_m3}
-        elbo_joint = utils.calc_elbo(flags, 'joint', recs_joint, klds_joint);
-        results_mnist = vae_trimodal(input_mnist=m1_batch,
-                                     input_svhn=None,
-                                     input_m3=None);
-        mnist_m1_rec = results_mnist['rec']['m1'];
-        mnist_m1_rec_error = -log_prob_img(mnist_m1_rec, m1_batch, flags.batch_size);
-        recs_mnist = {'m1': mnist_m1_rec_error}
-        klds_mnist = {'content': kld_m1_class,
-                      'style': {'m1': kld_m1_style}};
-        elbo_mnist = utils.calc_elbo(flags, 'm1', recs_mnist, klds_mnist);
-
-        results_svhn = vae_trimodal(input_mnist=None,
-                                     input_svhn=m2_batch,
-                                     input_m3=None);
-        svhn_m2_rec = results_svhn['rec']['m2']
-        svhn_m2_rec_error = -log_prob_img(svhn_m2_rec, m2_batch, flags.batch_size);
-        recs_svhn = {'m2': svhn_m2_rec_error};
-        klds_svhn = {'content': kld_m2_class,
-                     'style': {'m2': kld_m2_style}}
-        elbo_svhn = utils.calc_elbo(flags, 'm2', recs_svhn, klds_svhn);
-
-        results_m3 = vae_trimodal(input_mnist=None,
-                                     input_svhn=None,
-                                     input_m3=m3_batch);
-        m3_m3_rec = results_m3['rec']['m3'];
-        m3_m3_rec_error = -log_prob_m3(m3_m3_rec, m3_batch, flags.batch_size);
-        recs_m3 = {'m3': m3_m3_rec_error};
-        klds_m3 = {'content': kld_m3_class,
-                     'style': {'m3': kld_m3_style}};
-        elbo_m3 = utils.calc_elbo(flags, 'm3', recs_m3, klds_m3);
-        total_loss = elbo_joint + elbo_mnist + elbo_svhn + elbo_m3;
+                      'style': dict()};
+        recs_joint = dict();
+        elbos = dict();
+        for m, m_key in enumerate(mods.keys()):
+            mod = mods[m_key];
+            if exp.flags.factorized_representation:
+                kld_style_m = klds_style[m_key];
+            else:
+                kld_style_m = 0.0;
+            klds_joint['style'][m_key] = kld_style_m;
+            i_batch_mod = {m_key: batch_d[m_key]};
+            r_mod = mm_vae(i_batch_mod);
+            log_prob_mod = -mod.calc_log_prob(r_mod['rec'][m_key],
+                                              batch_d[m_key],
+                                              exp.flags.batch_size);
+            log_prob = {m_key: log_prob_mod};
+            klds_mod = {'content': klds[m_key],
+                        'style': {m_key: kld_style_m}};
+            elbo_mod = utils.calc_elbo(exp, m_key, log_prob, klds_mod);
+            elbos[m_key] = elbo_mod;
+        elbo_joint = utils.calc_elbo(exp, 'joint', log_probs, klds_joint);
+        elbos['joint'] = elbo_joint;
+        total_loss = sum(elbos.values())
 
     out_basic_routine = dict();
     out_basic_routine['results'] = results;
@@ -213,7 +212,6 @@ def test(epoch, exp, tb_logger):
 
 
 def run_epochs(exp):
-
     # initialize summary writer
     writer = SummaryWriter(exp.flags.dir_logs)
     tb_logger = TBLogger(exp.flags.str_experiment, writer)

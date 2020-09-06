@@ -116,29 +116,30 @@ def flow_mixture_component_selection(flags, reps, w_modalities=None, num_samples
     return rep_sel;
 
 
-def calc_elbo(flags, modality, recs, klds):
+def calc_elbo(exp, modality, recs, klds):
+    flags = exp.flags;
     kld_content = klds['content'];
     if modality == 'joint':
         weighted_style_kld = 0.0;
         weighted_rec = 0.0;
         klds_style = klds['style']
         for i, key in enumerate(klds_style.keys()):
-            if key == 'img_mnist':
-                weighted_style_kld += flags.beta_m1_style * klds_style['img_mnist'];
-                weighted_rec += flags.rec_weight_m1 * recs['img_mnist'];
-            elif key == 'img_svhn':
-                weighted_style_kld += flags.beta_m2_style * klds_style['img_svhn'];
-                weighted_rec += flags.rec_weight_m2 * recs['img_svhn'];
+            if key == 'mnist':
+                weighted_style_kld += flags.beta_m1_style * klds_style['mnist'];
+                weighted_rec += exp.rec_weights['mnist'] * recs['mnist'];
+            elif key == 'svhn':
+                weighted_style_kld += flags.beta_m2_style * klds_style['svhn'];
+                weighted_rec += exp.rec_weights['svhn'] * recs['svhn'];
             elif key =='text':
                 weighted_style_kld += flags.beta_m3_style * klds_style['text'];
-                weighted_rec += flags.rec_weight_m3 * recs['text'];
+                weighted_rec += exp.rec_weights['text'] * recs['text'];
         kld_style = weighted_style_kld;
         rec_error = weighted_rec;
-    elif modality == 'img_mnist' or modality == 'img_svhn' or modality == 'text':
-        if modality == 'img_mnist':
+    elif modality == 'mnist' or modality == 'svhn' or modality == 'text':
+        if modality == 'mnist':
             beta_style_mod = flags.beta_m1_style;
             rec_weight_mod = 1.0;
-        elif modality == 'img_svhn':
+        elif modality == 'svhn':
             beta_style_mod = flags.beta_m2_style;
             rec_weight_mod = 1.0;
         elif modality == 'text':
