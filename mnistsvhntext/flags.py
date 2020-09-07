@@ -80,6 +80,7 @@ parser.add_argument('--method', type=str, default='poe', help='choose method for
 parser.add_argument('--modality_jsd', type=bool, default=False, help="modality_jsd")
 parser.add_argument('--modality_poe', type=bool, default=False, help="modality_poe")
 parser.add_argument('--modality_moe', type=bool, default=False, help="modality_moe")
+parser.add_argument('--joint_elbo', type=bool, default=False, help="modality_moe")
 parser.add_argument('--poe_unimodal_elbos', type=bool, default=False, help="unimodal_klds")
 parser.add_argument('--subsampled_reconstruction',  default=True, help="subsample reconstruction path")
 parser.add_argument('--factorized_representation', action='store_true', default=False, help="factorized_representation")
