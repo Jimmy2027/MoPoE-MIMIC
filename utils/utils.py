@@ -188,10 +188,9 @@ def save_and_log_flags(flags):
 
     filename_flags_rar = os.path.join(flags.dir_experiment_run, 'flags.rar')
     torch.save(flags, filename_flags_rar);
-
     str_args = '';
     for k, key in enumerate(sorted(flags.__dict__.keys())):
-        str_args = str_args + key + ': ' + str(flags.__dict__[key]) + '\n' + ';';
+        str_args = str_args + '\n' + key + ': ' + str(flags.__dict__[key]);
     return str_args;
 
 
