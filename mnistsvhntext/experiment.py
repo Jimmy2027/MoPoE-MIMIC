@@ -37,6 +37,7 @@ class MNISTSVHNText(BaseExperiment):
         self.flags.num_features = len(alphabet);
 
         self.modalities = self.set_modalities();
+        self.num_modalities = len(self.modalities.keys());
         self.subsets = self.set_subsets();
         self.dataset_train = None;
         self.dataset_test = None;

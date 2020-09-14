@@ -7,8 +7,7 @@ from itertools import chain, combinations
 class BaseExperiment(ABC):
     def __init__(self, flags):
         self.flags = flags;
-        self.name = flags.name;
-        self.dataset_name = flags.dataset;
+        self.name = flags.dataset;
 
         self.modalities = None;
         self.num_modalities = None;
