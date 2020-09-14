@@ -190,6 +190,13 @@ def calc_prd_score(exp):
                 ap_prd = calculate_prd(acts[mod.name]['real'],
                                        acts[mod.name][key]);
                 ap_prds[key + '_' + mod.name] = ap_prd;
+
+    for m, m_key in enumerate(exp.modalities.keys()):
+        mod = exp.modalities[m_key];
+        if mod.gen_quality_eval:
+            ap_prd = calculate_prd(acts[mod.name]['real'],
+                                   acts[mod.name]['random']);
+            ap_prds['random_' + mod.name] = ap_prd;
     return ap_prds;
 
 
