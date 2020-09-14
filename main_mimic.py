@@ -7,8 +7,8 @@ import torch
 from run_epochs import run_epochs
 
 from utils.filehandling import create_dir_structure
-from mnistsvhntext.flags import parser
-from mnistsvhntext.experiment import MNISTSVHNText
+from mimic.flags import parser
+from mimic.experiment import MimicExperiment
 
 if __name__ == '__main__':
     FLAGS = parser.parse_args()
@@ -38,8 +38,9 @@ if __name__ == '__main__':
     alphabet_path = os.path.join(os.getcwd(), 'alphabet.json');
     with open(alphabet_path) as alphabet_file:
         alphabet = str(''.join(json.load(alphabet_file)))
-    mst = MNISTSVHNText(FLAGS, alphabet);
-    create_dir_structure(mst)
-    mst.set_optimizer();
+    mimic = MimicExperiment(FLAGS, alphabet);
+    create_dir_structure(mimic)
+    mimic.set_optimizer();
 
-    run_epochs(mst);
+    run_epochs(mimic);
+

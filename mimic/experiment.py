@@ -30,8 +30,7 @@ from utils.BaseExperiment import BaseExperiment
 class MimicExperiment(BaseExperiment):
     def __init__(self, flags, alphabet):
         self.flags = flags;
-        self.name = flags.dataset;
-        self.dataset_name = flags.dataset;
+        self.dataset = flags.dataset;
         self.num_modalities = flags.num_mods;
         self.plot_img_size = torch.Size((1, 128, 128))
         self.font = ImageFont.truetype('FreeSerif.ttf', 38)
@@ -138,6 +137,10 @@ class MimicExperiment(BaseExperiment):
         return weights;
 
 
+    def get_prediction_from_attr(self, values):
+        return values.ravel();
+
+
     def get_test_samples(self, num_images=10):
         n_test = self.dataset_test.__len__();
         samples = []
@@ -154,17 +157,6 @@ class MimicExperiment(BaseExperiment):
 
     def mean_eval_metric(self, values):
         return np.mean(np.array(values));
-
-
-    def set_paths_fid(self):
-        dir_real = os.path.join(self.flags.dir_gen_eval_fid, 'real');
-        dir_random = os.path.join(self.flags.dir_gen_eval_fid, 'random');
-        paths = {'real': dir_real,
-                 'random': dir_random}
-        dir_cond = self.flags.dir_gen_eval_fid;
-        for k, name in enumerate(self.subsets):
-            paths[name] = os.path.join(dir_cond, name);
-        return paths;
 
 
 
