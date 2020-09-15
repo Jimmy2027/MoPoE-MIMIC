@@ -27,8 +27,7 @@ def create_dir_structure_testing(exp):
         create_dir(dir_inference_label)
 
 
-def create_dir_structure(exp, train=True):
-    flags = exp.flags;
+def create_dir_structure(flags, train=True):
     if train:
         str_experiments = get_str_experiments(flags)
         flags.dir_experiment_run = os.path.join(flags.dir_experiment, str_experiments)
@@ -61,9 +60,6 @@ def create_dir_structure(exp, train=True):
     if train:
         create_dir(flags.dir_inference)
 
-    if train:
-        create_dir_structure_testing(exp);
-
     if flags.dir_fid is None:
         flags.dir_fid = flags.dir_experiment_run;
     elif not train:
@@ -87,5 +83,4 @@ def create_dir_structure(exp, train=True):
     flags.dir_cond_gen = os.path.join(flags.dir_plots, 'cond_gen')
     if train:
         create_dir(flags.dir_cond_gen)
-
     return flags;

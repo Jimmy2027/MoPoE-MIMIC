@@ -175,7 +175,7 @@ class BaseMMVae(ABC, nn.Module):
                                                           logvars_subset,
                                                           weights_subset);
                     distr_subsets[s_key] = [s_mu, s_logvar];
-                    if self.fusion_condition:
+                    if self.fusion_condition(mods):
                         mus.append(s_mu.unsqueeze(0));
                         logvars.append(s_logvar.unsqueeze(0));
         mus = torch.cat(mus, dim=0);
@@ -205,7 +205,7 @@ class BaseMMVae(ABC, nn.Module):
     def generate_from_latents(self, latents):
         suff_stats = self.generate_sufficient_statistics_from_latents(latents);
         cond_gen = dict();
-        for m, m_key in enumerate(self.modalities.keys()):
+        for m, m_key in enumerate(latents['style'].keys()):
             cond_gen_m = suff_stats[m_key].mean;
             cond_gen[m_key] = cond_gen_m;
         return cond_gen;

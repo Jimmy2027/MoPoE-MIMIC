@@ -7,6 +7,7 @@ import torch
 from run_epochs import run_epochs
 
 from utils.filehandling import create_dir_structure
+from utils.filehandling import create_dir_structure_testing
 from mnistsvhntext.flags import parser
 from mnistsvhntext.experiment import MNISTSVHNText
 
@@ -35,11 +36,12 @@ if __name__ == '__main__':
     FLAGS.alpha_modalities = [FLAGS.div_weight_uniform_content, FLAGS.div_weight_m1_content,
                               FLAGS.div_weight_m2_content, FLAGS.div_weight_m3_content];
 
+    FLAGS = create_dir_structure(FLAGS)
     alphabet_path = os.path.join(os.getcwd(), 'alphabet.json');
     with open(alphabet_path) as alphabet_file:
         alphabet = str(''.join(json.load(alphabet_file)))
     mst = MNISTSVHNText(FLAGS, alphabet);
-    create_dir_structure(mst)
+    create_dir_structure_testing(mst);
     mst.set_optimizer();
 
     run_epochs(mst);
