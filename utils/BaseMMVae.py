@@ -21,9 +21,7 @@ class BaseMMVae(ABC, nn.Module):
         self.subsets = subsets;
         self.set_fusion_functions();
 
-        # assign encoders, decoders and likelihoods here
-        #
-        #
+        # assign encoders, decoders and likelihoods here # #
         #
         # ###############################################
 
@@ -56,13 +54,14 @@ class BaseMMVae(ABC, nn.Module):
     def set_fusion_functions(self):
         weights = utils.reweight_weights(torch.Tensor(self.flags.alpha_modalities));
         self.weights = weights.to(self.flags.device);
-        if self.flags.modality_moe or self.flags.modality_jsd:
+        if self.flags.modality_moe:
             self.modality_fusion = self.moe_fusion;
             self.fusion_condition = self.fusion_condition_moe;
-            if self.flags.modality_moe:
-                self.calc_joint_divergence = self.divergence_static_prior;
-            if self.flags.modality_jsd:
-                self.calc_joint_divergence = self.divergence_dynamic_prior;
+            self.calc_joint_divergence = self.divergence_static_prior;
+        elif self.flags.modality_jsd:
+            self.modality_fusion = self.moe_fusion;
+            self.fusion_condition = self.fusion_condition_moe;
+            self.calc_joint_divergence = self.divergence_dynamic_prior;
         elif self.flags.modality_poe:
             self.modality_fusion = self.poe_fusion;
             self.fusion_condition = self.fusion_condition_poe;
@@ -77,7 +76,6 @@ class BaseMMVae(ABC, nn.Module):
         if weights is None:
             weights=self.weights;
         weights = weights.clone();
-        weights[0] = 0.0;
         weights = utils.reweight_weights(weights);
         div_measures = calc_group_divergence_moe(self.flags,
                                                  mus,
@@ -93,7 +91,7 @@ class BaseMMVae(ABC, nn.Module):
 
     def divergence_dynamic_prior(self, mus, logvars, weights=None):
         if weights is None:
-            weights = self.weights_jsd;
+            weights = self.weights;
         div_measures = calc_alphaJSD_modalities(self.flags,
                                                 mus,
                                                 logvars,
@@ -106,13 +104,12 @@ class BaseMMVae(ABC, nn.Module):
         return divs;
 
 
-
     def moe_fusion(self, mus, logvars, weights=None):
         if weights is None:
             weights = self.weights;
-        weights[0] = 0.0;
         weights = utils.reweight_weights(weights);
-        num_samples = mus[0].shape[0];
+        mus = torch.cat(mus, dim=0);
+        logvars = torch.cat(logvars, dim=0);
         mu_moe, logvar_moe = utils.mixture_component_selection(self.flags,
                                                                mus,
                                                                logvars,
@@ -121,25 +118,27 @@ class BaseMMVae(ABC, nn.Module):
 
 
     def poe_fusion(self, mus, logvars, weights=None):
+        mus = torch.cat(mus, dim=0);
+        logvars = torch.cat(logvars, dim=0);
         mu_poe, logvar_poe = poe(mus, logvars);
         return [mu_poe, logvar_poe];
 
 
-    def fusion_condition_moe(self, subset):
+    def fusion_condition_moe(self, subset, input_batch=None):
         if len(subset) == 1:
             return True;
         else:
             return False;
 
 
-    def fusion_condition_poe(self, subset):
-        if len(subset) == len(self.modalities):
+    def fusion_condition_poe(self, subset, input_batch=None):
+        if len(subset) == len(input_batch.keys()):
             return True;
         else:
             return False;
 
 
-    def fusion_condition_joint(self, subset):
+    def fusion_condition_joint(self, subset, input_batch=None):
         return True;
 
 
@@ -149,10 +148,8 @@ class BaseMMVae(ABC, nn.Module):
         latents = dict();
         enc_mods = self.encode(input_batch);
         latents['modalities'] = enc_mods;
-        mus = [torch.zeros(1, num_samples,
-                           self.flags.class_dim).to(self.flags.device)];
-        logvars = [torch.zeros(1, num_samples,
-                               self.flags.class_dim).to(self.flags.device)];
+        mus = [];
+        logvars = [];
         distr_subsets = dict();
         for k, s_key in enumerate(self.subsets.keys()):
             if s_key != '':
@@ -167,21 +164,25 @@ class BaseMMVae(ABC, nn.Module):
                     else:
                         mods_avail = False;
                 if mods_avail:
-                    mus_subset = torch.cat(mus_subset, dim=0);
-                    logvars_subset = torch.cat(logvars_subset, dim=0);
-                    weights_subset = ((1/float(mus_subset.shape[0]))*
-                                      torch.ones(mus_subset.shape[0]).to(self.flags.device));
+                    weights_subset = ((1/float(len(mus_subset)))*
+                                      torch.ones(len(mus_subset)).to(self.flags.device));
                     s_mu, s_logvar = self.modality_fusion(mus_subset,
                                                           logvars_subset,
                                                           weights_subset);
                     distr_subsets[s_key] = [s_mu, s_logvar];
-                    if self.fusion_condition(mods):
+                    if self.fusion_condition(mods, input_batch):
                         mus.append(s_mu.unsqueeze(0));
                         logvars.append(s_logvar.unsqueeze(0));
+        weights = (1/float(len(mus)))*torch.ones(len(mus)).to(self.flags.device);
+        if self.flags.modality_jsd:
+            mus.insert(0, torch.zeros(1, num_samples,
+                                      self.flags.class_dim).to(self.flags.device));
+            logvars.insert(0, torch.zeros(1, num_samples,
+                                          self.flags.class_dim).to(self.flags.device));
+            weights = (1/float(len(mus)))*torch.ones(len(mus)).to(self.flags.device);
+        joint_mu, joint_logvar = self.moe_fusion(mus, logvars, weights);
         mus = torch.cat(mus, dim=0);
         logvars = torch.cat(logvars, dim=0);
-        weights = (1/float(mus.shape[0]))*torch.ones(mus.shape[0]).to(self.flags.device);
-        joint_mu, joint_logvar = self.moe_fusion(mus, logvars, weights);
         latents['mus'] = mus;
         latents['logvars'] = logvars;
         latents['weights'] = weights;
