@@ -19,7 +19,7 @@ def create_fig(fn, img_data, num_img_row, save_figure=False):
 
 
 def text_to_pil(t, imgsize, alphabet, font, w=128, h=128):
-    blank_img = torch.ones([3, w, h]);
+    blank_img = torch.ones([imgsize[0], w, h]);
     pil_img = transforms.ToPILImage()(blank_img.cpu()).convert("RGB")
     draw = ImageDraw.Draw(pil_img)
     text_sample = text.tensor_to_text(alphabet, t)[0]
@@ -30,8 +30,12 @@ def text_to_pil(t, imgsize, alphabet, font, w=128, h=128):
         width, height = font.getsize(line)
         draw.text((0, (h/2) - (num_lines/2 - l)*height), line, (0, 0, 0), font=font)
         y_text += height
-    text_pil = transforms.ToTensor()(pil_img.resize((imgsize[1], imgsize[2]),
-                                                    Image.ANTIALIAS));
+    if imgsize[0] == 3:
+        text_pil = transforms.ToTensor()(pil_img.resize((imgsize[1], imgsize[2]),
+                                                        Image.ANTIALIAS));
+    else:
+        text_pil = transforms.ToTensor()(pil_img.resize((imgsize[1], imgsize[2]),
+                                                        Image.ANTIALIAS).convert('L'));
     return text_pil;
 
 

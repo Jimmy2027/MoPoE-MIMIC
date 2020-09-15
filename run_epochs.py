@@ -118,7 +118,7 @@ def basic_routine_epoch(exp, batch):
         for m, m_key in enumerate(mods.keys()):
             mod = mods[m_key];
             if exp.flags.factorized_representation:
-                kld_style_m = klds_style[m_key];
+                kld_style_m = klds_style[m_key + '_style'];
             else:
                 kld_style_m = 0.0;
             klds_joint['style'][m_key] = kld_style_m;
