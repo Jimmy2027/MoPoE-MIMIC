@@ -57,20 +57,22 @@ parser.add_argument('--dir_fid', type=str, default=None, help="directory to save
 parser.add_argument('--inception_state_dict', type=str, default='../inception_state_dict.pth', help="path to inception v3 state dict")
 
 # EVALUATION
-parser.add_argument('--use_clf', type=bool, default=True, help="flag to indicate if generates samples should be classified")
+parser.add_argument('--use_clf', default=False, action="store_true",
+                    help="flag to indicate if generates samples should be classified")
+parser.add_argument('--calc_nll', default=False, action="store_true",
+                    help="flag to indicate calculation of nll")
+parser.add_argument('--eval_lr', default=False, action="store_true",
+                    help="flag to indicate evaluation of lr")
+parser.add_argument('--calc_prd', default=False, action="store_true",
+                    help="flag to indicate calculation of prec-rec for gen model")
+parser.add_argument('--save_figure', default=False, action="store_true",
+                    help="flag to indicate if figures should be saved to disk (in addition to tensorboard logs)")
 parser.add_argument('--eval_freq', type=int, default=10, help="frequency of evaluation of latent representation of generative performance (in number of epochs)")
 parser.add_argument('--eval_freq_fid', type=int, default=10, help="frequency of evaluation of latent representation of generative performance (in number of epochs)")
 parser.add_argument('--num_samples_fid', type=int, default=10000,
                     help="number of samples the calculation of fid is based on")
-parser.add_argument('--calc_nll', type=bool, default=False, help="flag to indicate calculation of nll")
-parser.add_argument('--eval_lr', type=bool, default=True,
-                    help="flag to indicate evaluation of lr")
 parser.add_argument('--num_training_samples_lr', type=int, default=500,
                     help="number of training samples to train the lr clf")
-parser.add_argument('--calc_prd', type=bool, default=True,
-                    help="flag to indicate calculation of prec-rec for gen model")
-parser.add_argument('--save_figure', default=False, action="store_true",
-                    help="flag to indicate if figures should be saved to disk (in addition to tensorboard logs)")
 
 #multimodal
 parser.add_argument('--method', type=str, default='poe', help='choose method for training the model')
