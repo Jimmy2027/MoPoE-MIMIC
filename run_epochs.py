@@ -62,9 +62,10 @@ def calc_klds_style(exp, result):
     latents = result['latents']['modalities'];
     klds = dict();
     for m, key in enumerate(latents.keys()):
-        mu, logvar = latents[key + '_style'];
-        klds[key] = calc_kl_divergence(mu, logvar,
-                                       norm_value=exp.flags.batch_size)
+        if key.endswith('style'):
+            mu, logvar = latents[key];
+            klds[key] = calc_kl_divergence(mu, logvar,
+                                           norm_value=exp.flags.batch_size)
     return klds;
 
 
