@@ -60,7 +60,8 @@ def generate_swapping_plot(exp, epoch):
         mod_in = mods[m_key_in];
         for l, m_key_out in enumerate(mods.keys()):
             mod_out = mods[m_key_out];
-            rec = Variable(torch.zeros([121, exp.plot_img_size], dtype=torch.float32));
+            rec = torch.zeros(exp.plot_img_size,
+                              dtype=torch.float32).repeat(121,1,1,1);
             rec = rec.to(exp.flags.device);
             for i in range(len(samples)):
                 c_sample_in = mod_in.plot_data(samples[i][mod_in.name]);
@@ -70,17 +71,20 @@ def generate_swapping_plot(exp, epoch):
             # style transfer
             for i in range(len(samples)):
                 for j in range(len(samples)):
-                    l_style = model.inference(samples[i][mod_out.name],
+                    i_batch_s = {mod_out.name: samples[i][mod_out.name].unsqueeze(0)}
+                    i_batch_c = {mod_in.name: samples[i][mod_in.name].unsqueeze(0)}
+                    l_style = model.inference(i_batch_s,
                                               num_samples=1)
-                    l_content = model.inference(samples[j][mod_in.name],
+                    l_content = model.inference(i_batch_c,
                                                 num_samples=1)
-
-                    s_emb = utils.reparameterize(l_style[0], l_style[1]);
-                    c_emb = utils.reparameterize(l_content[0], l_content[1]);
+                    l_s_mod = l_style['modalities'][mod_out.name + '_style'];
+                    l_c_mod = l_content['modalities'][mod_in.name];
+                    s_emb = utils.reparameterize(l_s_mod[0], l_s_mod[1]);
+                    c_emb = utils.reparameterize(l_c_mod[0], l_c_mod[1]);
                     style_emb = {mod_out.name: s_emb}
                     emb_swap = {'content': c_emb, 'style': style_emb};
                     swap_sample = model.generate_from_latents(emb_swap);
-                    swap_out = mod_out.plot_data(swap_sample[mod_out.name]);
+                    swap_out = mod_out.plot_data(swap_sample[mod_out.name].squeeze(0));
                     rec[(i+1) * 11 + (j+1), :, :, :] = swap_out;
                     fn_comb = (mod_in.name + '_to_' + mod_out.name + '_epoch_'
                                + str(epoch).zfill(4) + '.png');
@@ -130,7 +134,7 @@ def generate_conditional_fig_M(exp, epoch, M):
                     for l, m_key_out in enumerate(mods.keys()):
                         mod_out = mods[m_key_out];
                         if exp.flags.factorized_representation:
-                            style[mod_out.name] = random_styles[mod_out.name][i];
+                            style[mod_out.name] = random_styles[mod_out.name][i].unsqueeze(0);
                         else:
                             style[mod_out.name] = None;
                     cond_mod_in = {'content': c_rep, 'style': style};
