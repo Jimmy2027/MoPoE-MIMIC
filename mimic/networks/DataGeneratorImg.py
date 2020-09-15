@@ -30,21 +30,47 @@ class DataGeneratorImg(nn.Module):
     def __init__(self, args, a=2.0, b=0.3):
         super(DataGeneratorImg, self).__init__()
         self.args = args;
-        self.resblock1 = make_res_block_data_generator(5*self.args.DIM_img, 4*self.args.DIM_img, kernelsize=4, stride=1, padding=0, dilation=1, o_padding=0, a_val=a, b_val=b);
-        self.resblock2 = make_res_block_data_generator(4*self.args.DIM_img, 3*self.args.DIM_img, kernelsize=4, stride=2, padding=1, dilation=1, o_padding=0, a_val=a, b_val=b);
-        self.resblock3 = make_res_block_data_generator(3*self.args.DIM_img, 2*self.args.DIM_img, kernelsize=4, stride=2, padding=1, dilation=1, o_padding=0, a_val=a, b_val=b);
-        self.resblock4 = make_res_block_data_generator(2*self.args.DIM_img, 1*self.args.DIM_img, kernelsize=4, stride=2, padding=1, dilation=1, o_padding=0, a_val=a, b_val=b);
-        self.conv = nn.ConvTranspose2d(self.args.DIM_img, self.args.image_channels,
+        modules = [];
+        modules.append(make_res_block_data_generator(5*self.args.DIM_img,
+                                                     4*self.args.DIM_img,
+                                                     kernelsize=4, stride=1,
+                                                     padding=0, dilation=1,
+                                                     o_padding=0, a_val=a,
+                                                     b_val=b));
+        modules.append(make_res_block_data_generator(4*self.args.DIM_img,
+                                                     3*self.args.DIM_img,
+                                                     kernelsize=4, stride=2,
+                                                     padding=1, dilation=1,
+                                                     o_padding=0, a_val=a,
+                                                     b_val=b));
+        modules.append(make_res_block_data_generator(3*self.args.DIM_img,
+                                                     2*self.args.DIM_img,
+                                                     kernelsize=4, stride=2,
+                                                     padding=1, dilation=1,
+                                                     o_padding=0, a_val=a,
+                                                     b_val=b));
+        if args.img_size == 128:
+            modules.append(make_res_block_data_generator(2*self.args.DIM_img,
+                                                         2*self.args.DIM_img,
+                                                         kernelsize=4, stride=2,
+                                                         padding=1, dilation=1,
+                                                         o_padding=0, a_val=a,
+                                                         b_val=b));
+
+        modules.append(make_res_block_data_generator(2*self.args.DIM_img,
+                                                     1*self.args.DIM_img,
+                                                     kernelsize=4, stride=2,
+                                                     padding=1, dilation=1,
+                                                     o_padding=0, a_val=a,
+                                                     b_val=b));
+        modules.append(nn.ConvTranspose2d(self.args.DIM_img, self.args.image_channels,
                                        kernel_size=3,
                                        stride=2,
                                        padding=1,
                                        dilation=1,
-                                       output_padding=1);
+                                       output_padding=1));
+        self.generator = nn.Sequential(*modules);
 
     def forward(self, feats):
-        d = self.resblock1(feats);
-        d = self.resblock2(d);
-        d = self.resblock3(d);
-        d = self.resblock4(d);
-        d = self.conv(d)
+        d = self.generator(feats);
         return d;
