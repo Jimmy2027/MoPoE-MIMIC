@@ -118,62 +118,22 @@ def flow_mixture_component_selection(flags, reps, w_modalities=None, num_samples
 
 def calc_elbo(exp, modality, recs, klds):
     flags = exp.flags;
+    mods = exp.mods;
+    s_weights = exp.style_weights;
+    r_weights = exp.rec_weights;
     kld_content = klds['content'];
     if modality == 'joint':
         weighted_style_kld = 0.0;
         weighted_rec = 0.0;
         klds_style = klds['style']
-        for i, key in enumerate(klds_style.keys()):
-            if key == 'mnist':
-                weighted_style_kld += flags.beta_m1_style * klds_style['mnist'];
-                weighted_rec += exp.rec_weights['mnist'] * recs['mnist'];
-            elif key == 'svhn':
-                weighted_style_kld += flags.beta_m2_style * klds_style['svhn'];
-                weighted_rec += exp.rec_weights['svhn'] * recs['svhn'];
-            elif key =='text':
-                weighted_style_kld += flags.beta_m3_style * klds_style['text'];
-                weighted_rec += exp.rec_weights['text'] * recs['text'];
+        for k, m_key in enumerate(mods.keys()):
+                w_style_kld += s_weights[m_key] * klds_style[m_key];
+                w_rec += r_weights[m_key] * recs[m_key];
         kld_style = weighted_style_kld;
         rec_error = weighted_rec;
-    elif modality == 'mnist' or modality == 'svhn' or modality == 'text':
-        if modality == 'mnist':
-            beta_style_mod = flags.beta_m1_style;
-            rec_weight_mod = 1.0;
-        elif modality == 'svhn':
-            beta_style_mod = flags.beta_m2_style;
-            rec_weight_mod = 1.0;
-        elif modality == 'text':
-            beta_style_mod = flags.beta_m3_style;
-            rec_weight_mod = 1.0;
-        kld_style = beta_style_mod * klds['style'][modality];
-        rec_error = rec_weight_mod * recs[modality];
-    div = flags.beta_content * kld_content + flags.beta_style * kld_style;
-    elbo = rec_error + flags.beta * div;
-    return elbo;
-
-
-def calc_elbo_celeba(flags, modality, recs, klds):
-    kld_content = klds['content'];
-    if modality == 'joint':
-        weighted_style_kld = 0.0;
-        weighted_rec = 0.0;
-        klds_style = klds['style']
-        for i, key in enumerate(klds_style.keys()):
-            if key == 'img_celeba':
-                weighted_style_kld += flags.beta_m1_style * klds_style['img_celeba'];
-                weighted_rec += flags.rec_weight_m1 * recs['img_celeba'];
-            elif key == 'text':
-                weighted_style_kld += flags.beta_m2_style * klds_style['text'];
-                weighted_rec += flags.rec_weight_m2 * recs['text'];
-        kld_style = weighted_style_kld;
-        rec_error = weighted_rec;
-    elif modality == 'img_celeba' or modality == 'text':
-        if modality == 'img_celeba':
-            beta_style_mod = flags.beta_m1_style;
-            rec_weight_mod = flags.rec_weight_m1;
-        elif modality == 'text':
-            beta_style_mod = flags.beta_m2_style;
-            rec_weight_mod = flags.rec_weight_m2;
+    else:
+        beta_style_mod = s_weights[modality];
+        rec_weight_mod = r_weights[modality];
         kld_style = beta_style_mod * klds['style'][modality];
         rec_error = rec_weight_mod * recs[modality];
     div = flags.beta_content * kld_content + flags.beta_style * kld_style;
