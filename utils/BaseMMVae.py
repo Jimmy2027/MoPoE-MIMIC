@@ -118,7 +118,7 @@ class BaseMMVae(ABC, nn.Module):
 
 
     def poe_fusion(self, mus, logvars, weights=None):
-        num_samples = mus[0].shape[0];
+        num_samples = mus[0].shape[1];
         mus.insert(0, torch.zeros(1, num_samples,
                                   self.flags.class_dim).to(self.flags.device));
         logvars.insert(0, torch.zeros(1, num_samples,
