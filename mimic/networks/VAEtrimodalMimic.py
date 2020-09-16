@@ -19,11 +19,11 @@ from utils.BaseMMVae import BaseMMVae
 
 class VAEtrimodalMimic(BaseMMVae, nn.Module):
     def __init__(self, flags, modalities, subsets):
-        super(VAEtrimodalMimic, self).__init__()
+        super(VAEtrimodalMimic, self).__init__(flags, modalities, subsets)
         self.encoder_pa = modalities['PA'].encoder;
         self.encoder_lat = modalities['Lateral'].encoder;
         self.encoder_text = modalities['text'].encoder;
-        self.decoder_pa = modalities['PA'].text;
+        self.decoder_pa = modalities['PA'].decoder;
         self.decoder_lat = modalities['Lateral'].decoder;
         self.decoder_text = modalities['text'].decoder;
         self.encoder_pa = self.encoder_pa.to(flags.device);
@@ -59,8 +59,8 @@ class VAEtrimodalMimic(BaseMMVae, nn.Module):
             mod = self.modalities[m_key]
             input_mod = input_batch[m_key];
             if input_mod is not None:
-                s_mu, s_logvar = latents[m_key + '_style'];
                 if self.flags.factorized_representation:
+                    s_mu, s_logvar = latents[m_key + '_style'];
                     s_emb = utils.reparameterize(mu=s_mu, logvar=s_logvar);
                 else:
                     s_emb = None;
@@ -86,7 +86,7 @@ class VAEtrimodalMimic(BaseMMVae, nn.Module):
         else:
             latents['PA_style'] = [None, None]
             latents['PA'] = [None, None]
-        if 'PA' in input_batch.keys():
+        if 'Lateral' in input_batch.keys():
             i_m2 = input_batch['Lateral'];
             latents['Lateral'] = self.encoder_lat(i_m2)
             latents['Lateral_style'] = latents['Lateral'][:2]

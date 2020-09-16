@@ -7,6 +7,7 @@ import torch
 from run_epochs import run_epochs
 
 from utils.filehandling import create_dir_structure
+from utils.filehandling import create_dir_structure_testing
 from mimic.flags import parser
 from mimic.experiment import MimicExperiment
 
@@ -35,11 +36,12 @@ if __name__ == '__main__':
     FLAGS.alpha_modalities = [FLAGS.div_weight_uniform_content, FLAGS.div_weight_m1_content,
                               FLAGS.div_weight_m2_content, FLAGS.div_weight_m3_content];
 
+    FLAGS = create_dir_structure(FLAGS)
     alphabet_path = os.path.join(os.getcwd(), 'alphabet.json');
     with open(alphabet_path) as alphabet_file:
         alphabet = str(''.join(json.load(alphabet_file)))
     mimic = MimicExperiment(FLAGS, alphabet);
-    create_dir_structure(mimic)
+    create_dir_structure_testing(mimic);
     mimic.set_optimizer();
 
     run_epochs(mimic);

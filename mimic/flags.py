@@ -10,6 +10,8 @@ parser.add_argument('--len_sequence', type=int, default=1024, help="length of se
 parser.add_argument('--style_pa_dim', type=int, default=0, help="dimension of varying factor latent space")
 parser.add_argument('--style_lat_dim', type=int, default=0, help="dimension of varying factor latent space")
 parser.add_argument('--style_text_dim', type=int, default=0, help="dimension of varying factor latent space")
+parser.add_argument('--image_channels', type=int, default=1, help="number of classes on which the data set trained")
+parser.add_argument('--img_size', type=int, default=128, help="number of classes on which the data set trained")
 parser.add_argument('--DIM_img', type=int, default=128, help="number of classes on which the data set trained")
 parser.add_argument('--DIM_text', type=int, default=128, help="number of classes on which the data set trained")
 parser.add_argument('--likelihood_m1', type=str, default='laplace', help="output distribution")
@@ -23,8 +25,6 @@ parser.add_argument('--encoder_save_m3', type=str, default='encoderM3', help="mo
 parser.add_argument('--decoder_save_m1', type=str, default='decoderM1', help="model save for decoder")
 parser.add_argument('--decoder_save_m2', type=str, default='decoderM2', help="model save for decoder")
 parser.add_argument('--decoder_save_m3', type=str, default='decoderM3', help="model save for decoder")
-parser.add_argument('--vae_trimodal_save', type=str, default='vae_trimodal', help="model save for vae_bimodal")
-parser.add_argument('--load_saved', type=bool, default=False, help="flag to indicate if a saved model will be loaded")
 
 # SAVE and LOAD
 parser.add_argument('--clf_save_m1', type=str, default='clf_m1', help="model save for clf")

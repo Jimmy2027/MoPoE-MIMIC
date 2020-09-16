@@ -29,9 +29,9 @@ from utils.BaseExperiment import BaseExperiment
 
 class MimicExperiment(BaseExperiment):
     def __init__(self, flags, alphabet):
+        self.labels = ['Lung Opacity', 'Pleural Effusion', 'Support Devices'];
         self.flags = flags;
         self.dataset = flags.dataset;
-        self.num_modalities = flags.num_mods;
         self.plot_img_size = torch.Size((1, 128, 128))
         self.font = ImageFont.truetype('FreeSerif.ttf', 38)
 
@@ -39,6 +39,7 @@ class MimicExperiment(BaseExperiment):
         self.flags.num_features = len(alphabet);
 
         self.modalities = self.set_modalities();
+        self.num_modalities = len(self.modalities.keys());
         self.subsets = self.set_subsets();
         self.dataset_train = None;
         self.dataset_test = None;
@@ -54,7 +55,6 @@ class MimicExperiment(BaseExperiment):
         self.eval_metric = average_precision_score; 
         self.paths_fid = self.set_paths_fid();
 
-        self.labels = ['Lung Opacity', 'Pleural Effusion', 'Support Devices'];
 
     def set_model(self):
         model = VAEtrimodalMimic(self.flags, self.modalities, self.subsets)
@@ -78,8 +78,8 @@ class MimicExperiment(BaseExperiment):
 
 
     def set_dataset(self):
-        d_train = Mimic(self.flags, self.alphabet, dataset=1)
-        d_eval = Mimic(self.flags, self.alphabet, dataset=2)
+        d_train = Mimic(self.flags, self.labels, self.alphabet, dataset=1)
+        d_eval = Mimic(self.flags, self.labels, self.alphabet, dataset=2)
         self.dataset_train = d_train;
         self.dataset_test = d_eval;
 
@@ -89,17 +89,17 @@ class MimicExperiment(BaseExperiment):
         model_clf_m2 = None;
         model_clf_m3 = None;
         if self.flags.use_clf:
-            model_clf_m1 = ClfImg(self.flags);
+            model_clf_m1 = ClfImg(self.flags, self.labels);
             model_clf_m1.load_state_dict(torch.load(os.path.join(self.flags.dir_clf,
                                                                  self.flags.clf_save_m1)))
             model_clf_m1 = model_clf_m1.to(self.flags.device);
 
-            model_clf_m2 = ClfImg(self.flags);
+            model_clf_m2 = ClfImg(self.flags, self.labels);
             model_clf_m2.load_state_dict(torch.load(os.path.join(self.flags.dir_clf,
                                                                  self.flags.clf_save_m2)))
             model_clf_m2 = model_clf_m2.to(self.flags.device);
 
-            model_clf_m3 = ClfText(self.flags);
+            model_clf_m3 = ClfText(self.flags, self.labels);
             model_clf_m3.load_state_dict(torch.load(os.path.join(self.flags.dir_clf,
                                                                  self.flags.clf_save_m3)))
             model_clf_m3 = model_clf_m3.to(self.flags.device);
@@ -145,13 +145,10 @@ class MimicExperiment(BaseExperiment):
         n_test = self.dataset_test.__len__();
         samples = []
         for i in range(num_images):
-            while True:
-                sample, target = self.dataset_test.__getitem__(random.randint(0, n_test))
-                if target == i:
-                    for k, key in enumerate(sample):
-                        sample[key] = sample[key].to(self.flags.device);
-                    samples.append(sample)
-                    break;
+            sample, target = self.dataset_test.__getitem__(random.randint(0, n_test))
+            for k, key in enumerate(sample):
+                sample[key] = sample[key].to(self.flags.device);
+            samples.append(sample)
         return samples
 
 

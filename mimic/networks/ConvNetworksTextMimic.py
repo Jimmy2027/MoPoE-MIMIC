@@ -37,4 +37,5 @@ class DecoderText(nn.Module):
         text_feat_hat = self.feature_generator(z);
         text_feat_hat = text_feat_hat.unsqueeze(-1);
         text_hat = self.text_generator(text_feat_hat)
+        text_hat = text_hat.transpose(-2,-1);
         return [text_hat];

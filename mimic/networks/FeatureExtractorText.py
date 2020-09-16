@@ -49,6 +49,7 @@ class FeatureExtractorText(nn.Module):
                                                       kernelsize=4, stride=2, padding=0, dilation=1);
 
     def forward(self, x):
+        x = x.transpose(-2,-1);
         out = self.conv1(x)
         out = self.resblock_1(out);
         out = self.resblock_2(out);

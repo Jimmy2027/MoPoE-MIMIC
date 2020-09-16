@@ -3,12 +3,12 @@ import torch.nn as nn
 
 from mimic.networks.FeatureExtractorText import FeatureExtractorText
 from mimic.networks.FeatureExtractorText import make_res_block_enc_feat_ext
-from mimic.constants import LABELS
 
 class ClfText(nn.Module):
-    def __init__(self, flags):
+    def __init__(self, flags, labels):
         super(ClfText, self).__init__();
         self.args = flags; 
+        self.labels = labels;
         self.conv1 = nn.Conv1d(self.args.num_features, self.args.DIM_text,
                                kernel_size=4, stride=2, padding=1, dilation=1);
         self.resblock_1 = make_res_block_enc_feat_ext(self.args.DIM_text,
@@ -37,7 +37,7 @@ class ClfText(nn.Module):
                                                       kernelsize=4, stride=2, padding=0, dilation=1);
 
         self.dropout = nn.Dropout(p=0.5, inplace=False);
-        self.linear = nn.Linear(in_features=5*flags.DIM_text, out_features=len(LABELS), bias=True)
+        self.linear = nn.Linear(in_features=5*flags.DIM_text, out_features=len(self.labels), bias=True)
         self.sigmoid = nn.Sigmoid();
 
 

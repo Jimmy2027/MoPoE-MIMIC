@@ -36,10 +36,10 @@ class FeatureExtractorImg(nn.Module):
                                                           padding=1, dilation=1, a_val=self.a, b_val=self.b));
         modules.append(make_res_block_feature_extractor(3 * args.DIM_img, 4 * args.DIM_img, kernelsize=4, stride=2,
                                                           padding=1, dilation=1, a_val=self.a, b_val=self.b));
-        if flags.img_size == 64:
+        if args.img_size == 64:
             modules.append(make_res_block_feature_extractor(4 * args.DIM_img, 5 * args.DIM_img, kernelsize=4, stride=2,
                                                               padding=0, dilation=1, a_val=self.a, b_val=self.b));
-        elif flags.img_size == 128:
+        elif args.img_size == 128:
             modules.append(make_res_block_feature_extractor(4 * args.DIM_img, 5 * args.DIM_img, kernelsize=4, stride=2,
                                                               padding=1, dilation=1, a_val=self.a, b_val=self.b));
             modules.append(make_res_block_feature_extractor(5 * args.DIM_img, 5 * args.DIM_img, kernelsize=4, stride=2,

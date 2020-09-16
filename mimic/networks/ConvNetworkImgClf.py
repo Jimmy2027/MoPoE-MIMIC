@@ -2,12 +2,12 @@ import torch
 import torch.nn as nn
 
 from mimic.networks.FeatureExtractorImg import make_res_block_feature_extractor
-from mimic.constants import LABELS
 
 class ClfImg(nn.Module):
-    def __init__(self, flags, a=2.0, b=0.3):
+    def __init__(self, flags, labels, a=2.0, b=0.3):
         super(ClfImg, self).__init__();
         self.flags = flags;
+        self.labels = labels;
         self.a = a;
         self.b = b;
         modules = [];
@@ -35,7 +35,7 @@ class ClfImg(nn.Module):
             print('please choose a different img size..exit')
         self.enc = nn.Sequential(*modules);
         self.dropout = nn.Dropout(p=0.5, inplace=False);
-        self.linear = nn.Linear(in_features=640, out_features=len(LABELS), bias=True);
+        self.linear = nn.Linear(in_features=640, out_features=len(self.labels), bias=True);
         self.sigmoid = nn.Sigmoid();
 
     def forward(self, x_img):

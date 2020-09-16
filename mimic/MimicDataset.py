@@ -8,12 +8,11 @@ import PIL.Image as Image
 import torch
 
 from utils import text as text
-from mimic.constants import LABELS
 
 class Mimic(Dataset):
     """Custom Dataset for loading CelebA face images"""
 
-    def __init__(self, args, alphabet, dataset):
+    def __init__(self, args, str_labels, alphabet, dataset):
         if dataset == 1:
             filename_csv = os.path.join(args.dir_data, 'train.csv');
             dset_str = 'train';
@@ -30,7 +29,7 @@ class Mimic(Dataset):
         fn_findings = os.path.join(dir_dataset, dset_str + '_findings.csv');
         fn_labels = os.path.join(dir_dataset, dset_str + '_labels.csv');
 
-        self.labels = pd.read_csv(fn_labels)[LABELS].fillna(0).values;
+        self.labels = pd.read_csv(fn_labels)[str_labels].fillna(0).values;
         self.imgs_pa = torch.load(fn_img_pa);
         self.imgs_lat = torch.load(fn_img_lat);
         self.report_findings = pd.read_csv(fn_findings)['findings'].values;
@@ -50,11 +49,12 @@ class Mimic(Dataset):
             text_str = self.report_findings[index];
             if len(text_str) > self.args.len_sequence:
                 text_str = text_str[:self.args.len_sequence];
-            text_vec = text.one_hot_encode(self.args, self.alphabet, text_str)
+            text_vec = text.one_hot_encode(self.args.len_sequence, self.alphabet, text_str)
             label = torch.from_numpy((self.labels[index,:]).astype(int)).float();
+            sample = {'PA': img_pa, 'Lateral': img_lat, 'text': text_vec};
         except (IndexError, OSError):
             return None;
-        return img_pa, img_lat, text_vec, label
+        return sample, label
 
 
     def __len__(self):
