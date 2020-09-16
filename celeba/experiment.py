@@ -5,13 +5,13 @@ import random
 import numpy as np 
 from itertools import chain, combinations
 
+import PIL.Image as Image
+from PIL import ImageFont 
 import torch
 from torchvision import transforms
 import torch.optim as optim
 from sklearn.metrics import average_precision_score
 
-import PIL.Image as Image
-from PIL import ImageFont 
 from modalities.CelebaImg import Img
 from modalities.CelebaText import Text
 from celeba.CelebADataset import CelebaDataset
@@ -155,6 +155,12 @@ class CelebaExperiment(BaseExperiment):
 
     def get_prediction_from_attr(self, values):
         return values.ravel();
+
+
+    def eval_label(self, values, labels, index=None):
+        pred = values[:,index];
+        gt = labels[:,index];
+        return self.eval_metric(gt, pred);
 
 
     def get_test_samples(self, num_images=10):

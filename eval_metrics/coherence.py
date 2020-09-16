@@ -24,11 +24,13 @@ def classify_cond_gen_samples(exp, labels, cond_samples):
             mod_clf = clfs[key];
             attr_hat = mod_clf(mod_cond_gen);
             for l, label_str in enumerate(exp.labels):
-                pred = exp.get_prediction_from_attr(attr_hat.cpu().data.numpy());
-                eval_labels[label_str][key] = exp.eval_metric(labels, pred);
+                score = exp.eval_label(attr_hat.cpu().data.numpy(), labels,
+                                       index=l);
+                eval_labels[label_str][key] = score;
         else:
             print(str(key) + 'not existing in cond_gen_samples');
-    return eval_labels; 
+    return eval_labels;
+
 
 def calculate_coherence(exp, samples):
     clfs = exp.clfs;

@@ -19,8 +19,9 @@ def get_latent_samples(flags, latents, n_imp_samples, mod_names=None):
     c = {'mu': l_c_m_rep, 'logvar': l_c_lv_rep, 'z': c_emb}
     if flags.factorized_representation:
         for k, key in enumerate(l_s.keys()):
-            l_s_m_rep = l_s[0].unsqueeze(0).repeat(n_imp_samples, 1, 1);
-            l_s_lv_rep = l_s[1].unsqueeze(0).repeat(n_imp_samples, 1, 1);
+            l_s_mod = l_s[key];
+            l_s_m_rep = l_s_mod[0].unsqueeze(0).repeat(n_imp_samples, 1, 1);
+            l_s_lv_rep = l_s_mod[1].unsqueeze(0).repeat(n_imp_samples, 1, 1);
             s_emb = utils.reparameterize(l_s_m_rep, l_s_lv_rep);
             s = {'mu': l_s_m_rep, 'logvar': l_s_lv_rep, 'z': s_emb}
             styles[key] = s;
