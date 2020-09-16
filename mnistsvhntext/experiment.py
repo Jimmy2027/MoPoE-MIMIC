@@ -3,14 +3,15 @@ import os
 import random
 import numpy as np 
 
+import PIL.Image as Image
+from PIL import ImageFont
+
 import torch
 from torchvision import transforms
 import torch.optim as optim
-import PIL.Image as Image
 from sklearn.metrics import accuracy_score
 
 #from utils.BaseExperiment import BaseExperiment
-from PIL import ImageFont
 
 from modalities.MNIST import MNIST
 from modalities.SVHN import SVHN
@@ -27,6 +28,7 @@ from mnistsvhntext.networks.ConvNetworksImgSVHN import EncoderSVHN, DecoderSVHN
 from mnistsvhntext.networks.ConvNetworksTextMNIST import EncoderText, DecoderText
 
 from utils.BaseExperiment import BaseExperiment
+
 
 class MNISTSVHNText(BaseExperiment):
     def __init__(self, flags, alphabet):
@@ -157,8 +159,6 @@ class MNISTSVHNText(BaseExperiment):
         return weights;
 
 
-
-
     def get_test_samples(self, num_images=10):
         n_test = self.dataset_test.__len__();
         samples = []
@@ -177,8 +177,13 @@ class MNISTSVHNText(BaseExperiment):
         return np.mean(np.array(values));
 
 
-    def get_prediction_from_attr(self, attr):
+    def get_prediction_from_attr(self, attr, index=None):
         pred = np.argmax(attr, axis=1).astype(int);
         return pred;
+
+
+    def eval_label(self, values, labels, index):
+        pred = self.get_prediction_from_attr(values);
+        return self.eval_metric(labels, pred);
 
 

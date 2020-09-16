@@ -8,9 +8,7 @@ import torch
 from torchvision import transforms
 import torch.optim as optim
 from sklearn.metrics import average_precision_score
-
-import PIL.Image as Image
-from PIL import ImageFont
+import PIL.Image as Image from PIL import ImageFont
 
 from modalities.MimicPA import MimicPA
 from modalities.MimicLateral import MimicLateral
@@ -154,6 +152,13 @@ class MimicExperiment(BaseExperiment):
 
     def mean_eval_metric(self, values):
         return np.mean(np.array(values));
+
+
+    def eval_label(self, values, labels, index=None):
+        pred = values[:,index];
+        gt = labels[:,index];
+        return self.eval_metric(gt, pred);
+
 
 
 

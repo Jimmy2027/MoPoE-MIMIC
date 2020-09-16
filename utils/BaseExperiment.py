@@ -62,7 +62,7 @@ class BaseExperiment(ABC):
         pass;
 
     @abstractmethod
-    def get_prediction_from_attr(self, values):
+    def eval_label(self, values, labels, index=None):
         pass;
 
     def set_subsets(self):
