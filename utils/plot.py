@@ -23,6 +23,7 @@ def text_to_pil(t, imgsize, alphabet, font, w=128, h=128):
     pil_img = transforms.ToPILImage()(blank_img.cpu()).convert("RGB")
     draw = ImageDraw.Draw(pil_img)
     text_sample = text.tensor_to_text(alphabet, t)[0]
+    text_sample = ''.join(text_sample).translate({ord('*'): None})
     lines = textwrap.wrap(''.join(text_sample), width=8)
     y_text = h
     num_lines = len(lines);
