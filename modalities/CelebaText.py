@@ -35,5 +35,6 @@ class Text(Modality):
  
     def plot_data(self, d):
         out = plot.text_to_pil(d.unsqueeze(0), self.plot_img_size,
-                               self.alphabet, self.font)
+                               self.alphabet, self.font,
+                              w=256, h=256, linewidth=16)
         return out;

@@ -18,12 +18,12 @@ def create_fig(fn, img_data, num_img_row, save_figure=False):
     return plot;
 
 
-def text_to_pil(t, imgsize, alphabet, font, w=128, h=128):
+def text_to_pil(t, imgsize, alphabet, font, w=128, h=128, linewidth=8):
     blank_img = torch.ones([imgsize[0], w, h]);
     pil_img = transforms.ToPILImage()(blank_img.cpu()).convert("RGB")
     draw = ImageDraw.Draw(pil_img)
     text_sample = text.tensor_to_text(alphabet, t)[0]
-    lines = textwrap.wrap(''.join(text_sample), width=8)
+    lines = textwrap.wrap(''.join(text_sample), width=linewidth)
     y_text = h
     num_lines = len(lines);
     for l, line in enumerate(lines):
