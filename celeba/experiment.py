@@ -157,6 +157,10 @@ class CelebaExperiment(BaseExperiment):
         return values.ravel();
 
 
+    def get_prediction_from_attr_random(self, values, index=None):
+        return values[:,index] > 0.5;
+
+
     def eval_label(self, values, labels, index=None):
         pred = values[:,index];
         gt = labels[:,index];
