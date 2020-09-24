@@ -79,9 +79,9 @@ class BaseExperiment(ABC):
         subsets = dict();
         for k, mod_names in enumerate(subsets_list):
             mods = [];
-            for l, mod_name in enumerate(mod_names):
+            for l, mod_name in enumerate(sorted(mod_names)):
                 mods.append(self.modalities[mod_name])
-            key = '_'.join(mod_names);
+            key = '_'.join(sorted(mod_names));
             subsets[key] = mods;
         return subsets;
 
