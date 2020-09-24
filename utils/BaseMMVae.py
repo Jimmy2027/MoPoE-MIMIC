@@ -209,11 +209,14 @@ class BaseMMVae(ABC, nn.Module):
     def generate(self, num_samples=None):
         if num_samples is None:
             num_samples = self.flags.batch_size;
-        z_class = torch.randn(num_samples, self.flags.class_dim);
-        z_class = z_class.to(self.flags.device);
 
-        style_latents = self.get_random_styles(num_samples);
-        random_latents = {'content': z_class, 'style': style_latents};
+        mu = torch.zeros(num_samples,
+                         self.flags.class_dim).to(self.flags.device);
+        logvar = torch.zeros(num_samples,
+                             self.flags.class_dim).to(self.flags.device);
+        z_class = utils.reparameterize(mu, logvar);
+        z_styles = self.get_random_styles(num_samples);
+        random_latents = {'content': z_class, 'style': z_styles};
         random_samples = self.generate_from_latents(random_latents);
         return random_samples;
 

@@ -78,25 +78,25 @@ class VAEtrimodalSVHNMNIST(BaseMMVae, nn.Module):
         latents = dict();
         if 'mnist' in input_batch.keys():
             i_m1 = input_batch['mnist'];
-            latents['mnist'] = self.encoder_m1(i_m1)
-            latents['mnist_style'] = latents['mnist'][:2]
-            latents['mnist'] = latents['mnist'][2:]
+            l = self.encoder_m1(i_m1)
+            latents['mnist_style'] = l[:2]
+            latents['mnist'] = l[2:]
         else:
             latents['mnist_style'] = [None, None];
             latents['mnist'] = [None, None];
         if 'svhn' in input_batch.keys():
             i_m2 = input_batch['svhn'];
-            latents['svhn'] = self.encoder_m2(i_m2);
-            latents['svhn_style'] = latents['svhn'][:2];
-            latents['svhn'] = latents['svhn'][2:];
+            l = self.encoder_m2(i_m2);
+            latents['svhn_style'] = l[:2];
+            latents['svhn'] = l[2:];
         else:
             latents['svhn_style'] = [None, None];
             latents['svhn'] = [None, None];
         if 'text' in input_batch.keys():
             i_m3 = input_batch['text'];
-            latents['text'] = self.encoder_m3(i_m3);
-            latents['text_style'] = latents['text'][:2];
-            latents['text'] = latents['text'][2:];
+            l = self.encoder_m3(i_m3);
+            latents['text_style'] = l[:2];
+            latents['text'] = l[2:];
         else:
             latents['text_style'] = [None, None];
             latents['text'] = [None, None];
@@ -122,7 +122,9 @@ class VAEtrimodalSVHNMNIST(BaseMMVae, nn.Module):
     def get_random_style_dists(self, num_samples):
         s1_mu = torch.zeros(num_samples,
                             self.flags.style_m1_dim).to(self.flags.device)
-        s1_logvar = torch.zeros(num_samples, self.flags.style_m1_dim).to(self.flags.device); s2_mu = torch.zeros(num_samples, self.flags.style_m2_dim).to(self.flags.device)
+        s1_logvar = torch.zeros(num_samples,
+                                self.flags.style_m1_dim).to(self.flags.device);
+        s2_mu = torch.zeros(num_samples, self.flags.style_m2_dim).to(self.flags.device)
         s2_logvar = torch.zeros(num_samples,
                                 self.flags.style_m2_dim).to(self.flags.device);
         s3_mu = torch.zeros(num_samples,

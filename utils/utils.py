@@ -133,7 +133,8 @@ def calc_elbo(exp, modality, recs, klds):
         rec_error = w_rec;
     else:
         beta_style_mod = s_weights[modality];
-        rec_weight_mod = r_weights[modality];
+        #rec_weight_mod = r_weights[modality];
+        rec_weight_mod = 1.0;
         kld_style = beta_style_mod * klds['style'][modality];
         rec_error = rec_weight_mod * recs[modality];
     div = flags.beta_content * kld_content + flags.beta_style * kld_style;
