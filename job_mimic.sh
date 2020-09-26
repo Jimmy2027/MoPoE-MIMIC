@@ -1,27 +1,29 @@
-
-
 DEBUG=false
 LOGDIR=""
 DATASET="Mimic"
 METHOD="moe"
 DIR_DATA="/cluster/work/vogtlab/Projects/mimic-cxr/physionet.org/files/mimic-cxr-jpg/2.0.0"
 DIR_CLF="/cluster/home/$USER/projects/multimodality/trained_classifiers/${DATASET}128"
-DIR_EXPERIMENT_BASE="/cluster/work/vogtlab/Group/thomas_work/multimodality/experiments/joint_elbo"
+DIR_EXPERIMENT_BASE="/cluster/home/klugh/multimodality/experiments/joint_elbo"
 DIR_EXPERIMENT="${DIR_EXPERIMENT_BASE}/${DATASET}/${METHOD}/non_factorized"
 PATH_INC_V3="/cluster/home/suttetho/projects/multimodality/experiments/inception_v3/pt_inception-2015-12-05-6726825d.pth"
-DIR_FID="$TMPDIR/${DATASET}"
+DIR_FID="$TEMPFOLDER/${DATASET}"
+TEMPFOLDER="${HOME}/tmp"
 
 module load cuda/10.0.130
 module load cudnn/7.5
 module load openblas/0.2.19
 
-source activate vae
+source activate mimic
 
-mkdir "${TMPDIR}/${DATASET}"
-cp "${DIR_DATA}/files_small128_pt.zip" "${TMPDIR}/${DATASET}/"
-unzip -o "${TMPDIR}/${DATASET}/files_small128_pt.zip" -d "${TMPDIR}/${DATASET}/"
+if [ ! -d "${TEMPFOLDER}/${DATASET}" ]; then
+  echo "creating dir ${TEMPFOLDER}/${DATASET}"
+  mkdir "${TEMPFOLDER}/${DATASET}" || exit 1
+  cp "${DIR_DATA}/files_small128_pt.zip" "${TEMPFOLDER}/${DATASET}/"
+  unzip -o "${TEMPFOLDER}/${DATASET}/files_small128_pt.zip" -d "${TEMPFOLDER}/${DATASET}/"
+fi
 
-python main_mimic.py --dir_data=$TMPDIR/${DATASET} \
+python main_mimic.py --dir_data=$TEMPFOLDER/${DATASET} \
                	     --dir_clf=$DIR_CLF \
                	     --dir_experiment=$DIR_EXPERIMENT \
                	     --inception_state_dict=$PATH_INC_V3 \
