@@ -1,7 +1,7 @@
-
 import os
 import shutil
 from datetime import datetime
+
 
 def create_dir(dir_name):
     if not os.path.exists(dir_name):
@@ -30,33 +30,33 @@ def create_dir_structure_testing(exp):
 def create_dir_structure(flags, train=True):
     if train:
         str_experiments = get_str_experiments(flags)
-        flags.dir_experiment_run = os.path.join(flags.dir_experiment, str_experiments)
-        flags.str_experiment = str_experiments;
+        flags.dir_experiment_run = os.path.join(os.path.expanduser(flags.dir_experiment), str_experiments)
+        flags.str_experiment = str_experiments
     else:
-        flags.dir_experiment_run = flags.dir_experiment;
+        flags.dir_experiment_run = os.path.expanduser(flags.dir_experiment)
 
     print(flags.dir_experiment_run)
     if train:
         create_dir(flags.dir_experiment_run)
 
-    flags.dir_checkpoints = os.path.join(flags.dir_experiment_run, 'checkpoints')
+    flags.dir_checkpoints = os.path.join(os.path.expanduser(flags.dir_experiment_run), 'checkpoints')
     if train:
-        create_dir(flags.dir_checkpoints)
+        create_dir(os.path.expanduser(flags.dir_checkpoints))
 
-    flags.dir_logs = os.path.join(flags.dir_experiment_run, 'logs')
+    flags.dir_logs = os.path.join(os.path.expanduser(flags.dir_experiment_run), 'logs')
     if train:
         create_dir(flags.dir_logs)
     print(flags.dir_logs)
 
-    flags.dir_logs_clf = os.path.join(flags.dir_experiment_run, 'logs_clf')
+    flags.dir_logs_clf = os.path.join(os.path.expanduser(flags.dir_experiment_run), 'logs_clf')
     if train:
         create_dir(flags.dir_logs_clf)
 
-    flags.dir_gen_eval = os.path.join(flags.dir_experiment_run, 'generation_evaluation')
+    flags.dir_gen_eval = os.path.join(os.path.expanduser(flags.dir_experiment_run), 'generation_evaluation')
     if train:
         create_dir(flags.dir_gen_eval)
 
-    flags.dir_inference = os.path.join(flags.dir_experiment_run, 'inference')
+    flags.dir_inference = os.path.join(os.path.expanduser(flags.dir_experiment_run), 'inference')
     if train:
         create_dir(flags.dir_inference)
 
@@ -83,4 +83,13 @@ def create_dir_structure(flags, train=True):
     flags.dir_cond_gen = os.path.join(flags.dir_plots, 'cond_gen')
     if train:
         create_dir(flags.dir_cond_gen)
-    return flags;
+    return flags
+
+
+def expand_paths(flags):
+    flags.dir_data = os.path.expanduser(flags.dir_data)
+    flags.dir_clf = os.path.expanduser(flags.dir_clf)
+    flags.dir_experiment = os.path.expanduser(flags.dir_experiment)
+    flags.inception_state_dict = os.path.expanduser(flags.inception_state_dict)
+    flags.dir_fid = os.path.expanduser(flags.dir_fid)
+    return flags

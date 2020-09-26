@@ -9,6 +9,7 @@ import torch
 
 from utils import text as text
 
+
 class Mimic(Dataset):
     """Custom Dataset for loading CelebA face images"""
 
@@ -35,31 +36,28 @@ class Mimic(Dataset):
         self.report_findings = pd.read_csv(fn_findings)['findings'].values;
         self.alphabet = alphabet;
         self.transform_img = transforms.Compose([transforms.ToPILImage(),
-            transforms.Resize(size=(self.args.img_size, self.args.img_size),
-            interpolation=Image.BICUBIC),
-            transforms.ToTensor()])
-
+                                                 transforms.Resize(size=(self.args.img_size, self.args.img_size),
+                                                                   interpolation=Image.BICUBIC),
+                                                 transforms.ToTensor()])
 
     def __getitem__(self, index):
         try:
-            img_pa = self.imgs_pa[index,:,:];
-            img_lat = self.imgs_lat[index,:,:];
+            img_pa = self.imgs_pa[index, :, :]
+            img_lat = self.imgs_lat[index, :, :]
             img_pa = self.transform_img(img_pa)
-            img_lat = self.transform_img(img_lat);
-            text_str = self.report_findings[index];
+            img_lat = self.transform_img(img_lat)
+            text_str = self.report_findings[index]
             if len(text_str) > self.args.len_sequence:
-                text_str = text_str[:self.args.len_sequence];
+                text_str = text_str[:self.args.len_sequence]
             text_vec = text.one_hot_encode(self.args.len_sequence, self.alphabet, text_str)
-            label = torch.from_numpy((self.labels[index,:]).astype(int)).float();
-            sample = {'PA': img_pa, 'Lateral': img_lat, 'text': text_vec};
+            label = torch.from_numpy((self.labels[index, :]).astype(int)).float()
+            sample = {'PA': img_pa, 'Lateral': img_lat, 'text': text_vec}
         except (IndexError, OSError):
             return None;
         return sample, label
 
-
     def __len__(self):
         return self.labels.shape[0]
-
 
     def get_text_str(self, index):
         return self.y[index];

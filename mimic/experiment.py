@@ -8,7 +8,8 @@ import torch
 from torchvision import transforms
 import torch.optim as optim
 from sklearn.metrics import average_precision_score
-import PIL.Image as Image from PIL import ImageFont
+import PIL.Image as Image
+from PIL import ImageFont
 
 from modalities.MimicPA import MimicPA
 from modalities.MimicLateral import MimicLateral
@@ -27,27 +28,27 @@ from utils.BaseExperiment import BaseExperiment
 
 class MimicExperiment(BaseExperiment):
     def __init__(self, flags, alphabet):
-        self.labels = ['Lung Opacity', 'Pleural Effusion', 'Support Devices'];
-        self.flags = flags;
-        self.dataset = flags.dataset;
+        self.labels = ['Lung Opacity', 'Pleural Effusion', 'Support Devices']
+        self.flags = flags
+        self.dataset = flags.dataset
         self.plot_img_size = torch.Size((1, 128, 128))
         self.font = ImageFont.truetype('FreeSerif.ttf', 38)
 
-        self.alphabet = alphabet;
-        self.flags.num_features = len(alphabet);
+        self.alphabet = alphabet
+        self.flags.num_features = len(alphabet)
 
-        self.modalities = self.set_modalities();
-        self.num_modalities = len(self.modalities.keys());
-        self.subsets = self.set_subsets();
-        self.dataset_train = None;
-        self.dataset_test = None;
-        self.set_dataset();
+        self.modalities = self.set_modalities()
+        self.num_modalities = len(self.modalities.keys())
+        self.subsets = self.set_subsets()
+        self.dataset_train = None
+        self.dataset_test = None
+        self.set_dataset()
 
-        self.mm_vae = self.set_model();
-        self.clfs = self.set_clfs();
-        self.optimizer = None;
-        self.rec_weights = self.set_rec_weights();
-        self.style_weights = self.set_style_weights();
+        self.mm_vae = self.set_model()
+        self.clfs = self.set_clfs()
+        self.optimizer = None
+        self.rec_weights = self.set_rec_weights()
+        self.style_weights = self.set_style_weights()
 
         self.test_samples = self.get_test_samples();
         self.eval_metric = average_precision_score; 
