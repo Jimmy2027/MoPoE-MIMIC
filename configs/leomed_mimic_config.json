@@ -10,6 +10,7 @@
  "style_lat_dim":0,
  "style_text_dim":0,
  "class_dim":64,
+ "dataloader_workers":8,
  "method":"moe",
  "beta":1.0,
  "beta_style":3.0,
