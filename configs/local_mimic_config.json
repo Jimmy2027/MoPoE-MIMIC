@@ -21,7 +21,7 @@
  "div_weight_m2_content":0.25,
  "div_weight_m3_content":0.25,
  "div_weight_uniform_content":0.25,
- "batch_size":1,
+ "batch_size":5,
  "eval_freq":20,
  "eval_freq_fid":300,
  "end_epoch":300,

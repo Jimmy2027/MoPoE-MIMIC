@@ -1,30 +1,22 @@
-import sys, os
-import numpy as np
-from itertools import cycle
-import json
+import os
 import random
+
+import numpy as np
 import torch
-import torch.nn as nn
-import torch.optim as optim
-import torch.distributions as dist
-from torch.autograd import Variable
 from tensorboardX import SummaryWriter
+from torch.autograd import Variable
 from torch.utils.data import DataLoader
+from tqdm import tqdm
 
 from divergence_measures.kl_div import calc_kl_divergence
-from divergence_measures.mm_div import poe
-
 from eval_metrics.coherence import test_generation
-from eval_metrics.representation import train_clf_lr_all_subsets
-from eval_metrics.representation import test_clf_lr_all_subsets
-from eval_metrics.sample_quality import calc_prd_score
 from eval_metrics.likelihood import estimate_likelihoods
-
+from eval_metrics.representation import test_clf_lr_all_subsets
+from eval_metrics.representation import train_clf_lr_all_subsets
+from eval_metrics.sample_quality import calc_prd_score
 from plotting import generate_plots
-
 from utils import utils
 from utils.TBLogger import TBLogger
-
 
 # global variables
 SEED = None 
@@ -151,7 +143,7 @@ def train(epoch, exp, tb_logger):
 
     d_loader = DataLoader(exp.dataset_train, batch_size=exp.flags.batch_size,
                           shuffle=True,
-                          num_workers=8, drop_last=True);
+                          num_workers=1, drop_last=True);
 
     for iteration, batch in enumerate(d_loader):
         basic_routine = basic_routine_epoch(exp, batch);
@@ -220,7 +212,7 @@ def run_epochs(exp):
     tb_logger.writer.add_text('FLAGS', str_flags, 0)
 
     print('training epochs progress:')
-    for epoch in range(exp.flags.start_epoch, exp.flags.end_epoch):
+    for epoch in tqdm(range(exp.flags.start_epoch, exp.flags.end_epoch)):
         utils.printProgressBar(epoch, exp.flags.end_epoch)
         # one epoch of training and testing
         train(epoch, exp, tb_logger);
