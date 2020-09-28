@@ -1,25 +1,18 @@
-
-import os
 import json
+import os
 
 import numpy as np
-
 import torch
-import torch.nn as nn
 import torch.optim as optim
+from flags.flags_celeba import parser
+from networks.ConvNetworkTextClfCeleba import ClfText
+from tensorboardX import SummaryWriter
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
-import torch.nn.functional as F
-from tensorboardX import SummaryWriter
 
-from networks.ConvNetworkTextClfCeleba import ClfText
-from datasets.CelebADataset import CelebaDataset
-from flags.flags_celeba import parser
 from utils.filehandling import create_dir_structure
-from utils.utils import printProgressBar
-from utils.transforms import get_transform_celeba
 from utils.loss import clf_loss
-
+from utils.utils import printProgressBar
 
 
 def train_clf(flags, epoch, model, dataset, log_writer):
@@ -32,11 +25,13 @@ def train_clf(flags, epoch, model, dataset, log_writer):
     num_samples_train = dataset.__len__()
     name_logs = "train_clf_text"
     model.train()
-    num_batches_train = np.floor(num_samples_train/flags.batch_size);
-    step = epoch*num_batches_train;
+    num_batches_train = np.floor(num_samples_train / flags.batch_size);
+    step = epoch * num_batches_train;
     step_print_progress = 0;
-    dataloader = torch.utils.data.DataLoader(dataset, batch_size=flags.batch_size, shuffle=True, num_workers=0, drop_last=True)
-    dataloader = torch.utils.data.DataLoader(dataset, batch_size=flags.batch_size, shuffle=True, num_workers=8, drop_last=True)
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=flags.batch_size, shuffle=True, num_workers=0,
+                                             drop_last=True)
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=flags.batch_size, shuffle=True, num_workers=8,
+                                             drop_last=True)
     for idx, (imgs_pa, imgs_lat, txts, labels) in enumerate(dataloader):
         imgs_pa = Variable(imgs_pa).to(flags.device);
         imgs_lat = Variable(imgs_lat).to(flags.device);
@@ -56,13 +51,14 @@ def train_clf(flags, epoch, model, dataset, log_writer):
         printProgressBar(step_print_progress, num_batches_train)
     return model;
 
-def test_clf(flags, epoch, model, dataset, log_writer):
 
+def test_clf(flags, epoch, model, dataset, log_writer):
     num_samples_test = dataset.__len__()
     name_logs = "eval_clf_text"
     model.eval()
-    step = epoch*np.floor(num_samples_test/flags.batch_size);
-    dataloader = torch.utils.data.DataLoader(dataset, batch_size=flags.batch_size, shuffle=True, num_workers=0, drop_last=True)
+    step = epoch * np.floor(num_samples_test / flags.batch_size);
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=flags.batch_size, shuffle=True, num_workers=0,
+                                             drop_last=True)
     for idx, (imgs_pa, imgs_lat, txts, labels) in enumerate(dataloader):
         imgs_pa = Variable(imgs_pa).to(flags.device);
         imgs_lat = Variable(imgs_lat).to(flags.device);
@@ -97,11 +93,10 @@ def training_procedure_clf(FLAGS):
 
 
 if __name__ == '__main__':
-
     FLAGS = parser.parse_args()
     FLAGS.alpha_modalities = [FLAGS.div_weight_uniform_content,
-            FLAGS.div_weight_m1_content,
-            FLAGS.div_weight_m2_content,
-            FLAGS.div_weight_m3_content];
+                              FLAGS.div_weight_m1_content,
+                              FLAGS.div_weight_m2_content,
+                              FLAGS.div_weight_m3_content];
     create_dir_structure(FLAGS, train=False);
     training_procedure_clf(FLAGS)
