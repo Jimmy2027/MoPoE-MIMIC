@@ -59,7 +59,7 @@ class VAEtrimodalMimic(BaseMMVae, nn.Module):
             mod = self.modalities[m_key]
             input_mod = input_batch[m_key];
             if input_mod is not None:
-                if self.flags.factorized_representation:
+                if self.flags.factorized_representation:    #question was macht factorized_representation?
                     s_mu, s_logvar = latents[m_key + '_style'];
                     s_emb = utils.reparameterize(mu=s_mu, logvar=s_logvar);
                 else:

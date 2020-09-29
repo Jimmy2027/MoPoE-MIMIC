@@ -62,7 +62,7 @@ parser.add_argument('--use_clf', default=False, action="store_true",
 parser.add_argument('--calc_nll', default=False, action="store_true",
                     help="flag to indicate calculation of nll")
 parser.add_argument('--eval_lr', default=False, action="store_true",
-                    help="flag to indicate evaluation of lr")
+                    help="flag to indicate evaluation of latent representations")
 parser.add_argument('--calc_prd', default=False, action="store_true",
                     help="flag to indicate calculation of prec-rec for gen model")
 parser.add_argument('--save_figure', default=False, action="store_true",
@@ -81,7 +81,7 @@ parser.add_argument('--modality_poe', type=bool, default=False, help="modality_p
 parser.add_argument('--modality_moe', type=bool, default=False, help="modality_moe")
 parser.add_argument('--joint_elbo', type=bool, default=False, help="modality_moe")
 parser.add_argument('--poe_unimodal_elbos', type=bool, default=False, help="unimodal_klds")
-parser.add_argument('--factorized_representation', action='store_true', default=False, help="factorized_representation")
+parser.add_argument('--factorized_representation', action='store_true', default=False, help="factorized_representation") #question was macht factorized_representation?
 
 # LOSS TERM WEIGHTS
 parser.add_argument('--beta', type=float, default=5.0, help="default weight of sum of weighted divergence terms")

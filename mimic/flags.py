@@ -1,7 +1,5 @@
-
 import argparse
 from utils.BaseFlags import parser as parser
-
 
 parser.add_argument('--dataset', type=str, default='Mimic', help="name of the dataset")
 
@@ -19,7 +17,6 @@ parser.add_argument('--likelihood_m2', type=str, default='laplace', help="output
 parser.add_argument('--likelihood_m3', type=str, default='categorical', help="output distribution")
 parser.add_argument('--dataloader_workers', type=int, default=8, help="number of workers used for the Dataloader")
 
-
 # paths to save models
 parser.add_argument('--encoder_save_m1', type=str, default='encoderM1', help="model save for encoder")
 parser.add_argument('--encoder_save_m2', type=str, default='encoderM2', help="model save for encoder")
@@ -28,7 +25,7 @@ parser.add_argument('--decoder_save_m1', type=str, default='decoderM1', help="mo
 parser.add_argument('--decoder_save_m2', type=str, default='decoderM2', help="model save for decoder")
 parser.add_argument('--decoder_save_m3', type=str, default='decoderM3', help="model save for decoder")
 
-# SAVE and LOAD
+# classifiers
 parser.add_argument('--clf_save_m1', type=str, default='clf_m1', help="model save for clf")
 parser.add_argument('--clf_save_m2', type=str, default='clf_m2', help="model save for clf")
 parser.add_argument('--clf_save_m3', type=str, default='clf_m3', help="model save for clf")
@@ -38,9 +35,11 @@ parser.add_argument('--clf_save_m3', type=str, default='clf_m3', help="model sav
 parser.add_argument('--beta_m1_style', type=float, default=1.0, help="default weight divergence term style modality 1")
 parser.add_argument('--beta_m2_style', type=float, default=1.0, help="default weight divergence term style modality 2")
 parser.add_argument('--beta_m3_style', type=float, default=1.0, help="default weight divergence term style modality 2")
-parser.add_argument('--div_weight_m1_content', type=float, default=0.25, help="default weight divergence term content modality 1")
-parser.add_argument('--div_weight_m2_content', type=float, default=0.25, help="default weight divergence term content modality 2")
-parser.add_argument('--div_weight_m3_content', type=float, default=0.25, help="default weight divergence term content modality 2")
-parser.add_argument('--div_weight_uniform_content', type=float, default=0.25, help="default weight divergence term prior")
-
-
+parser.add_argument('--div_weight_m1_content', type=float, default=0.25,
+                    help="default weight divergence term content modality 1")
+parser.add_argument('--div_weight_m2_content', type=float, default=0.25,
+                    help="default weight divergence term content modality 2")
+parser.add_argument('--div_weight_m3_content', type=float, default=0.25,
+                    help="default weight divergence term content modality 2")
+parser.add_argument('--div_weight_uniform_content', type=float, default=0.25,
+                    help="default weight divergence term prior")

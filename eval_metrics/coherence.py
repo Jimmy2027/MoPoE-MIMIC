@@ -74,7 +74,7 @@ def test_generation(epoch, exp):
     d_loader = DataLoader(exp.dataset_test,
                           batch_size=exp.flags.batch_size,
                           shuffle=True,
-                          num_workers=8, drop_last=True);
+                          num_workers=exp.flags.num_workers, drop_last=True);
 
     num_batches_epoch = int(exp.dataset_test.__len__() /float(exp.flags.batch_size));
     cnt_s = 0;

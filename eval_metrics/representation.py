@@ -23,7 +23,7 @@ def train_clf_lr_all_subsets(exp):
 
     d_loader = DataLoader(exp.dataset_train, batch_size=exp.flags.batch_size,
                         shuffle=True,
-                        num_workers=8, drop_last=True);
+                        num_workers=exp.flags.num_workers, drop_last=True);
 
     bs = exp.flags.batch_size;
     num_batches_epoch = int(exp.dataset_train.__len__() /float(bs));
@@ -72,7 +72,7 @@ def test_clf_lr_all_subsets(epoch, clf_lr, exp):
 
     d_loader = DataLoader(exp.dataset_test, batch_size=exp.flags.batch_size,
                         shuffle=True,
-                        num_workers=8, drop_last=True);
+                        num_workers=exp.flags.num_workers, drop_last=True);
 
     num_batches_epoch = int(exp.dataset_test.__len__() /float(exp.flags.batch_size));
     for iteration, batch in enumerate(d_loader):
@@ -112,8 +112,29 @@ def classify_latent_representations(exp, epoch, clf_lr, data, labels):
             data_rep = data[s_key];
             clf_lr_rep = clf_lr_label[s_key];
             y_pred_rep = clf_lr_rep.predict(data_rep);
-            eval_label_rep = exp.eval_metric(gt.ravel(),
-                                             y_pred_rep.ravel());
+            """
+            temporary section for debugging. At some point gt.ravel() has type 0 and code breaks
+            """
+            from sklearn.utils.multiclass import type_of_target
+            y_true = gt.ravel()
+            y_type = type_of_target(y_true)
+            if y_type not in ("binary", "multilabel-indicator"):
+                bugs_dir = os.path.join(exp.flags.dir_experiment_run, 'bugs', str(epoch))
+                if not os.path.exists(bugs_dir):
+                    os.makedirs(bugs_dir)
+                np.save(y_true, allow_pickle=True)
+                f = open(os.path.join(bugs_dir, 'error_messages.txt'))
+                f.write(ValueError("{0} format is not supported".format(y_type)) + '\n' + 'y_true: {}'.format(y_true))
+                f.close()
+                eval_label_rep = np.nan
+            else:
+                eval_label_rep = exp.eval_metric(gt.ravel(),
+                                                 y_pred_rep.ravel());
+            """
+            temp
+            """
+            # eval_label_rep = exp.eval_metric(gt.ravel(),
+            #                                  y_pred_rep.ravel());   # fixme code fails here
             eval_all_reps[s_key] = eval_label_rep;
         eval_all_labels[label_str] = eval_all_reps;
     return eval_all_labels;

@@ -85,7 +85,7 @@ def basic_routine_epoch(exp, batch):
     for k, m_key in enumerate(batch_d.keys()):
         batch_d[m_key] = Variable(batch_d[m_key]).to(exp.flags.device);
     results = mm_vae(batch_d);
-
+    # getting the log probabilities
     log_probs, weighted_log_prob = calc_log_probs(exp, results, batch);
     group_divergence = results['joint_divergence'];
 
@@ -93,6 +93,7 @@ def basic_routine_epoch(exp, batch):
     if exp.flags.factorized_representation:
         klds_style = calc_klds_style(exp, results);
 
+    # Calculation of the loss
     if (exp.flags.modality_jsd or exp.flags.modality_moe
         or exp.flags.joint_elbo):
         if exp.flags.factorized_representation:
@@ -143,7 +144,7 @@ def train(epoch, exp, tb_logger):
 
     d_loader = DataLoader(exp.dataset_train, batch_size=exp.flags.batch_size,
                           shuffle=True,
-                          num_workers=1, drop_last=True);
+                          num_workers=exp.flags.dataloader_workers, drop_last=True);
 
     for iteration, batch in enumerate(d_loader):
         basic_routine = basic_routine_epoch(exp, batch);
@@ -172,7 +173,7 @@ def test(epoch, exp, tb_logger):
 
         d_loader = DataLoader(exp.dataset_test, batch_size=exp.flags.batch_size,
                             shuffle=True,
-                            num_workers=8, drop_last=True);
+                            num_workers=exp.flags.dataloader_workers, drop_last=True);
 
         for iteration, batch in enumerate(d_loader):
             basic_routine = basic_routine_epoch(exp, batch);
