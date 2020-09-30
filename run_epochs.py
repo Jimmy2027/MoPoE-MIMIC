@@ -6,7 +6,6 @@ import torch
 from tensorboardX import SummaryWriter
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
-from tqdm import tqdm
 
 from divergence_measures.kl_div import calc_kl_divergence
 from eval_metrics.coherence import test_generation
@@ -213,7 +212,7 @@ def run_epochs(exp):
     tb_logger.writer.add_text('FLAGS', str_flags, 0)
 
     print('training epochs progress:')
-    for epoch in tqdm(range(exp.flags.start_epoch, exp.flags.end_epoch)):
+    for epoch in range(exp.flags.start_epoch, exp.flags.end_epoch):
         utils.printProgressBar(epoch, exp.flags.end_epoch)
         # one epoch of training and testing
         train(epoch, exp, tb_logger);

@@ -22,11 +22,11 @@ def train_clf_lr_all_subsets(exp):
     subsets = exp.subsets;
 
     d_loader = DataLoader(exp.dataset_train, batch_size=exp.flags.batch_size,
-                        shuffle=True,
-                        num_workers=exp.flags.dataloader_workers, drop_last=True);
+                          shuffle=True,
+                          num_workers=exp.flags.dataloader_workers, drop_last=True);
 
     bs = exp.flags.batch_size;
-    num_batches_epoch = int(exp.dataset_train.__len__() /float(bs));
+    num_batches_epoch = int(exp.dataset_train.__len__() / float(bs));
     class_dim = exp.flags.class_dim;
     n_samples = int(exp.dataset_train.__len__());
     data_train = dict();
@@ -42,21 +42,21 @@ def train_clf_lr_all_subsets(exp):
             batch_d[m_key] = batch_d[m_key].to(exp.flags.device);
         inferred = mm_vae.inference(batch_d);
         lr_subsets = inferred['subsets'];
-        all_labels[(it*bs):((it+1)*bs), :] = np.reshape(batch_l, (bs,
-                                                                  len(exp.labels)));
+        all_labels[(it * bs):((it + 1) * bs), :] = np.reshape(batch_l, (bs,
+                                                                        len(exp.labels)));
         for k, key in enumerate(lr_subsets.keys()):
-            data_train[key][(it*bs):((it+1)*bs), :] = lr_subsets[key][0].cpu().data.numpy();
+            data_train[key][(it * bs):((it + 1) * bs), :] = lr_subsets[key][0].cpu().data.numpy();
 
     n_train_samples = exp.flags.num_training_samples_lr;
     rand_ind_train = np.random.randint(n_samples, size=n_train_samples)
-    labels = all_labels[rand_ind_train,:]
+    labels = all_labels[rand_ind_train, :]
     for k, s_key in enumerate(subsets.keys()):
         if s_key != '':
             d = data_train[s_key];
             data_train[s_key] = d[rand_ind_train, :]
     clf_lr = train_clf_lr(exp, data_train, labels);
     return clf_lr;
- 
+
 
 def test_clf_lr_all_subsets(epoch, clf_lr, exp):
     mm_vae = exp.mm_vae;
@@ -71,10 +71,10 @@ def test_clf_lr_all_subsets(epoch, clf_lr, exp):
                 lr_eval[label_str][s_key] = [];
 
     d_loader = DataLoader(exp.dataset_test, batch_size=exp.flags.batch_size,
-                        shuffle=True,
-                        num_workers=exp.flags.dataloader_workers, drop_last=True);
+                          shuffle=True,
+                          num_workers=exp.flags.dataloader_workers, drop_last=True);
 
-    num_batches_epoch = int(exp.dataset_test.__len__() /float(exp.flags.batch_size));
+    num_batches_epoch = int(exp.dataset_test.__len__() / float(exp.flags.batch_size));
     for iteration, batch in enumerate(d_loader):
         batch_d = batch[0];
         batch_l = batch[1];
@@ -122,7 +122,8 @@ def classify_latent_representations(exp, epoch, clf_lr, data, labels):
                 bugs_dir = os.path.join(exp.flags.dir_experiment_run, 'bugs', str(epoch))
                 if not os.path.exists(bugs_dir):
                     os.makedirs(bugs_dir)
-                np.save(y_true, allow_pickle=True)
+                with open('y_true.npy', 'wb') as f:
+                    np.save(f, y_true)
                 f = open(os.path.join(bugs_dir, 'error_messages.txt'))
                 f.write(ValueError("{0} format is not supported".format(y_type)) + '\n' + 'y_true: {}'.format(y_true))
                 f.close()
@@ -153,8 +154,3 @@ def train_clf_lr(exp, data, labels):
             clf_lr_reps[s_key] = clf_lr_s;
         clf_lr_labels[label_str] = clf_lr_reps;
     return clf_lr_labels;
-
-
-
-
-
