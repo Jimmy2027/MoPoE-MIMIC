@@ -8,11 +8,12 @@ import torch
 from mimic.experiment import MimicExperiment
 from mimic.flags import parser
 from run_epochs import run_epochs
-from utils.filehandling import create_dir_structure, expand_paths, create_dir_structure_testing
+from utils.filehandling import create_dir_structure, expand_paths, create_dir_structure_testing, get_config_path
 
 if __name__ == '__main__':
     FLAGS = parser.parse_args()
-    with open("configs/local_mimic_config.json", 'rt') as json_file:
+    config_path = get_config_path()
+    with open(config_path, 'rt') as json_file:
         t_args = argparse.Namespace()
         t_args.__dict__.update(json.load(json_file))
         FLAGS = parser.parse_args(namespace=t_args)

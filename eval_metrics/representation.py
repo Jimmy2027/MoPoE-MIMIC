@@ -23,7 +23,7 @@ def train_clf_lr_all_subsets(exp):
 
     d_loader = DataLoader(exp.dataset_train, batch_size=exp.flags.batch_size,
                         shuffle=True,
-                        num_workers=exp.flags.num_workers, drop_last=True);
+                        num_workers=exp.flags.dataloader_workers, drop_last=True);
 
     bs = exp.flags.batch_size;
     num_batches_epoch = int(exp.dataset_train.__len__() /float(bs));
@@ -72,7 +72,7 @@ def test_clf_lr_all_subsets(epoch, clf_lr, exp):
 
     d_loader = DataLoader(exp.dataset_test, batch_size=exp.flags.batch_size,
                         shuffle=True,
-                        num_workers=exp.flags.num_workers, drop_last=True);
+                        num_workers=exp.flags.dataloader_workers, drop_last=True);
 
     num_batches_epoch = int(exp.dataset_test.__len__() /float(exp.flags.batch_size));
     for iteration, batch in enumerate(d_loader):

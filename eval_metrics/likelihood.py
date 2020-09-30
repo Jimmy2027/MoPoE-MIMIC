@@ -108,7 +108,7 @@ def estimate_likelihoods(exp):
     d_loader = DataLoader(exp.dataset_test,
                           batch_size=exp.flags.batch_size,
                           shuffle=True,
-                          num_workers=exp.flags.num_workers, drop_last=True);
+                          num_workers=exp.flags.dataloader_workers, drop_last=True);
 
     subsets = exp.subsets;
     lhoods = dict()
