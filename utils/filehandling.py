@@ -93,3 +93,9 @@ def expand_paths(flags):
     flags.inception_state_dict = os.path.expanduser(flags.inception_state_dict)
     flags.dir_fid = os.path.expanduser(flags.dir_fid)
     return flags
+
+def get_config_path():
+    if os.path.exists('/cluster/home/klugh/'):
+        return "configs/leomed_mimic_config.json"
+    else:
+        return "configs/local_mimic_config.json"
