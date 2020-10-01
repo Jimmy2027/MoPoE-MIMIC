@@ -56,12 +56,14 @@ class MimicExperiment(BaseExperiment):
 
 
     def set_model(self):
+        print('setting model')
         model = VAEtrimodalMimic(self.flags, self.modalities, self.subsets)
         model = model.to(self.flags.device);
         return model;
 
 
     def set_modalities(self):
+        print('setting modalities')
         mod1 = MimicPA(EncoderImg(self.flags, self.flags.style_pa_dim),
                        DecoderImg(self.flags, self.flags.style_pa_dim));
         mod2 = MimicLateral(EncoderImg(self.flags, self.flags.style_lat_dim),
@@ -77,13 +79,16 @@ class MimicExperiment(BaseExperiment):
 
 
     def set_dataset(self):
+        print('setting train dataset')
         d_train = Mimic(self.flags, self.labels, self.alphabet, dataset=1)
+        print('setting val dataset')
         d_eval = Mimic(self.flags, self.labels, self.alphabet, dataset=2)
         self.dataset_train = d_train;
         self.dataset_test = d_eval;
 
 
     def set_clfs(self):
+        print('setting clfs')
         model_clf_m1 = None;
         model_clf_m2 = None;
         model_clf_m3 = None;
@@ -110,6 +115,7 @@ class MimicExperiment(BaseExperiment):
 
 
     def set_optimizer(self):
+        print('setting optimizer')
         # optimizer definition
         optimizer = optim.Adam(
             list(self.mm_vae.parameters()),
@@ -119,6 +125,7 @@ class MimicExperiment(BaseExperiment):
 
 
     def set_rec_weights(self):
+        print('setting rec_weights')
         rec_weights = dict();
         ref_mod_d_size = self.modalities['PA'].data_size.numel();
         for k, m_key in enumerate(self.modalities.keys()):
