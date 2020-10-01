@@ -1,4 +1,4 @@
-
+import argparse
 import os
 import json
 
@@ -12,10 +12,10 @@ from torch.utils.data import DataLoader
 from tensorboardX import SummaryWriter
 
 from mimic.networks.ConvNetworkImgClf import ClfImg
-from mimic import MimicDataset
+from mimic.MimicDataset import Mimic
 
-from flags.flags_celeba import parser
-from utils.filehandling import create_dir_structure
+from mimic.flags import parser
+from utils.filehandling import create_dir_structure, get_config_path
 from utils.utils import printProgressBar
 from utils.loss import clf_loss
 
@@ -74,7 +74,8 @@ def test_clf(flags, epoch, models, dataset, log_writer):
 
     num_samples_test = dataset.__len__()
     name_logs = "eval_clf_img"
-    model.eval()
+    model_pa.eval()
+    model_lat.eval()
     step = epoch*np.floor(num_samples_test/flags.batch_size);
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=flags.batch_size, shuffle=True, num_workers=0, drop_last=True)
     for idx, (imgs_pa, imgs_lat, txts, labels) in enumerate(dataloader):
@@ -82,9 +83,9 @@ def test_clf(flags, epoch, models, dataset, log_writer):
         imgs_lat = Variable(imgs_lat).to(flags.device);
         labels = Variable(labels).to(flags.device);
 
-        attr_hat_pa = model(imgs_pa);
+        attr_hat_pa = model_pa(imgs_pa);
         loss_pa = clf_loss(attr_hat_pa, labels)
-        attr_hat_lat = model(imgs_lat);
+        attr_hat_lat = model_pa(imgs_lat);
         loss_lat = clf_loss(attr_hat_lat, labels)
 
         log_writer.add_scalars('%s/Loss' % name_logs, {'PA': loss_pa.item()}, step)
@@ -94,8 +95,6 @@ def test_clf(flags, epoch, models, dataset, log_writer):
 
 def training_procedure_clf(FLAGS):
     logger = SummaryWriter(FLAGS.dir_logs_clf)
-    if FLAGS.cuda:
-        model.cuda();
 
     alphabet_path = os.path.join(os.getcwd(), 'alphabet.json');
     with open(alphabet_path) as alphabet_file:
@@ -110,18 +109,30 @@ def training_procedure_clf(FLAGS):
     model_pa = ClfImg(FLAGS).to(FLAGS.device);
     model_lat = ClfImg(FLAGS).to(FLAGS.device);
     models = {'pa': model_pa, 'lateral': model_lat};
-    
+
+    if FLAGS.cuda:
+        model_pa.cuda();
+        model_lat.cuda();
     for epoch in range(0, 100):
         print('epoch: ' + str(epoch))
         models = train_clf(FLAGS, epoch, models, mimic_train, logger);
         test_clf(FLAGS, epoch, models, mimic_eval, logger);
-        torch.save(model['pa'].state_dict(), os.path.join(FLAGS.dir_clf, FLAGS.clf_save_m1))
-        torch.save(model['lateral'].state_dict(), os.path.join(FLAGS.dir_clf, FLAGS.clf_save_m2))
+        torch.save(models['pa'].state_dict(), os.path.join(FLAGS.dir_clf, FLAGS.clf_save_m1))
+        torch.save(models['lateral'].state_dict(), os.path.join(FLAGS.dir_clf, FLAGS.clf_save_m2))
 
 
 if __name__ == '__main__':
 
     FLAGS = parser.parse_args()
+
+    config_path = get_config_path()
+    with open(config_path, 'rt') as json_file:
+        t_args = argparse.Namespace()
+        t_args.__dict__.update(json.load(json_file))
+        FLAGS = parser.parse_args(namespace=t_args)
+
+    use_cuda = torch.cuda.is_available()
+    FLAGS.device = torch.device('cuda' if use_cuda else 'cpu')
     FLAGS.alpha_modalities = [FLAGS.div_weight_uniform_content,
             FLAGS.div_weight_m1_content,
             FLAGS.div_weight_m2_content,

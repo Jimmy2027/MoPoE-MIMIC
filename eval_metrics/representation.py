@@ -124,8 +124,8 @@ def classify_latent_representations(exp, epoch, clf_lr, data, labels):
                     os.makedirs(bugs_dir)
                 with open('y_true.npy', 'wb') as f:
                     np.save(f, y_true)
-                f = open(os.path.join(bugs_dir, 'error_messages.txt'))
-                f.write(ValueError("{0} format is not supported".format(y_type)) + '\n' + 'y_true: {}'.format(y_true))
+                f = open(os.path.join(bugs_dir, 'error_messages.txt'), 'w')
+                f.write("{0} format is not supported".format(y_type) + '\n' + 'y_true: {}'.format(y_true))
                 f.close()
                 eval_label_rep = np.nan
             else:
