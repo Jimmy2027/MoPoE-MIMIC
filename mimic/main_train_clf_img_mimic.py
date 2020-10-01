@@ -15,9 +15,11 @@ from mimic.networks.ConvNetworkImgClf import ClfImg
 from mimic.MimicDataset import Mimic
 
 from mimic.flags import parser
-from utils.filehandling import create_dir_structure, get_config_path
+from utils.filehandling import create_dir_structure, get_config_path, expand_paths
 from utils.utils import printProgressBar
 from utils.loss import clf_loss
+
+LABELS = ['Lung Opacity', 'Pleural Effusion', 'Support Devices']
 
 
 def train_clf(flags, epoch, models, dataset, log_writer):
@@ -35,15 +37,19 @@ def train_clf(flags, epoch, models, dataset, log_writer):
 
     num_samples_train = dataset.__len__()
     name_logs = "train_clf_img"
-    model.train()
-    num_batches_train = np.floor(num_samples_train/flags.batch_size);
-    step = epoch*num_batches_train;
+    model_pa.train()
+    model_lat.train()
+    num_batches_train = np.floor(num_samples_train / flags.batch_size);
+    step = epoch * num_batches_train;
     step_print_progress = 0;
-    dataloader = torch.utils.data.DataLoader(dataset, batch_size=flags.batch_size, shuffle=True, num_workers=8, drop_last=True)
-    for idx, (imgs_pa, imgs_lat, txts, labels) in enumerate(dataloader):
-        imgs_pa = Variable(imgs_pa).to(flags.device);
-        imgs_lat = Variable(imgs_lat).to(flags.device);
-        labels = Variable(labels).to(flags.device);
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=flags.batch_size, shuffle=True, num_workers=flags.dataloader_workers,
+                                             drop_last=True)
+    for idx, batch in enumerate(dataloader):
+        batch_d = batch[0]
+        batch_l = batch[1]
+        imgs_pa = Variable(batch_d['PA']).to(flags.device);
+        imgs_lat = Variable(batch_d['Lateral']).to(flags.device);
+        labels = Variable(batch_l).to(flags.device);
 
         attr_hat_pa = model_pa(imgs_pa);
         loss_pa = clf_loss(attr_hat_pa, labels);
@@ -64,24 +70,26 @@ def train_clf(flags, epoch, models, dataset, log_writer):
         step_print_progress += 1;
         printProgressBar(step_print_progress, num_batches_train)
     models = {'pa': model_pa, 'lateral': model_lat};
-    return models; 
+    return models;
 
 
 def test_clf(flags, epoch, models, dataset, log_writer):
-
     model_pa = models['pa'];
-    model_lat = models['lat'];
+    model_lat = models['lateral'];
 
     num_samples_test = dataset.__len__()
     name_logs = "eval_clf_img"
     model_pa.eval()
     model_lat.eval()
-    step = epoch*np.floor(num_samples_test/flags.batch_size);
-    dataloader = torch.utils.data.DataLoader(dataset, batch_size=flags.batch_size, shuffle=True, num_workers=0, drop_last=True)
-    for idx, (imgs_pa, imgs_lat, txts, labels) in enumerate(dataloader):
-        imgs_pa = Variable(imgs_pa).to(flags.device);
-        imgs_lat = Variable(imgs_lat).to(flags.device);
-        labels = Variable(labels).to(flags.device);
+    step = epoch * np.floor(num_samples_test / flags.batch_size);
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=flags.batch_size, shuffle=True, num_workers=0,
+                                             drop_last=True)
+    for idx, batch in enumerate(dataloader):
+        batch_d = batch[0]
+        batch_l = batch[1]
+        imgs_pa = Variable(batch_d['PA']).to(flags.device);
+        imgs_lat = Variable(batch_d['Lateral']).to(flags.device);
+        labels = Variable(batch_l).to(flags.device);
 
         attr_hat_pa = model_pa(imgs_pa);
         loss_pa = clf_loss(attr_hat_pa, labels)
@@ -93,6 +101,7 @@ def test_clf(flags, epoch, models, dataset, log_writer):
 
         step += 1;
 
+
 def training_procedure_clf(FLAGS):
     logger = SummaryWriter(FLAGS.dir_logs_clf)
 
@@ -100,19 +109,16 @@ def training_procedure_clf(FLAGS):
     with open(alphabet_path) as alphabet_file:
         alphabet = str(''.join(json.load(alphabet_file)))
     FLAGS.num_features = len(alphabet)
-    mimic_train = Mimic(FLAGS, alphabet, dataset=1)
-    mimic_eval = Mimic(FLAGS, alphabet, dataset=2)
+    mimic_train = Mimic(FLAGS, LABELS, alphabet, dataset=1)
+    mimic_eval = Mimic(FLAGS, LABELS, alphabet, dataset=2)
     print(mimic_eval.__len__())
     use_cuda = torch.cuda.is_available();
     FLAGS.device = torch.device('cuda' if use_cuda else 'cpu');
 
-    model_pa = ClfImg(FLAGS).to(FLAGS.device);
-    model_lat = ClfImg(FLAGS).to(FLAGS.device);
+    model_pa = ClfImg(FLAGS, LABELS).to(FLAGS.device);
+    model_lat = ClfImg(FLAGS, LABELS).to(FLAGS.device);
     models = {'pa': model_pa, 'lateral': model_lat};
 
-    if FLAGS.cuda:
-        model_pa.cuda();
-        model_lat.cuda();
     for epoch in range(0, 100):
         print('epoch: ' + str(epoch))
         models = train_clf(FLAGS, epoch, models, mimic_train, logger);
@@ -122,7 +128,6 @@ def training_procedure_clf(FLAGS):
 
 
 if __name__ == '__main__':
-
     FLAGS = parser.parse_args()
 
     config_path = get_config_path()
@@ -130,12 +135,13 @@ if __name__ == '__main__':
         t_args = argparse.Namespace()
         t_args.__dict__.update(json.load(json_file))
         FLAGS = parser.parse_args(namespace=t_args)
+    FLAGS = expand_paths(FLAGS)
 
     use_cuda = torch.cuda.is_available()
     FLAGS.device = torch.device('cuda' if use_cuda else 'cpu')
     FLAGS.alpha_modalities = [FLAGS.div_weight_uniform_content,
-            FLAGS.div_weight_m1_content,
-            FLAGS.div_weight_m2_content,
-            FLAGS.div_weight_m3_content];
+                              FLAGS.div_weight_m1_content,
+                              FLAGS.div_weight_m2_content,
+                              FLAGS.div_weight_m3_content];
     create_dir_structure(FLAGS, train=False);
     training_procedure_clf(FLAGS)
