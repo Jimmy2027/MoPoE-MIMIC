@@ -45,6 +45,7 @@ if __name__ == '__main__':
     alphabet_path = os.path.join(os.getcwd(), 'alphabet.json')
     with open(alphabet_path) as alphabet_file:
         alphabet = str(''.join(json.load(alphabet_file)))
+
     mimic = MimicExperiment(FLAGS, alphabet)
     create_dir_structure_testing(mimic)
     mimic.set_optimizer()

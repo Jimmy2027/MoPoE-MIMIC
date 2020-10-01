@@ -22,7 +22,8 @@ class Mimic(Dataset):
             dset_str = 'eval';
         elif dataset == 3:
             dset_str = 'test';
-
+        if args.use_toy_dataset:
+            dset_str = 'toy_' + dset_str
         self.args = args;
         dir_dataset = os.path.join(args.dir_data, 'files_small');
         fn_img_pa = os.path.join(dir_dataset, dset_str + '_pa.pt');

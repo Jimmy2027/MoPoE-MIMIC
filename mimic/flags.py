@@ -16,6 +16,7 @@ parser.add_argument('--likelihood_m1', type=str, default='laplace', help="output
 parser.add_argument('--likelihood_m2', type=str, default='laplace', help="output distribution")
 parser.add_argument('--likelihood_m3', type=str, default='categorical', help="output distribution")
 parser.add_argument('--dataloader_workers', type=int, default=8, help="number of workers used for the Dataloader")
+parser.add_argument('--use_toy_dataset', type=bool, default=False, help="if true uses small toy dataset")
 
 # paths to save models
 parser.add_argument('--encoder_save_m1', type=str, default='encoderM1', help="model save for encoder")
