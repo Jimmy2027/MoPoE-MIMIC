@@ -83,6 +83,9 @@ def create_dir_structure(flags, train=True):
     flags.dir_cond_gen = os.path.join(flags.dir_plots, 'cond_gen')
     if train:
         create_dir(flags.dir_cond_gen)
+
+    if not os.path.exists(flags.dir_clf):
+        os.makedirs(flags.dir_clf)
     return flags
 
 
