@@ -1,23 +1,20 @@
 import argparse
-import os
 import json
+import os
 
 import numpy as np
-
 import torch
-import torch.nn as nn
 import torch.optim as optim
+from tensorboardX import SummaryWriter
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
-from tensorboardX import SummaryWriter
 
-from mimic.networks.ConvNetworkImgClf import ClfImg
 from mimic.MimicDataset import Mimic
-
 from mimic.flags import parser
+from mimic.networks.ConvNetworkImgClf import ClfImg
 from utils.filehandling import create_dir_structure, get_config_path, expand_paths
-from utils.utils import printProgressBar
 from utils.loss import clf_loss
+from utils.utils import printProgressBar
 
 LABELS = ['Lung Opacity', 'Pleural Effusion', 'Support Devices']
 
