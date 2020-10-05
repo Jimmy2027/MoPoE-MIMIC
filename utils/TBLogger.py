@@ -24,7 +24,7 @@ class TBLogger():
                                 self.step)
 
     def write_latent_distr(self, name, latents):
-        l_mods = latents['modalities'];
+        l_mods = latents['modalities']
         for k, key in enumerate(l_mods.keys()):
             if not (l_mods[key][0] is None or np.isnan(l_mods[key][0].mean().item())):
                 self.writer.add_scalars('%s/mu' % name,

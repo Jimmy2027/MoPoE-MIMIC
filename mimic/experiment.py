@@ -1,7 +1,6 @@
-
-import os 
+import os
 import random
-import numpy as np 
+import numpy as np
 from itertools import chain, combinations
 
 import torch
@@ -51,16 +50,14 @@ class MimicExperiment(BaseExperiment):
         self.style_weights = self.set_style_weights()
 
         self.test_samples = self.get_test_samples();
-        self.eval_metric = average_precision_score; 
+        self.eval_metric = average_precision_score;
         self.paths_fid = self.set_paths_fid();
-
 
     def set_model(self):
         print('setting model')
         model = VAEtrimodalMimic(self.flags, self.modalities, self.subsets)
         model = model.to(self.flags.device);
         return model;
-
 
     def set_modalities(self):
         print('setting modalities')
@@ -77,7 +74,6 @@ class MimicExperiment(BaseExperiment):
         mods = {mod1.name: mod1, mod2.name: mod2, mod3.name: mod3};
         return mods;
 
-
     def set_dataset(self):
         print('setting train dataset')
         d_train = Mimic(self.flags, self.labels, self.alphabet, dataset=1)
@@ -85,7 +81,6 @@ class MimicExperiment(BaseExperiment):
         d_eval = Mimic(self.flags, self.labels, self.alphabet, dataset=2)
         self.dataset_train = d_train;
         self.dataset_test = d_eval;
-
 
     def set_clfs(self):
         print('setting clfs')
@@ -113,7 +108,6 @@ class MimicExperiment(BaseExperiment):
                 'text': model_clf_m3}
         return clfs;
 
-
     def set_optimizer(self):
         print('setting optimizer')
         # optimizer definition
@@ -123,7 +117,6 @@ class MimicExperiment(BaseExperiment):
             betas=(self.flags.beta_1, self.flags.beta_2))
         self.optimizer = optimizer;
 
-
     def set_rec_weights(self):
         print('setting rec_weights')
         rec_weights = dict();
@@ -131,9 +124,8 @@ class MimicExperiment(BaseExperiment):
         for k, m_key in enumerate(self.modalities.keys()):
             mod = self.modalities[m_key];
             numel_mod = mod.data_size.numel()
-            rec_weights[mod.name] = float(ref_mod_d_size/numel_mod)
+            rec_weights[mod.name] = float(ref_mod_d_size / numel_mod)
         return rec_weights;
-
 
     def set_style_weights(self):
         weights = dict();
@@ -142,31 +134,23 @@ class MimicExperiment(BaseExperiment):
         weights['text'] = self.flags.beta_m3_style;
         return weights;
 
-
     def get_prediction_from_attr(self, values):
         return values.ravel();
-
 
     def get_test_samples(self, num_images=10):
         n_test = self.dataset_test.__len__();
         samples = []
         for i in range(num_images):
-            sample, target = self.dataset_test.__getitem__(random.randint(0, n_test))
+            sample, target = self.dataset_test.__getitem__(random.randint(0, n_test - 1))
             for k, key in enumerate(sample):
                 sample[key] = sample[key].to(self.flags.device);
             samples.append(sample)
         return samples
 
-
     def mean_eval_metric(self, values):
         return np.mean(np.array(values));
 
-
     def eval_label(self, values, labels, index=None):
-        pred = values[:,index];
-        gt = labels[:,index];
+        pred = values[:, index];
+        gt = labels[:, index];
         return self.eval_metric(gt, pred);
-
-
-
-

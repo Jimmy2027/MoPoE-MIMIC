@@ -1,4 +1,4 @@
-name: joint-elbo
+name: mimic
 channels:
   - pytorch
   - anaconda

@@ -3,7 +3,7 @@ import sys
 import os
 
 import numpy as np
-
+from tqdm import tqdm
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
@@ -78,7 +78,7 @@ def test_generation(epoch, exp):
 
     num_batches_epoch = int(exp.dataset_test.__len__() /float(exp.flags.batch_size));
     cnt_s = 0;
-    for iteration, batch in enumerate(d_loader):
+    for iteration, batch in tqdm(enumerate(d_loader), total=len(d_loader), postfix='test_generation'):
         batch_d = batch[0];
         batch_l = batch[1];
         rand_gen = mm_vae.generate();

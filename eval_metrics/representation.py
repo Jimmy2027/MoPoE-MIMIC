@@ -2,7 +2,7 @@ import sys
 import os
 
 import numpy as np
-
+from tqdm import tqdm
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
@@ -23,7 +23,11 @@ def train_clf_lr_all_subsets(exp):
 
     d_loader = DataLoader(exp.dataset_train, batch_size=exp.flags.batch_size,
                           shuffle=True,
-                          num_workers=exp.flags.dataloader_workers, drop_last=True);
+                          num_workers=exp.flags.dataloader_workers, drop_last=True)
+    if exp.flags.steps_per_training_epoch > 0:
+        training_steps = exp.flags.steps_per_training_epoch
+    else:
+        training_steps = len(d_loader)
 
     bs = exp.flags.batch_size;
     num_batches_epoch = int(exp.dataset_train.__len__() / float(bs));
@@ -35,7 +39,9 @@ def train_clf_lr_all_subsets(exp):
             data_train[s_key] = np.zeros((n_samples,
                                           class_dim))
     all_labels = np.zeros((n_samples, len(exp.labels)))
-    for it, batch in enumerate(d_loader):
+    for it, batch in tqdm(enumerate(d_loader), total=training_steps, postfix='train_clf_lr'):
+        if it > training_steps:
+            break
         batch_d = batch[0];
         batch_l = batch[1];
         for k, m_key in enumerate(batch_d.keys()):
@@ -150,6 +156,9 @@ def train_clf_lr(exp, data, labels):
         for s_key in data.keys():
             data_rep = data[s_key];
             clf_lr_s = LogisticRegression(random_state=0, solver='lbfgs', multi_class='auto', max_iter=1000);
+            # fixme error if len(np.unique(gt.rave())) <2
+            if len(np.unique(gt.ravel())) < 2:
+                af = 0
             clf_lr_s.fit(data_rep, gt.ravel());
             clf_lr_reps[s_key] = clf_lr_s;
         clf_lr_labels[label_str] = clf_lr_reps;

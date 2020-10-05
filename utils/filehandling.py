@@ -100,5 +100,7 @@ def expand_paths(flags):
 def get_config_path():
     if os.path.exists('/cluster/home/klugh/'):
         return "configs/leomed_mimic_config.json"
+    elif os.path.exists('/mnt/data/hendrik'):
+        return "configs/bartholin_mimic_config.json"
     else:
         return "configs/local_mimic_config.json"

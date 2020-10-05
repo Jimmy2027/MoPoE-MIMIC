@@ -6,7 +6,7 @@ import torch
 from tensorboardX import SummaryWriter
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
-
+from tqdm import tqdm
 from divergence_measures.kl_div import calc_kl_divergence
 from eval_metrics.coherence import test_generation
 from eval_metrics.likelihood import estimate_likelihoods
@@ -18,12 +18,12 @@ from utils import utils
 from utils.TBLogger import TBLogger
 
 # global variables
-SEED = None 
+SEED = None
 SAMPLE1 = None
 if SEED is not None:
     np.random.seed(SEED)
     torch.manual_seed(SEED)
-    random.seed(SEED) 
+    random.seed(SEED)
 
 
 def calc_log_probs(exp, result, batch):
@@ -35,7 +35,7 @@ def calc_log_probs(exp, result, batch):
         log_probs[mod.name] = -mod.calc_log_prob(result['rec'][mod.name],
                                                  batch[0][mod.name],
                                                  exp.flags.batch_size);
-        weighted_log_prob += exp.rec_weights[mod.name]*log_probs[mod.name];
+        weighted_log_prob += exp.rec_weights[mod.name] * log_probs[mod.name];
     return log_probs, weighted_log_prob;
 
 
@@ -65,9 +65,8 @@ def calc_style_kld(exp, klds):
     style_weights = exp.style_weights;
     weighted_klds = 0.0;
     for m, m_key in enumerate(mods.keys()):
-        weighted_klds += style_weights[m_key]*klds[m_key+'_style'];
+        weighted_klds += style_weights[m_key] * klds[m_key + '_style'];
     return weighted_klds;
-
 
 
 def basic_routine_epoch(exp, batch):
@@ -94,7 +93,7 @@ def basic_routine_epoch(exp, batch):
 
     # Calculation of the loss
     if (exp.flags.modality_jsd or exp.flags.modality_moe
-        or exp.flags.joint_elbo):
+            or exp.flags.joint_elbo):
         if exp.flags.factorized_representation:
             kld_style = calc_style_kld(exp, klds_style);
         else:
@@ -144,8 +143,13 @@ def train(epoch, exp, tb_logger):
     d_loader = DataLoader(exp.dataset_train, batch_size=exp.flags.batch_size,
                           shuffle=True,
                           num_workers=exp.flags.dataloader_workers, drop_last=True);
-
-    for iteration, batch in enumerate(d_loader):
+    if exp.flags.steps_per_training_epoch > 0:
+        training_steps = exp.flags.steps_per_training_epoch
+    else:
+        training_steps = len(d_loader)
+    for iteration, batch in tqdm(enumerate(d_loader), total=training_steps, postfix='train'):
+        if iteration > training_steps:
+            break
         basic_routine = basic_routine_epoch(exp, batch);
         results = basic_routine['results'];
         total_loss = basic_routine['total_loss'];
@@ -171,10 +175,10 @@ def test(epoch, exp, tb_logger):
         rec_weight = 1.0;
 
         d_loader = DataLoader(exp.dataset_test, batch_size=exp.flags.batch_size,
-                            shuffle=True,
-                            num_workers=exp.flags.dataloader_workers, drop_last=True);
+                              shuffle=True,
+                              num_workers=exp.flags.dataloader_workers, drop_last=True);
 
-        for iteration, batch in enumerate(d_loader):
+        for iteration, batch in tqdm(enumerate(d_loader), total=len(d_loader), postfix='test'):
             basic_routine = basic_routine_epoch(exp, batch);
             results = basic_routine['results'];
             total_loss = basic_routine['total_loss'];
@@ -182,16 +186,18 @@ def test(epoch, exp, tb_logger):
             log_probs = basic_routine['log_probs'];
             tb_logger.write_testing_logs(results, total_loss, log_probs, klds);
 
-        plots = generate_plots(exp, epoch);
-        tb_logger.write_plots(plots, epoch);
+        # plots = generate_plots(exp, epoch);
+        # tb_logger.write_plots(plots, epoch);
 
         if (epoch + 1) % exp.flags.eval_freq == 0 or (epoch + 1) == exp.flags.end_epoch:
             if exp.flags.eval_lr:
+                print('evaluation of latent representation')
                 clf_lr = train_clf_lr_all_subsets(exp);
                 lr_eval = test_clf_lr_all_subsets(epoch, clf_lr, exp);
                 tb_logger.write_lr_eval(lr_eval);
 
             if exp.flags.use_clf:
+                print('test generation')
                 gen_eval = test_generation(epoch, exp);
                 tb_logger.write_coherence_logs(gen_eval);
 

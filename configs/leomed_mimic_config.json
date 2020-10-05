@@ -23,7 +23,7 @@
  "div_weight_m3_content":0.25,
  "div_weight_uniform_content":0.25,
  "batch_size":256,
- "eval_freq":20,
+ "eval_freq":1,
  "eval_freq_fid":50,
  "end_epoch":50,
  "calc_nll":true,
