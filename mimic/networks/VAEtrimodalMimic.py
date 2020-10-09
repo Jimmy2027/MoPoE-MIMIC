@@ -81,24 +81,27 @@ class VAEtrimodalMimic(BaseMMVae, nn.Module):
         if 'PA' in input_batch.keys():
             i_m1 = input_batch['PA'];
             latents['PA'] = self.encoder_pa(i_m1)
-            latents['PA_style'] = latents['PA'][:2]
-            latents['PA'] = latents['PA'][2:]
+            if self.encoder_pa.feature_compressor.style_mu and self.encoder_pa.feature_compressor.style_logvar:
+                latents['PA_style'] = latents['PA'][2:]
+            latents['PA'] = latents['PA'][:2]
         else:
             latents['PA_style'] = [None, None]
             latents['PA'] = [None, None]
         if 'Lateral' in input_batch.keys():
             i_m2 = input_batch['Lateral'];
             latents['Lateral'] = self.encoder_lat(i_m2)
-            latents['Lateral_style'] = latents['Lateral'][:2]
-            latents['Lateral'] = latents['Lateral'][2:]
+            if self.encoder_lat.feature_compressor.style_mu and self.encoder_lat.feature_compressor.style_logvar:
+                latents['Lateral_style'] = latents['Lateral'][2:]
+            latents['Lateral'] = latents['Lateral'][:2]
         else:
             latents['Lateral_style'] = [None, None]
             latents['Lateral'] = [None, None]
         if 'text' in input_batch.keys():
             i_m3 = input_batch['text'];
             latents['text'] = self.encoder_text(i_m3)
-            latents['text_style'] = latents['text'][:2]
-            latents['text'] = latents['text'][2:]
+            if self.encoder_text.feature_compressor.style_mu and self.encoder_text.feature_compressor.style_logvar:
+                latents['text_style'] = latents['text'][2:]
+            latents['text'] = latents['text'][:2]
         else:
             latents['text_style'] = [None, None]
             latents['text'] = [None, None]

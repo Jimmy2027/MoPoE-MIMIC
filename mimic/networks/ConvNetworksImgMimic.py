@@ -17,8 +17,12 @@ class EncoderImg(nn.Module):
     def forward(self, x_img):
         h_img = self.feature_extractor(x_img);
         h_img = h_img.view(h_img.shape[0], h_img.shape[1], h_img.shape[2])
-        mu_style, logvar_style, mu_content, logvar_content = self.feature_compressor(h_img);
-        return mu_style, logvar_style, mu_content, logvar_content;
+        if self.feature_compressor.style_mu and self.feature_compressor.style_logvar:
+            mu_style, logvar_style, mu_content, logvar_content = self.feature_compressor(h_img);
+            return  mu_content, logvar_content,mu_style, logvar_style
+        else:
+            mu_content, logvar_content = self.feature_compressor(h_img)
+            return mu_content, logvar_content;
 
 
 class DecoderImg(nn.Module):

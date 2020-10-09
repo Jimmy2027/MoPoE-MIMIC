@@ -118,30 +118,8 @@ def classify_latent_representations(exp, epoch, clf_lr, data, labels):
             data_rep = data[s_key];
             clf_lr_rep = clf_lr_label[s_key];
             y_pred_rep = clf_lr_rep.predict(data_rep);
-            """
-            temporary section for debugging. At some point gt.ravel() has type 0 and code breaks
-            """
-            from sklearn.utils.multiclass import type_of_target
-            y_true = gt.ravel()
-            y_type = type_of_target(y_true)
-            if y_type not in ("binary", "multilabel-indicator"):
-                bugs_dir = os.path.join(exp.flags.dir_experiment_run, 'bugs', str(epoch))
-                if not os.path.exists(bugs_dir):
-                    os.makedirs(bugs_dir)
-                with open('y_true.npy', 'wb') as f:
-                    np.save(f, y_true)
-                f = open(os.path.join(bugs_dir, 'error_messages.txt'), 'w')
-                f.write("{0} format is not supported".format(y_type) + '\n' + 'y_true: {}'.format(y_true))
-                f.close()
-                eval_label_rep = np.nan
-            else:
-                eval_label_rep = exp.eval_metric(gt.ravel(),
-                                                 y_pred_rep.ravel());
-            """
-            temp
-            """
-            # eval_label_rep = exp.eval_metric(gt.ravel(),
-            #                                  y_pred_rep.ravel());   # fixme code fails here
+            eval_label_rep = exp.eval_metric(gt.ravel(),
+                                             y_pred_rep.ravel());
             eval_all_reps[s_key] = eval_label_rep;
         eval_all_labels[label_str] = eval_all_reps;
     return eval_all_labels;
@@ -156,9 +134,6 @@ def train_clf_lr(exp, data, labels):
         for s_key in data.keys():
             data_rep = data[s_key];
             clf_lr_s = LogisticRegression(random_state=0, solver='lbfgs', multi_class='auto', max_iter=1000);
-            # fixme error if len(np.unique(gt.rave())) <2
-            if len(np.unique(gt.ravel())) < 2:
-                af = 0
             clf_lr_s.fit(data_rep, gt.ravel());
             clf_lr_reps[s_key] = clf_lr_s;
         clf_lr_labels[label_str] = clf_lr_reps;

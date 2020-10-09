@@ -17,9 +17,12 @@ class EncoderText(nn.Module):
 
     def forward(self, x_text):
         h_text = self.feature_extractor(x_text);
-        mu_style, logvar_style, mu_content, logvar_content = self.feature_compressor(h_text);
-        return mu_style, logvar_style, mu_content, logvar_content;
-
+        if self.feature_compressor.style_mu and self.feature_compressor.style_logvar:
+            mu_style, logvar_style, mu_content, logvar_content = self.feature_compressor(h_text);
+            return mu_content, logvar_content, mu_style, logvar_style
+        else:
+            mu_content, logvar_content = self.feature_compressor(h_text)
+            return mu_content, logvar_content;
 
 class DecoderText(nn.Module):
     def __init__(self, flags, style_dim):

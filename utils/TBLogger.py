@@ -1,5 +1,4 @@
 import numpy as np
-# todo not sure if checking for np.isnan is the right thing to do!
 class TBLogger():
     def __init__(self, name, writer):
         self.name = name;
@@ -26,14 +25,12 @@ class TBLogger():
     def write_latent_distr(self, name, latents):
         l_mods = latents['modalities']
         for k, key in enumerate(l_mods.keys()):
-            if not (l_mods[key][0] is None or np.isnan(l_mods[key][0].mean().item())):
-                self.writer.add_scalars('%s/mu' % name,
-                                        {key: l_mods[key][0].mean().item()},
-                                        self.step)
-            if not (l_mods[key][1] is None or np.isnan(l_mods[key][1].mean().item())):
-                self.writer.add_scalars('%s/logvar' % name,
-                                        {key: l_mods[key][1].mean().item()},
-                                        self.step)
+            self.writer.add_scalars('%s/mu' % name,
+                                    {key: l_mods[key][0].mean().item()},
+                                    self.step)
+            self.writer.add_scalars('%s/logvar' % name,
+                                    {key: l_mods[key][1].mean().item()},
+                                    self.step)
 
     def write_lr_eval(self, lr_eval):
         for s, l_key in enumerate(sorted(lr_eval.keys())):
@@ -66,27 +63,27 @@ class TBLogger():
 
     def write_plots(self, plots, epoch):
         for k, p_key in enumerate(plots.keys()):
-            ps = plots[p_key];
+            ps = plots[p_key]
             for l, name in enumerate(ps.keys()):
-                fig = ps[name];
+                fig = ps[name]
                 self.writer.add_image(p_key + '_' + name,
                                       fig,
                                       epoch,
-                                      dataformats="HWC");
+                                      dataformats="HWC")
 
     def add_basic_logs(self, name, results, loss, log_probs, klds):
         self.writer.add_scalars('%s/Loss' % name,
                                 {'loss': loss.data.item()},
                                 self.step)
-        self.write_log_probs(name, log_probs);
-        self.write_klds(name, klds);
-        self.write_group_div(name, results['joint_divergence']);
-        self.write_latent_distr(name, results['latents']);
+        self.write_log_probs(name, log_probs)
+        self.write_klds(name, klds)
+        self.write_group_div(name, results['joint_divergence'])
+        self.write_latent_distr(name, results['latents'])
 
     def write_training_logs(self, results, loss, log_probs, klds):
-        self.add_basic_logs(self.training_prefix, results, loss, log_probs, klds);
-        self.step += 1;
+        self.add_basic_logs(self.training_prefix, results, loss, log_probs, klds)
+        self.step += 1
 
     def write_testing_logs(self, results, loss, log_probs, klds):
-        self.add_basic_logs(self.testing_prefix, results, loss, log_probs, klds);
-        self.step += 1;
+        self.add_basic_logs(self.testing_prefix, results, loss, log_probs, klds)
+        self.step += 1

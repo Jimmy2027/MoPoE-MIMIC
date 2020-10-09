@@ -71,18 +71,41 @@ def calc_style_kld(exp, klds):
 
 def basic_routine_epoch(exp, batch):
     # set up weights
-    beta_style = exp.flags.beta_style;
-    beta_content = exp.flags.beta_content;
-    beta = exp.flags.beta;
-    rec_weight = 1.0;
+    beta_style = exp.flags.beta_style
+    beta_content = exp.flags.beta_content
+    beta = exp.flags.beta
+    rec_weight = 1.0
 
-    mm_vae = exp.mm_vae;
-    batch_d = batch[0];
-    batch_l = batch[1];
-    mods = exp.modalities;
+    mm_vae = exp.mm_vae
+    batch_d = batch[0]
+    batch_l = batch[1]
+    mods = exp.modalities
     for k, m_key in enumerate(batch_d.keys()):
-        batch_d[m_key] = Variable(batch_d[m_key]).to(exp.flags.device);
-    results = mm_vae(batch_d);
+        batch_d[m_key] = Variable(batch_d[m_key]).to(exp.flags.device)
+    results = mm_vae(batch_d)
+    """
+    temporary section
+    """
+    # temp
+    import pandas as pd
+    bugs_dir = os.path.join(exp.flags.dir_data, 'bugs')
+    run = exp.flags.dir_experiment_run.split('/')[-1]
+    if not os.path.exists(bugs_dir):
+        os.makedirs(bugs_dir)
+        table = pd.DataFrame()
+    else:
+        table = pd.read_csv(bugs_dir + '/basic_routine_epoch.csv')
+    row = {'run': run}
+    for key in results['latents']['modalities']:
+        row[key + '0_mean'] = results['latents']['modalities'][key][0].mean().item()
+        row[key + '1_mean'] = results['latents']['modalities'][key][1].mean().item()
+        row[key + '0_batch'] = batch_d[key][0].mean().item()
+        row[key + '1_batch'] = batch_d[key][1].mean().item()
+    table = table.append(row, ignore_index=True)
+    table.to_csv(bugs_dir + '/basic_routine_epoch.csv', index=False)
+    """
+    end_temp
+    """
     # getting the log probabilities
     log_probs, weighted_log_prob = calc_log_probs(exp, results, batch);
     group_divergence = results['joint_divergence'];
@@ -176,37 +199,37 @@ def test(epoch, exp, tb_logger):
 
         d_loader = DataLoader(exp.dataset_test, batch_size=exp.flags.batch_size,
                               shuffle=True,
-                              num_workers=exp.flags.dataloader_workers, drop_last=True);
+                              num_workers=exp.flags.dataloader_workers, drop_last=True)
 
         for iteration, batch in tqdm(enumerate(d_loader), total=len(d_loader), postfix='test'):
-            basic_routine = basic_routine_epoch(exp, batch);
-            results = basic_routine['results'];
-            total_loss = basic_routine['total_loss'];
-            klds = basic_routine['klds'];
-            log_probs = basic_routine['log_probs'];
-            tb_logger.write_testing_logs(results, total_loss, log_probs, klds);
+            basic_routine = basic_routine_epoch(exp, batch)
+            results = basic_routine['results']
+            total_loss = basic_routine['total_loss']
+            klds = basic_routine['klds']
+            log_probs = basic_routine['log_probs']
+            tb_logger.write_testing_logs(results, total_loss, log_probs, klds)
 
-        # plots = generate_plots(exp, epoch);
-        # tb_logger.write_plots(plots, epoch);
+        plots = generate_plots(exp, epoch)
+        tb_logger.write_plots(plots, epoch)
 
         if (epoch + 1) % exp.flags.eval_freq == 0 or (epoch + 1) == exp.flags.end_epoch:
             if exp.flags.eval_lr:
                 print('evaluation of latent representation')
-                clf_lr = train_clf_lr_all_subsets(exp);
-                lr_eval = test_clf_lr_all_subsets(epoch, clf_lr, exp);
-                tb_logger.write_lr_eval(lr_eval);
+                clf_lr = train_clf_lr_all_subsets(exp)
+                lr_eval = test_clf_lr_all_subsets(epoch, clf_lr, exp)
+                tb_logger.write_lr_eval(lr_eval)
 
             if exp.flags.use_clf:
                 print('test generation')
-                gen_eval = test_generation(epoch, exp);
-                tb_logger.write_coherence_logs(gen_eval);
+                gen_eval = test_generation(epoch, exp)
+                tb_logger.write_coherence_logs(gen_eval)
 
             if exp.flags.calc_nll:
-                lhoods = estimate_likelihoods(exp);
-                tb_logger.write_lhood_logs(lhoods);
+                lhoods = estimate_likelihoods(exp)
+                tb_logger.write_lhood_logs(lhoods)
 
             if exp.flags.calc_prd and ((epoch + 1) % exp.flags.eval_freq_fid == 0):
-                prd_scores = calc_prd_score(exp);
+                prd_scores = calc_prd_score(exp)
                 tb_logger.write_prd_scores(prd_scores)
 
 
