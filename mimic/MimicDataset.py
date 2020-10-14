@@ -1,5 +1,5 @@
 import os
-
+import numpy as np
 import pandas as pd
 from torch.utils.data import Dataset
 from torchvision import transforms
@@ -11,7 +11,7 @@ from utils import text as text
 
 
 class Mimic(Dataset):
-    """Custom Dataset for loading CelebA face images"""
+    """Custom Dataset for loading mimic images"""
 
     def __init__(self, args, str_labels, alphabet, dataset):
         if dataset == 1:
@@ -31,11 +31,23 @@ class Mimic(Dataset):
         fn_findings = os.path.join(dir_dataset, dset_str + '_findings.csv');
         fn_labels = os.path.join(dir_dataset, dset_str + '_labels.csv');
 
-        self.labels = pd.read_csv(fn_labels)[str_labels].fillna(0).values;
+        self.labels = pd.read_csv(fn_labels)[str_labels].fillna(0)
         self.imgs_pa = torch.load(fn_img_pa);
         self.imgs_lat = torch.load(fn_img_lat);
-        self.report_findings = pd.read_csv(fn_findings)['findings'].values;
-        self.alphabet = alphabet;
+        self.report_findings = pd.read_csv(fn_findings)['findings']
+        # need to remove all cases where the labels have 3 classes
+        # todo this should be done in the preprocessing
+        indices = []
+        indices += self.labels.index[(self.labels['Lung Opacity'] == -1)].tolist()
+        indices += self.labels.index[(self.labels['Pleural Effusion'] == -1)].tolist()
+        indices += self.labels.index[(self.labels['Support Devices'] == -1)].tolist()
+        indices = list(set(indices))
+        self.labels = self.labels.drop(indices).values
+        self.report_findings = self.report_findings.drop(indices).values
+        self.imgs_pa = torch.tensor(np.delete(self.imgs_pa.numpy(), indices, 0))
+        self.imgs_lat = torch.tensor(np.delete(self.imgs_lat.numpy(), indices, 0))
+
+        self.alphabet = alphabet
         self.transform_img = transforms.Compose([transforms.ToPILImage(),
                                                  transforms.Resize(size=(self.args.img_size, self.args.img_size),
                                                                    interpolation=Image.BICUBIC),
