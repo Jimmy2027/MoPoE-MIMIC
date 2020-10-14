@@ -20,21 +20,21 @@ from utils.BaseMMVae import BaseMMVae
 class VAEtrimodalMimic(BaseMMVae, nn.Module):
     def __init__(self, flags, modalities, subsets):
         super(VAEtrimodalMimic, self).__init__(flags, modalities, subsets)
-        self.encoder_pa = modalities['PA'].encoder;
-        self.encoder_lat = modalities['Lateral'].encoder;
-        self.encoder_text = modalities['text'].encoder;
-        self.decoder_pa = modalities['PA'].decoder;
-        self.decoder_lat = modalities['Lateral'].decoder;
-        self.decoder_text = modalities['text'].decoder;
-        self.encoder_pa = self.encoder_pa.to(flags.device);
-        self.encoder_lat = self.encoder_lat.to(flags.device);
-        self.encoder_text = self.encoder_text.to(flags.device);
-        self.decoder_pa = self.decoder_pa.to(flags.device);
-        self.decoder_lat = self.decoder_lat.to(flags.device);
-        self.decoder_text = self.decoder_text.to(flags.device);
-        self.lhood_pa = modalities['PA'].likelihood;
-        self.lhood_lat = modalities['Lateral'].likelihood;
-        self.lhood_text = modalities['text'].likelihood;
+        self.encoder_pa = modalities['PA'].encoder
+        self.encoder_lat = modalities['Lateral'].encoder
+        self.encoder_text = modalities['text'].encoder
+        self.decoder_pa = modalities['PA'].decoder
+        self.decoder_lat = modalities['Lateral'].decoder
+        self.decoder_text = modalities['text'].decoder
+        self.encoder_pa = self.encoder_pa.to(flags.device)
+        self.encoder_lat = self.encoder_lat.to(flags.device)
+        self.encoder_text = self.encoder_text.to(flags.device)
+        self.decoder_pa = self.decoder_pa.to(flags.device)
+        self.decoder_lat = self.decoder_lat.to(flags.device)
+        self.decoder_text = self.decoder_text.to(flags.device)
+        self.lhood_pa = modalities['PA'].likelihood
+        self.lhood_lat = modalities['Lateral'].likelihood
+        self.lhood_text = modalities['text'].likelihood
 
 
     def forward(self, input_batch):

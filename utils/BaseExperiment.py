@@ -83,7 +83,7 @@ class BaseExperiment(ABC):
                 mods.append(self.modalities[mod_name])
             key = '_'.join(sorted(mod_names));
             subsets[key] = mods;
-        return subsets;
+        return subsets
 
 
     def set_paths_fid(self):

@@ -26,12 +26,17 @@ from utils.BaseExperiment import BaseExperiment
 
 
 class MimicExperiment(BaseExperiment):
-    def __init__(self, flags, alphabet):
+    def __init__(self, flags, alphabet, **kwargs):
+        super().__init__(flags)
         self.labels = ['Lung Opacity', 'Pleural Effusion', 'Support Devices']
         self.flags = flags
         self.dataset = flags.dataset
         self.plot_img_size = torch.Size((1, 128, 128))
-        self.font = ImageFont.truetype('FreeSerif.ttf', 38)
+        print(kwargs.keys(), 'font' in kwargs.keys())
+        if 'font' in kwargs.keys():
+            self.font = kwargs['font']
+        else:
+            self.font = ImageFont.truetype('FreeSerif.ttf', 38)
 
         self.alphabet = alphabet
         self.flags.num_features = len(alphabet)
@@ -62,16 +67,16 @@ class MimicExperiment(BaseExperiment):
     def set_modalities(self):
         print('setting modalities')
         mod1 = MimicPA(EncoderImg(self.flags, self.flags.style_pa_dim),
-                       DecoderImg(self.flags, self.flags.style_pa_dim));
+                       DecoderImg(self.flags, self.flags.style_pa_dim))
         mod2 = MimicLateral(EncoderImg(self.flags, self.flags.style_lat_dim),
-                            DecoderImg(self.flags, self.flags.style_lat_dim));
+                            DecoderImg(self.flags, self.flags.style_lat_dim))
         mod3 = MimicText(EncoderText(self.flags, self.flags.style_text_dim),
                          DecoderText(self.flags, self.flags.style_text_dim),
                          self.flags.len_sequence,
                          self.alphabet,
                          self.plot_img_size,
-                         self.font);
-        mods = {mod1.name: mod1, mod2.name: mod2, mod3.name: mod3};
+                         self.font)
+        mods = {mod1.name: mod1, mod2.name: mod2, mod3.name: mod3}
         return mods;
 
     def set_dataset(self):

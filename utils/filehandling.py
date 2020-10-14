@@ -1,6 +1,7 @@
 import os
 import shutil
 from datetime import datetime
+from shutil import copyfile
 
 
 def create_dir(dir_name):
@@ -27,7 +28,7 @@ def create_dir_structure_testing(exp):
         create_dir(dir_inference_label)
 
 
-def create_dir_structure(flags, train=True):
+def create_dir_structure(flags, train: bool = True):
     if train:
         str_experiments = get_str_experiments(flags)
         flags.dir_experiment_run = os.path.join(os.path.expanduser(flags.dir_experiment), str_experiments)
@@ -42,6 +43,7 @@ def create_dir_structure(flags, train=True):
     flags.dir_checkpoints = os.path.join(os.path.expanduser(flags.dir_experiment_run), 'checkpoints')
     if train:
         create_dir(os.path.expanduser(flags.dir_checkpoints))
+        copyfile(get_config_path(), os.path.join(flags.dir_experiment_run, 'config.json'), follow_symlinks=True)
 
     flags.dir_logs = os.path.join(os.path.expanduser(flags.dir_experiment_run), 'logs')
     if train:
@@ -97,6 +99,7 @@ def expand_paths(flags):
     flags.dir_fid = os.path.expanduser(flags.dir_fid)
     return flags
 
+
 def get_config_path():
     if os.path.exists('/cluster/home/klugh/'):
         return "configs/leomed_mimic_config.json"
@@ -104,3 +107,21 @@ def get_config_path():
         return "configs/bartholin_mimic_config.json"
     else:
         return "configs/local_mimic_config.json"
+
+
+def set_paths(flags):
+    """
+    set paths in flags, such as data_dir and dir_clf
+    """
+    if os.path.exists('/cluster/home/klugh/'):
+        flags.dir_data = os.path.expanduser('~/scratch')
+        flags.dir_clf = os.path.expanduser('~/scratch/mimic/trained_classifiers/Mimic128')
+
+    elif os.path.exists('/mnt/data/hendrik'):
+        flags.dir_data = os.path.expanduser('/mnt/data/hendrik/mimic_scratch')
+        flags.dir_clf = os.path.expanduser('/mnt/data/hendrik/mimic_scratch/mimic/trained_classifiers/Mimic128')
+
+    else:
+        flags.dir_data = os.path.expanduser('~/Documents/master3/leomed_scratch')
+        flags.dir_clf = os.path.expanduser('~/Documents/master3/leomed_scratch/mimic/trained_classifiers/Mimic128')
+        return flags

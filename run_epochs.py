@@ -83,29 +83,6 @@ def basic_routine_epoch(exp, batch):
     for k, m_key in enumerate(batch_d.keys()):
         batch_d[m_key] = Variable(batch_d[m_key]).to(exp.flags.device)
     results = mm_vae(batch_d)
-    """
-    temporary section
-    """
-    # temp
-    import pandas as pd
-    bugs_dir = os.path.join(exp.flags.dir_data, 'bugs')
-    run = exp.flags.dir_experiment_run.split('/')[-1]
-    if not os.path.exists(bugs_dir):
-        os.makedirs(bugs_dir)
-        table = pd.DataFrame()
-    else:
-        table = pd.read_csv(bugs_dir + '/basic_routine_epoch.csv')
-    row = {'run': run}
-    for key in results['latents']['modalities']:
-        row[key + '0_mean'] = results['latents']['modalities'][key][0].mean().item()
-        row[key + '1_mean'] = results['latents']['modalities'][key][1].mean().item()
-        row[key + '0_batch'] = batch_d[key][0].mean().item()
-        row[key + '1_batch'] = batch_d[key][1].mean().item()
-    table = table.append(row, ignore_index=True)
-    table.to_csv(bugs_dir + '/basic_routine_epoch.csv', index=False)
-    """
-    end_temp
-    """
     # getting the log probabilities
     log_probs, weighted_log_prob = calc_log_probs(exp, results, batch);
     group_divergence = results['joint_divergence'];

@@ -5,12 +5,13 @@ from mimic.networks.FeatureExtractorImg import FeatureExtractorImg
 from mimic.networks.FeatureCompressor import LinearFeatureCompressor
 from mimic.networks.DataGeneratorImg import DataGeneratorImg
 
+
 class EncoderImg(nn.Module):
     def __init__(self, flags, style_dim):
         super(EncoderImg, self).__init__();
         self.flags = flags;
         self.feature_extractor = FeatureExtractorImg(flags)
-        self.feature_compressor = LinearFeatureCompressor(5*flags.DIM_img,
+        self.feature_compressor = LinearFeatureCompressor(5 * flags.DIM_img,
                                                           style_dim,
                                                           flags.class_dim)
 
@@ -19,7 +20,7 @@ class EncoderImg(nn.Module):
         h_img = h_img.view(h_img.shape[0], h_img.shape[1], h_img.shape[2])
         if self.feature_compressor.style_mu and self.feature_compressor.style_logvar:
             mu_style, logvar_style, mu_content, logvar_content = self.feature_compressor(h_img);
-            return  mu_content, logvar_content,mu_style, logvar_style
+            return mu_content, logvar_content, mu_style, logvar_style
         else:
             mu_content, logvar_content = self.feature_compressor(h_img)
             return mu_content, logvar_content;
