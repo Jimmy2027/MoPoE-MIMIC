@@ -2,6 +2,7 @@ import os
 import shutil
 from datetime import datetime
 from shutil import copyfile
+import argparse
 
 
 def create_dir(dir_name):
@@ -28,7 +29,7 @@ def create_dir_structure_testing(exp):
         create_dir(dir_inference_label)
 
 
-def create_dir_structure(flags, train: bool = True):
+def create_dir_structure(flags: argparse.ArgumentParser(), train: bool = True) -> argparse.ArgumentParser():
     if train:
         str_experiments = get_str_experiments(flags)
         flags.dir_experiment_run = os.path.join(os.path.expanduser(flags.dir_experiment), str_experiments)
@@ -124,4 +125,4 @@ def set_paths(flags):
     else:
         flags.dir_data = os.path.expanduser('~/Documents/master3/leomed_scratch')
         flags.dir_clf = os.path.expanduser('~/Documents/master3/leomed_scratch/mimic/trained_classifiers/Mimic128')
-        return flags
+    return flags

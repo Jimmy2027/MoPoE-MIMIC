@@ -16,37 +16,41 @@ def make_res_block_enc_feat_ext(in_channels, out_channels, kernelsize, stride, p
     layers.append(ResidualBlock1dConv(in_channels, out_channels, kernelsize, stride, padding, dilation, downsample, a=a_val, b=b_val))
     return nn.Sequential(*layers)
 
+# todo need to find a better feature extractor for text
+# https://pytorch.org/hub/huggingface_pytorch-transformers/
+# https://pytorch.org/tutorials/beginner/torchtext_translation_tutorial.html
+# https://github.com/iffsid/mmvae/blob/public/src/models/vae_cub_sent.py
 
 class FeatureExtractorText(nn.Module):
     def __init__(self, args, a=2.0, b=0.3):
         super(FeatureExtractorText, self).__init__()
         self.args = args
         self.conv1 = nn.Conv1d(self.args.num_features, self.args.DIM_text,
-                               kernel_size=4, stride=2, padding=1, dilation=1);
+                               kernel_size=4, stride=2, padding=1, dilation=1)
         self.resblock_1 = make_res_block_enc_feat_ext(self.args.DIM_text,
                                                       2*self.args.DIM_text,
-                                                      kernelsize=4, stride=2, padding=1, dilation=1);
+                                                      kernelsize=4, stride=2, padding=1, dilation=1)
         self.resblock_2 = make_res_block_enc_feat_ext(2*self.args.DIM_text,
                                                       3*self.args.DIM_text,
-                                                      kernelsize=4, stride=2, padding=1, dilation=1);
+                                                      kernelsize=4, stride=2, padding=1, dilation=1)
         self.resblock_3 = make_res_block_enc_feat_ext(3*self.args.DIM_text,
                                                       4*self.args.DIM_text,
-                                                      kernelsize=4, stride=2, padding=1, dilation=1);
+                                                      kernelsize=4, stride=2, padding=1, dilation=1)
         self.resblock_4 = make_res_block_enc_feat_ext(4*self.args.DIM_text,
                                                       4*self.args.DIM_text,
-                                                      kernelsize=4, stride=2, padding=1, dilation=1);
+                                                      kernelsize=4, stride=2, padding=1, dilation=1)
         self.resblock_5 = make_res_block_enc_feat_ext(4*self.args.DIM_text,
                                                       4*self.args.DIM_text,
-                                                      kernelsize=4, stride=2, padding=1, dilation=1);
+                                                      kernelsize=4, stride=2, padding=1, dilation=1)
         self.resblock_6 = make_res_block_enc_feat_ext(4*self.args.DIM_text,
                                                       5*self.args.DIM_text,
-                                                      kernelsize=4, stride=2, padding=1, dilation=1);
+                                                      kernelsize=4, stride=2, padding=1, dilation=1)
         self.resblock_7 = make_res_block_enc_feat_ext(5*self.args.DIM_text,
                                                       5*self.args.DIM_text,
-                                                      kernelsize=4, stride=2, padding=1, dilation=1);
+                                                      kernelsize=4, stride=2, padding=1, dilation=1)
         self.resblock_8 = make_res_block_enc_feat_ext(5*self.args.DIM_text,
                                                       5*self.args.DIM_text,
-                                                      kernelsize=4, stride=2, padding=0, dilation=1);
+                                                      kernelsize=4, stride=2, padding=0, dilation=1)
 
     def forward(self, x):
         x = x.transpose(-2,-1);

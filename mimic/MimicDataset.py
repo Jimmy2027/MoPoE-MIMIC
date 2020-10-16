@@ -1,11 +1,12 @@
 import os
+import random
+
+import PIL.Image as Image
 import numpy as np
 import pandas as pd
+import torch
 from torch.utils.data import Dataset
 from torchvision import transforms
-import PIL.Image as Image
-
-import torch
 
 from utils import text as text
 
@@ -66,11 +67,36 @@ class Mimic(Dataset):
             label = torch.from_numpy((self.labels[index, :]).astype(int)).float()
             sample = {'PA': img_pa, 'Lateral': img_lat, 'text': text_vec}
         except (IndexError, OSError):
-            return None;
+            return None
         return sample, label
 
     def __len__(self):
         return self.labels.shape[0]
 
     def get_text_str(self, index):
-        return self.y[index];
+        return self.y[index]
+
+
+class Mimic_testing(Dataset):
+    """
+    Custom Dataset for the testsuite of the training workflow
+    """
+
+    def __init__(self):
+        pass
+
+    def __getitem__(self, index):
+        try:
+            sample = {'PA': torch.from_numpy(np.random.rand(1, 128, 128)).float(),
+                      'Lateral': torch.from_numpy(np.random.rand(1, 128, 128)).float(),
+                      'text': torch.from_numpy(np.random.rand(1024, 71)).float()}
+        except (IndexError, OSError):
+            return None
+        label = torch.tensor([random.randint(0, 1), random.randint(0, 1), random.randint(0, 1)]).float()
+        return sample, label
+
+    def __len__(self):
+        return 20
+
+    def get_text_str(self, index):
+        return self.y[index]

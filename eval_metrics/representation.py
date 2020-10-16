@@ -1,30 +1,19 @@
-import sys
-import os
-
 import numpy as np
-from tqdm import tqdm
-import torch
-import torch.nn as nn
-from torch.autograd import Variable
-from torch.utils.data import DataLoader
-
-from sklearn.metrics import precision_score
-from sklearn.metrics import recall_score
-from sklearn.metrics import f1_score
-from sklearn.metrics import confusion_matrix
-from sklearn.metrics import accuracy_score
 from sklearn.linear_model import LogisticRegression
+from torch.utils.data import DataLoader
+from tqdm import tqdm
 
 
 def train_clf_lr_all_subsets(exp):
-    mm_vae = exp.mm_vae;
-    mm_vae.eval();
-    subsets = exp.subsets;
+    mm_vae = exp.mm_vae
+    mm_vae.eval()
+    subsets = exp.subsets
 
     d_loader = DataLoader(exp.dataset_train, batch_size=exp.flags.batch_size,
                           shuffle=True,
                           num_workers=exp.flags.dataloader_workers, drop_last=True)
-    if exp.flags.steps_per_training_epoch > 0:
+
+    if exp.flags.steps_per_training_epoch > len(d_loader):
         training_steps = exp.flags.steps_per_training_epoch
     else:
         training_steps = len(d_loader)
@@ -42,26 +31,26 @@ def train_clf_lr_all_subsets(exp):
     for it, batch in tqdm(enumerate(d_loader), total=training_steps, postfix='train_clf_lr'):
         if it > training_steps:
             break
-        batch_d = batch[0];
-        batch_l = batch[1];
+        batch_d = batch[0]
+        batch_l = batch[1]
         for k, m_key in enumerate(batch_d.keys()):
-            batch_d[m_key] = batch_d[m_key].to(exp.flags.device);
-        inferred = mm_vae.inference(batch_d);
-        lr_subsets = inferred['subsets'];
+            batch_d[m_key] = batch_d[m_key].to(exp.flags.device)
+        inferred = mm_vae.inference(batch_d)
+        lr_subsets = inferred['subsets']
         all_labels[(it * bs):((it + 1) * bs), :] = np.reshape(batch_l, (bs,
-                                                                        len(exp.labels)));
+                                                                        len(exp.labels)))
         for k, key in enumerate(lr_subsets.keys()):
-            data_train[key][(it * bs):((it + 1) * bs), :] = lr_subsets[key][0].cpu().data.numpy();
+            data_train[key][(it * bs):((it + 1) * bs), :] = lr_subsets[key][0].cpu().data.numpy()
 
-    n_train_samples = exp.flags.num_training_samples_lr;
+    n_train_samples = exp.flags.num_training_samples_lr
     rand_ind_train = np.random.randint(n_samples, size=n_train_samples)
     labels = all_labels[rand_ind_train, :]
     for k, s_key in enumerate(subsets.keys()):
         if s_key != '':
-            d = data_train[s_key];
+            d = data_train[s_key]
             data_train[s_key] = d[rand_ind_train, :]
-    clf_lr = train_clf_lr(exp, data_train, labels);
-    return clf_lr;
+    clf_lr = train_clf_lr(exp, data_train, labels)
+    return clf_lr
 
 
 def test_clf_lr_all_subsets(epoch, clf_lr, exp):

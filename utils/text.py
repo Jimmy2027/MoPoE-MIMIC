@@ -1,9 +1,7 @@
-import sys
 import random
 
 import numpy as np
 import torch
-import torch.nn.functional as F
 
 # digit_text = ['null', 'eins', 'zwei', 'drei', 'vier', 'fuenf', 'sechs', 'sieben', 'acht', 'neun'];
 digit_text_german = ['null', 'eins', 'zwei', 'drei', 'vier', 'fuenf', 'sechs', 'sieben', 'acht', 'neun'];
@@ -14,7 +12,11 @@ def char2Index(alphabet, character):
     return alphabet.find(character)
 
 
-def one_hot_encode(len_seq, alphabet, seq):
+def one_hot_encode(len_seq: int, alphabet: str, seq: str) -> torch.tensor:
+    """
+    One hot encodes the sequence.
+    len_seq is the maximum sequence length
+    """
     X = torch.zeros(len_seq, len(alphabet))
     if len(seq) > len_seq:
         seq = seq[:len_seq];
@@ -48,4 +50,3 @@ def tensor_to_text(alphabet, gen_t):
         decoded = seq2text(alphabet, gen_t[i])
         decoded_samples.append(decoded)
     return decoded_samples;
-

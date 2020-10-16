@@ -2,11 +2,13 @@ import os
 import random
 
 import numpy as np
+import pandas as pd
 import torch
 from tensorboardX import SummaryWriter
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
 from tqdm import tqdm
+
 from divergence_measures.kl_div import calc_kl_divergence
 from eval_metrics.coherence import test_generation
 from eval_metrics.likelihood import estimate_likelihoods
@@ -16,6 +18,7 @@ from eval_metrics.sample_quality import calc_prd_score
 from plotting import generate_plots
 from utils import utils
 from utils.TBLogger import TBLogger
+from utils.BaseExperiment import BaseExperiment
 
 # global variables
 SEED = None
@@ -69,7 +72,7 @@ def calc_style_kld(exp, klds):
     return weighted_klds;
 
 
-def basic_routine_epoch(exp, batch):
+def basic_routine_epoch(exp, batch) -> dict:
     # set up weights
     beta_style = exp.flags.beta_style
     beta_content = exp.flags.beta_content
@@ -143,7 +146,7 @@ def train(epoch, exp, tb_logger):
     d_loader = DataLoader(exp.dataset_train, batch_size=exp.flags.batch_size,
                           shuffle=True,
                           num_workers=exp.flags.dataloader_workers, drop_last=True);
-    if exp.flags.steps_per_training_epoch > 0:
+    if exp.flags.steps_per_training_epoch > len(d_loader):
         training_steps = exp.flags.steps_per_training_epoch
     else:
         training_steps = len(d_loader)
@@ -167,17 +170,16 @@ def test(epoch, exp, tb_logger):
         mm_vae = exp.mm_vae;
         mm_vae.eval();
         exp.mm_vae = mm_vae;
-
         # set up weights
-        beta_style = exp.flags.beta_style;
-        beta_content = exp.flags.beta_content;
-        beta = exp.flags.beta;
-        rec_weight = 1.0;
+        beta_style = exp.flags.beta_style
+        beta_content = exp.flags.beta_content
+        beta = exp.flags.beta
+        rec_weight = 1.0
 
         d_loader = DataLoader(exp.dataset_test, batch_size=exp.flags.batch_size,
                               shuffle=True,
                               num_workers=exp.flags.dataloader_workers, drop_last=True)
-
+        total_losses = []
         for iteration, batch in tqdm(enumerate(d_loader), total=len(d_loader), postfix='test'):
             basic_routine = basic_routine_epoch(exp, batch)
             results = basic_routine['results']
@@ -185,6 +187,7 @@ def test(epoch, exp, tb_logger):
             klds = basic_routine['klds']
             log_probs = basic_routine['log_probs']
             tb_logger.write_testing_logs(results, total_loss, log_probs, klds)
+            total_losses.append(total_loss.item())
 
         plots = generate_plots(exp, epoch)
         tb_logger.write_plots(plots, epoch)
@@ -203,11 +206,13 @@ def test(epoch, exp, tb_logger):
 
             if exp.flags.calc_nll:
                 lhoods = estimate_likelihoods(exp)
-                tb_logger.write_lhood_logs(lhoods)
+                # fixme code breaks here
+                # tb_logger.write_lhood_logs(lhoods)
 
             if exp.flags.calc_prd and ((epoch + 1) % exp.flags.eval_freq_fid == 0):
                 prd_scores = calc_prd_score(exp)
                 tb_logger.write_prd_scores(prd_scores)
+        exp.update_experiments_dataframe({'total_loss': np.mean(total_losses)})
 
 
 def run_epochs(exp):
