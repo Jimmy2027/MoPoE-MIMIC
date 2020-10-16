@@ -5,7 +5,6 @@ from mimic.networks.FeatureExtractorText import FeatureExtractorText
 from mimic.networks.FeatureCompressor import LinearFeatureCompressor
 from mimic.networks.DataGeneratorText import DataGeneratorText
 
-
 class EncoderText(nn.Module):
     def __init__(self, flags, style_dim):
         super(EncoderText, self).__init__();

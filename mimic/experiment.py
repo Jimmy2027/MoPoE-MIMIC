@@ -79,13 +79,14 @@ class MimicExperiment(BaseExperiment):
     def set_dataset(self):
         print('setting dataset')
         if self.dataset == 'testing':
+            print('using testing dataset')
             d_train = Mimic_testing()
             d_eval = Mimic_testing()
         else:
             d_train = Mimic(self.flags, self.labels, self.alphabet, dataset=1)
             d_eval = Mimic(self.flags, self.labels, self.alphabet, dataset=2)
-        self.dataset_train = d_train;
-        self.dataset_test = d_eval;
+        self.dataset_train = d_train
+        self.dataset_test = d_eval
 
     def set_clfs(self):
         print('setting clfs')

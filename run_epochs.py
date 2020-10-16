@@ -139,17 +139,18 @@ def basic_routine_epoch(exp, batch) -> dict:
 
 
 def train(epoch, exp, tb_logger):
-    mm_vae = exp.mm_vae;
-    mm_vae.train();
-    exp.mm_vae = mm_vae;
+    mm_vae = exp.mm_vae
+    mm_vae.train()
+    exp.mm_vae = mm_vae
 
     d_loader = DataLoader(exp.dataset_train, batch_size=exp.flags.batch_size,
                           shuffle=True,
                           num_workers=exp.flags.dataloader_workers, drop_last=True);
-    if exp.flags.steps_per_training_epoch > len(d_loader):
+    if 0 < exp.flags.steps_per_training_epoch < len(d_loader):
         training_steps = exp.flags.steps_per_training_epoch
     else:
         training_steps = len(d_loader)
+
     for iteration, batch in tqdm(enumerate(d_loader), total=training_steps, postfix='train'):
         if iteration > training_steps:
             break
@@ -189,6 +190,7 @@ def test(epoch, exp, tb_logger):
             tb_logger.write_testing_logs(results, total_loss, log_probs, klds)
             total_losses.append(total_loss.item())
 
+        print('generating plots')
         plots = generate_plots(exp, epoch)
         tb_logger.write_plots(plots, epoch)
 
@@ -205,11 +207,13 @@ def test(epoch, exp, tb_logger):
                 tb_logger.write_coherence_logs(gen_eval)
 
             if exp.flags.calc_nll:
+                print('estimating likelihoods')
                 lhoods = estimate_likelihoods(exp)
                 # fixme code breaks here
-                # tb_logger.write_lhood_logs(lhoods)
+                tb_logger.write_lhood_logs(lhoods)
 
             if exp.flags.calc_prd and ((epoch + 1) % exp.flags.eval_freq_fid == 0):
+                print('calculating prediction score')
                 prd_scores = calc_prd_score(exp)
                 tb_logger.write_prd_scores(prd_scores)
         exp.update_experiments_dataframe({'total_loss': np.mean(total_losses)})
@@ -223,8 +227,8 @@ def run_epochs(exp):
     tb_logger.writer.add_text('FLAGS', str_flags, 0)
 
     print('training epochs progress:')
-    for epoch in range(exp.flags.start_epoch, exp.flags.end_epoch):
-        utils.printProgressBar(epoch, exp.flags.end_epoch)
+    for epoch in tqdm(range(exp.flags.start_epoch, exp.flags.end_epoch), postfix='epochs'):
+        # utils.printProgressBar(epoch, exp.flags.end_epoch)
         # one epoch of training and testing
         train(epoch, exp, tb_logger);
         test(epoch, exp, tb_logger);

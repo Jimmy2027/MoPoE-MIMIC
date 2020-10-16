@@ -39,9 +39,13 @@ from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 import numpy as np
 import torch
 from scipy import linalg
-from imageio import imread
-from torch.nn.functional import adaptive_avg_pool2d
 
+try:
+    # scipy.misc.imread is deprecated
+    from scipy.misc import imread
+except:
+    from imageio import imread
+from torch.nn.functional import adaptive_avg_pool2d
 
 print(torch.cuda.is_available())
 
@@ -49,7 +53,8 @@ try:
     from tqdm import tqdm
 except ImportError:
     # If not tqdm is not available, provide a mock version of it
-    def tqdm(x): return x
+    def tqdm(x):
+        return x
 
 from fid.inception import InceptionV3
 

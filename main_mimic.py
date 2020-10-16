@@ -10,8 +10,6 @@ from mimic.flags import parser
 from run_epochs import run_epochs
 from utils.filehandling import create_dir_structure, expand_paths, create_dir_structure_testing, get_config_path
 
-# todo write tests for train loop
-
 if __name__ == '__main__':
     FLAGS = parser.parse_args()
     config_path = get_config_path()
@@ -23,7 +21,7 @@ if __name__ == '__main__':
     use_cuda = torch.cuda.is_available()
     FLAGS.device = torch.device('cuda' if use_cuda else 'cpu')
     device = 'gpu' if use_cuda else 'cpu'
-    print(f'running on {device}')
+    # print(f'running on {device}')
 
     if FLAGS.method == 'poe':
         FLAGS.modality_poe = True
@@ -41,6 +39,7 @@ if __name__ == '__main__':
     print(FLAGS.modality_moe)
     print(FLAGS.modality_jsd)
     print(FLAGS.joint_elbo)
+    print(FLAGS.dataset)
 
     FLAGS.alpha_modalities = [FLAGS.div_weight_uniform_content, FLAGS.div_weight_m1_content,
                               FLAGS.div_weight_m2_content, FLAGS.div_weight_m3_content]
