@@ -29,7 +29,7 @@ def create_dir_structure_testing(exp):
         create_dir(dir_inference_label)
 
 
-def create_dir_structure(flags: argparse.ArgumentParser(), train: bool = True) -> argparse.ArgumentParser():
+def create_dir_structure(flags: argparse.ArgumentParser(), train: bool = True) -> argparse.ArgumentParser:
     if train:
         str_experiments = get_str_experiments(flags)
         flags.dir_experiment_run = os.path.join(os.path.expanduser(flags.dir_experiment), str_experiments)

@@ -1,8 +1,8 @@
+import gc
 import os
 import random
 
 import numpy as np
-import pandas as pd
 import torch
 from tensorboardX import SummaryWriter
 from torch.autograd import Variable
@@ -15,10 +15,8 @@ from eval_metrics.likelihood import estimate_likelihoods
 from eval_metrics.representation import test_clf_lr_all_subsets
 from eval_metrics.representation import train_clf_lr_all_subsets
 from eval_metrics.sample_quality import calc_prd_score
-from plotting import generate_plots
 from utils import utils
 from utils.TBLogger import TBLogger
-from utils.BaseExperiment import BaseExperiment
 
 # global variables
 SEED = None
@@ -53,23 +51,23 @@ def calc_klds(exp, result):
 
 
 def calc_klds_style(exp, result):
-    latents = result['latents']['modalities'];
-    klds = dict();
+    latents = result['latents']['modalities']
+    klds = dict()
     for m, key in enumerate(latents.keys()):
         if key.endswith('style'):
-            mu, logvar = latents[key];
+            mu, logvar = latents[key]
             klds[key] = calc_kl_divergence(mu, logvar,
                                            norm_value=exp.flags.batch_size)
-    return klds;
+    return klds
 
 
 def calc_style_kld(exp, klds):
-    mods = exp.modalities;
-    style_weights = exp.style_weights;
-    weighted_klds = 0.0;
+    mods = exp.modalities
+    style_weights = exp.style_weights
+    weighted_klds = 0.0
     for m, m_key in enumerate(mods.keys()):
-        weighted_klds += style_weights[m_key] * klds[m_key + '_style'];
-    return weighted_klds;
+        weighted_klds += style_weights[m_key] * klds[m_key + '_style']
+    return weighted_klds
 
 
 def basic_routine_epoch(exp, batch) -> dict:
@@ -86,6 +84,42 @@ def basic_routine_epoch(exp, batch) -> dict:
     for k, m_key in enumerate(batch_d.keys()):
         batch_d[m_key] = Variable(batch_d[m_key]).to(exp.flags.device)
     results = mm_vae(batch_d)
+    # checking if the latents contain NaNs. If they do the experiment is started again
+    for key in results['latents']['modalities']:
+        if np.isnan(results['latents']['modalities'][key][0].mean().item()) or \
+                np.isnan(results['latents']['modalities'][key][1].mean().item()):
+            print(key, results['latents']['modalities'][key][0].mean().item())
+            print(key, results['latents']['modalities'][key][1].mean().item())
+            torch.cuda.empty_cache()
+            gc.collect()
+            del exp
+            raise ValueError
+            # exp.restart_experiment = True
+        results['latents']['modalities'][key][1].mean().item()
+    """
+    temporary section to find out which values ar nan and give the warning of the logger
+    """
+    # temp
+    import pandas as pd
+    bugs_dir = os.path.join(exp.flags.dir_data, 'bugs')
+    run = exp.flags.dir_experiment_run.split('/')[-1]
+    if not os.path.exists(bugs_dir):
+        os.makedirs(bugs_dir)
+    if not os.path.exists(os.path.join(bugs_dir, 'basic_routine_epoch.csv')):
+        table = pd.DataFrame()
+    else:
+        table = pd.read_csv(bugs_dir + '/basic_routine_epoch.csv')
+    row = {'run': run, 'number_restarts': exp.number_restarts}
+    for key in results['latents']['modalities']:
+        row[key + '0_mean'] = results['latents']['modalities'][key][0].mean().item()
+        row[key + '1_mean'] = results['latents']['modalities'][key][1].mean().item()
+        row[key + '0_batch'] = batch_d[key][0].mean().item()
+        row[key + '1_batch'] = batch_d[key][1].mean().item()
+    table = table.append(row, ignore_index=True)
+    table.to_csv(bugs_dir + '/basic_routine_epoch.csv', index=False)
+    """
+    end_temp
+    """
     # getting the log probabilities
     log_probs, weighted_log_prob = calc_log_probs(exp, results, batch);
     group_divergence = results['joint_divergence'];
@@ -154,16 +188,16 @@ def train(epoch, exp, tb_logger):
     for iteration, batch in tqdm(enumerate(d_loader), total=training_steps, postfix='train'):
         if iteration > training_steps:
             break
-        basic_routine = basic_routine_epoch(exp, batch);
-        results = basic_routine['results'];
-        total_loss = basic_routine['total_loss'];
-        klds = basic_routine['klds'];
-        log_probs = basic_routine['log_probs'];
+        basic_routine = basic_routine_epoch(exp, batch)
+        results = basic_routine['results']
+        total_loss = basic_routine['total_loss']
+        klds = basic_routine['klds']
+        log_probs = basic_routine['log_probs']
         # backprop
         exp.optimizer.zero_grad()
         total_loss.backward()
         exp.optimizer.step()
-        tb_logger.write_training_logs(results, total_loss, log_probs, klds);
+        tb_logger.write_training_logs(results, total_loss, log_probs, klds)
 
 
 def test(epoch, exp, tb_logger):
@@ -191,8 +225,8 @@ def test(epoch, exp, tb_logger):
             total_losses.append(total_loss.item())
 
         print('generating plots')
-        plots = generate_plots(exp, epoch)
-        tb_logger.write_plots(plots, epoch)
+        # plots = generate_plots(exp, epoch)
+        # tb_logger.write_plots(plots, epoch)
 
         if (epoch + 1) % exp.flags.eval_freq == 0 or (epoch + 1) == exp.flags.end_epoch:
             if exp.flags.eval_lr:
@@ -209,7 +243,6 @@ def test(epoch, exp, tb_logger):
             if exp.flags.calc_nll:
                 print('estimating likelihoods')
                 lhoods = estimate_likelihoods(exp)
-                # fixme code breaks here
                 tb_logger.write_lhood_logs(lhoods)
 
             if exp.flags.calc_prd and ((epoch + 1) % exp.flags.eval_freq_fid == 0):
@@ -240,3 +273,8 @@ def run_epochs(exp):
             exp.mm_vae.save_networks()
             torch.save(exp.mm_vae.state_dict(),
                        os.path.join(dir_network_epoch, exp.flags.mm_vae_save))
+
+    #     if exp.restart_experiment:
+    #         return exp.restart_experiment
+    # return True
+

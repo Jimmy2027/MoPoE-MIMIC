@@ -30,5 +30,4 @@
  "eval_lr":true,
  "calc_prd":true,
  "use_clf":true
-
 }

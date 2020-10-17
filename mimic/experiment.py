@@ -18,6 +18,7 @@ from modalities.MimicLateral import MimicLateral
 from modalities.MimicPA import MimicPA
 from modalities.MimicText import MimicText
 from utils.BaseExperiment import BaseExperiment
+from utils.filehandling import create_dir_structure, expand_paths, create_dir_structure_testing, get_config_path
 
 
 class MimicExperiment(BaseExperiment):
@@ -55,6 +56,9 @@ class MimicExperiment(BaseExperiment):
         self.paths_fid = self.set_paths_fid()
         self.experiments_dataframe = self.get_experiments_dataframe()
 
+        self.restart_experiment = False     # if the model returns nans, the workflow gets started again
+        self.number_restarts = 0
+
     def set_model(self):
         print('setting model')
         model = VAEtrimodalMimic(self.flags, self.modalities, self.subsets)
@@ -90,24 +94,24 @@ class MimicExperiment(BaseExperiment):
 
     def set_clfs(self):
         print('setting clfs')
-        model_clf_m1 = None;
-        model_clf_m2 = None;
-        model_clf_m3 = None;
+        model_clf_m1 = None
+        model_clf_m2 = None
+        model_clf_m3 = None
         if self.flags.use_clf:
-            model_clf_m1 = ClfImg(self.flags, self.labels);
+            model_clf_m1 = ClfImg(self.flags, self.labels)
             model_clf_m1.load_state_dict(torch.load(os.path.join(self.flags.dir_clf,
                                                                  self.flags.clf_save_m1)))
-            model_clf_m1 = model_clf_m1.to(self.flags.device);
+            model_clf_m1 = model_clf_m1.to(self.flags.device)
 
-            model_clf_m2 = ClfImg(self.flags, self.labels);
+            model_clf_m2 = ClfImg(self.flags, self.labels)
             model_clf_m2.load_state_dict(torch.load(os.path.join(self.flags.dir_clf,
                                                                  self.flags.clf_save_m2)))
-            model_clf_m2 = model_clf_m2.to(self.flags.device);
+            model_clf_m2 = model_clf_m2.to(self.flags.device)
 
-            model_clf_m3 = ClfText(self.flags, self.labels);
+            model_clf_m3 = ClfText(self.flags, self.labels)
             model_clf_m3.load_state_dict(torch.load(os.path.join(self.flags.dir_clf,
                                                                  self.flags.clf_save_m3)))
-            model_clf_m3 = model_clf_m3.to(self.flags.device);
+            model_clf_m3 = model_clf_m3.to(self.flags.device)
 
         clfs = {'PA': model_clf_m1,
                 'Lateral': model_clf_m2,
