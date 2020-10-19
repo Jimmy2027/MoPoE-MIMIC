@@ -1,9 +1,10 @@
 import torch
 import torch.nn as nn
 
-from mimic.networks.FeatureExtractorText import FeatureExtractorText
-from mimic.networks.FeatureCompressor import LinearFeatureCompressor
 from mimic.networks.DataGeneratorText import DataGeneratorText
+from mimic.networks.FeatureCompressor import LinearFeatureCompressor
+from mimic.networks.char_encoding.FeatureExtractorText import FeatureExtractorText
+
 
 class EncoderText(nn.Module):
     def __init__(self, flags, style_dim):

@@ -1,20 +1,10 @@
-
 import os
 
 import torch
 import torch.nn as nn
 
-from mimic.networks.ConvNetworksImgMimic import EncoderImg, DecoderImg
-from mimic.networks.ConvNetworksTextMimic import EncoderText, DecoderText
-
-from divergence_measures.mm_div import calc_alphaJSD_modalities
-from divergence_measures.mm_div import calc_group_divergence_poe
-from divergence_measures.mm_div import calc_group_divergence_moe
-from divergence_measures.mm_div import calc_kl_divergence
-from divergence_measures.mm_div import poe
-
-from utils import utils
-from utils.BaseMMVae import BaseMMVae
+from mimic.utils import utils
+from mimic.utils.BaseMMVae import BaseMMVae
 
 
 class VAEtrimodalMimic(BaseMMVae, nn.Module):
@@ -35,7 +25,6 @@ class VAEtrimodalMimic(BaseMMVae, nn.Module):
         self.lhood_pa = modalities['PA'].likelihood
         self.lhood_lat = modalities['Lateral'].likelihood
         self.lhood_text = modalities['text'].likelihood
-
 
     def forward(self, input_batch):
         latents = self.inference(input_batch);
@@ -59,7 +48,7 @@ class VAEtrimodalMimic(BaseMMVae, nn.Module):
             mod = self.modalities[m_key]
             input_mod = input_batch[m_key];
             if input_mod is not None:
-                if self.flags.factorized_representation:    #question was macht factorized_representation?
+                if self.flags.factorized_representation:  # question was macht factorized_representation?
                     s_mu, s_logvar = latents[m_key + '_style'];
                     s_emb = utils.reparameterize(mu=s_mu, logvar=s_logvar);
                 else:
@@ -74,7 +63,6 @@ class VAEtrimodalMimic(BaseMMVae, nn.Module):
                 results_rec[m_key] = rec;
         results['rec'] = results_rec;
         return results;
-
 
     def encode(self, input_batch):
         latents = dict();
@@ -107,7 +95,6 @@ class VAEtrimodalMimic(BaseMMVae, nn.Module):
             latents['text'] = [None, None]
         return latents;
 
-
     def get_random_styles(self, num_samples):
         if self.flags.factorized_representation:
             z_style_1 = torch.randn(num_samples, self.flags.style_pa_dim);
@@ -122,7 +109,6 @@ class VAEtrimodalMimic(BaseMMVae, nn.Module):
             z_style_3 = None;
         styles = {'PA': z_style_1, 'Lateral': z_style_2, 'text': z_style_3};
         return styles;
-
 
     def get_random_style_dists(self, num_samples):
         s1_mu = torch.zeros(num_samples,
@@ -143,7 +129,6 @@ class VAEtrimodalMimic(BaseMMVae, nn.Module):
         styles = {'PA': m1_dist, 'Lateral': m2_dist, 'text': m3_dist};
         return styles;
 
-
     def generate(self, num_samples=None):
         if num_samples is None:
             num_samples = self.flags.batch_size;
@@ -155,7 +140,6 @@ class VAEtrimodalMimic(BaseMMVae, nn.Module):
         random_samples = self.generate_from_latents(random_latents);
         return random_samples;
 
-
     def generate_from_latents(self, latents):
         suff_stats = self.generate_sufficient_statistics_from_latents(latents);
         cond_gen_pa = suff_stats['PA'].mean;
@@ -166,7 +150,6 @@ class VAEtrimodalMimic(BaseMMVae, nn.Module):
                     'text': cond_gen_text};
         return cond_gen;
 
-
     def generate_sufficient_statistics_from_latents(self, latents):
         style_pa = latents['style']['PA'];
         style_lat = latents['style']['Lateral'];
@@ -176,7 +159,6 @@ class VAEtrimodalMimic(BaseMMVae, nn.Module):
         cond_gen_m2 = self.lhood_lat(*self.decoder_lat(style_lat, content));
         cond_gen_m3 = self.lhood_text(*self.decoder_text(style_text, content));
         return {'PA': cond_gen_m1, 'Lateral': cond_gen_m2, 'text': cond_gen_m3}
-
 
     def save_networks(self):
         torch.save(self.encoder_pa.state_dict(), os.path.join(self.flags.dir_checkpoints, self.flags.encoder_save_m1))

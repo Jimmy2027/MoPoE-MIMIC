@@ -1,9 +1,9 @@
 import torch
 import torch.nn as nn
 
-from mimic.networks.FeatureExtractorImg import FeatureExtractorImg
-from mimic.networks.FeatureCompressor import LinearFeatureCompressor
 from mimic.networks.DataGeneratorImg import DataGeneratorImg
+from mimic.networks.FeatureCompressor import LinearFeatureCompressor
+from mimic.networks.FeatureExtractorImg import FeatureExtractorImg
 
 
 class EncoderImg(nn.Module):

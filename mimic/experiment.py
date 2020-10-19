@@ -8,17 +8,16 @@ import torch.optim as optim
 from PIL import ImageFont
 from sklearn.metrics import average_precision_score
 
-from mimic.MimicDataset import Mimic, Mimic_testing
+from mimic.dataio.MimicDataset import Mimic, Mimic_testing
 from mimic.networks.ConvNetworkImgClf import ClfImg as ClfImg
 from mimic.networks.ConvNetworkTextClf import ClfText as ClfText
 from mimic.networks.ConvNetworksImgMimic import EncoderImg, DecoderImg
 from mimic.networks.ConvNetworksTextMimic import EncoderText, DecoderText
 from mimic.networks.VAEtrimodalMimic import VAEtrimodalMimic
-from modalities.MimicLateral import MimicLateral
-from modalities.MimicPA import MimicPA
-from modalities.MimicText import MimicText
-from utils.BaseExperiment import BaseExperiment
-from utils.filehandling import create_dir_structure, expand_paths, create_dir_structure_testing, get_config_path
+from mimic.modalities.MimicLateral import MimicLateral
+from mimic.modalities.MimicPA import MimicPA
+from mimic.modalities.MimicText import MimicText
+from mimic.utils.BaseExperiment import BaseExperiment
 
 
 class MimicExperiment(BaseExperiment):
@@ -56,7 +55,7 @@ class MimicExperiment(BaseExperiment):
         self.paths_fid = self.set_paths_fid()
         self.experiments_dataframe = self.get_experiments_dataframe()
 
-        self.restart_experiment = False     # if the model returns nans, the workflow gets started again
+        self.restart_experiment = False  # if the model returns nans, the workflow gets started again
         self.number_restarts = 0
 
     def set_model(self):

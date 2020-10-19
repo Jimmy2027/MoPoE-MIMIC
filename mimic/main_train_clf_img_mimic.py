@@ -9,12 +9,12 @@ from tensorboardX import SummaryWriter
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
 
-from mimic.MimicDataset import Mimic
+from mimic.dataio.MimicDataset import Mimic
 from mimic.flags import parser
 from mimic.networks.ConvNetworkImgClf import ClfImg
-from utils.filehandling import create_dir_structure, get_config_path, expand_paths
-from utils.loss import clf_loss
-from utils.utils import printProgressBar
+from mimic.utils.filehandling import create_dir_structure, get_config_path, expand_paths
+from mimic.utils.loss import clf_loss
+from mimic.utils.utils import printProgressBar
 
 LABELS = ['Lung Opacity', 'Pleural Effusion', 'Support Devices']
 
@@ -39,7 +39,8 @@ def train_clf(flags, epoch, models, dataset, log_writer):
     num_batches_train = np.floor(num_samples_train / flags.batch_size);
     step = epoch * num_batches_train;
     step_print_progress = 0;
-    dataloader = torch.utils.data.DataLoader(dataset, batch_size=flags.batch_size, shuffle=True, num_workers=flags.dataloader_workers,
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=flags.batch_size, shuffle=True,
+                                             num_workers=flags.dataloader_workers,
                                              drop_last=True)
     for idx, batch in enumerate(dataloader):
         batch_d = batch[0]

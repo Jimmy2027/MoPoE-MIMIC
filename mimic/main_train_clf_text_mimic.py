@@ -9,14 +9,15 @@ from tensorboardX import SummaryWriter
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
 
-from mimic.MimicDataset import Mimic
+from mimic.dataio.MimicDataset import Mimic
 from mimic.flags import parser
 from mimic.networks.ConvNetworkTextClf import ClfText
-from utils.filehandling import create_dir_structure, expand_paths, get_config_path
-from utils.loss import clf_loss
-from utils.utils import printProgressBar
+from mimic.utils.filehandling import create_dir_structure, expand_paths, get_config_path
+from mimic.utils.loss import clf_loss
+from mimic.utils.utils import printProgressBar
 
 LABELS = ['Lung Opacity', 'Pleural Effusion', 'Support Devices']
+
 
 def train_clf(flags, epoch, model, dataset, log_writer):
     # optimizer definition

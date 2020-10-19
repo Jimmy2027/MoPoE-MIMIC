@@ -1,5 +1,4 @@
-import argparse
-from utils.BaseFlags import parser as parser
+from mimic.utils.BaseFlags import parser as parser
 
 parser.add_argument('--dataset', type=str, default='Mimic', help="name of the dataset")
 
@@ -30,7 +29,6 @@ parser.add_argument('--decoder_save_m3', type=str, default='decoderM3', help="mo
 parser.add_argument('--clf_save_m1', type=str, default='clf_m1', help="model save for clf")
 parser.add_argument('--clf_save_m2', type=str, default='clf_m2', help="model save for clf")
 parser.add_argument('--clf_save_m3', type=str, default='clf_m3', help="model save for clf")
-
 
 # LOSS TERM WEIGHTS
 parser.add_argument('--beta_m1_style', type=float, default=1.0, help="default weight divergence term style modality 1")
