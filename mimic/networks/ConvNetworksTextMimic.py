@@ -4,12 +4,16 @@ import torch.nn as nn
 from mimic.networks.DataGeneratorText import DataGeneratorText
 from mimic.networks.FeatureCompressor import LinearFeatureCompressor
 from mimic.networks.char_encoding.FeatureExtractorText import FeatureExtractorText
+from mimic.networks.word_encoding.mmvae_text_enc import FeatureExtractorText as FeatureExtractorText_WordEnc
 
 
 class EncoderText(nn.Module):
     def __init__(self, flags, style_dim):
         super(EncoderText, self).__init__();
-        self.feature_extractor = FeatureExtractorText(flags)
+        if flags.text_encoding == 'char':
+            self.feature_extractor = FeatureExtractorText(flags)
+        elif flags.text_encoding == 'word':
+            self.feature_extractor = FeatureExtractorText_WordEnc(flags)
         self.feature_compressor = LinearFeatureCompressor(5 * flags.DIM_text,
                                                           style_dim,
                                                           flags.class_dim)

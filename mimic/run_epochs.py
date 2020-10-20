@@ -8,7 +8,7 @@ from tensorboardX import SummaryWriter
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-
+from mimic.utils.plotting import generate_plots
 from mimic.evaluation.divergence_measures.kl_div import calc_kl_divergence
 from mimic.evaluation.eval_metrics.coherence import test_generation
 from mimic.evaluation.eval_metrics.likelihood import estimate_likelihoods
@@ -86,8 +86,8 @@ def basic_routine_epoch(exp, batch) -> dict:
     results = mm_vae(batch_d)
     # checking if the latents contain NaNs. If they do the experiment is started again
     for key in results['latents']['modalities']:
-        if np.isnan(results['latents']['modalities'][key][0].mean().item()) or \
-                np.isnan(results['latents']['modalities'][key][1].mean().item()):
+        if not exp.flags.dataset == 'testing' and (np.isnan(results['latents']['modalities'][key][0].mean().item()) or \
+                                                   np.isnan(results['latents']['modalities'][key][1].mean().item())):
             print(key, results['latents']['modalities'][key][0].mean().item())
             print(key, results['latents']['modalities'][key][1].mean().item())
             torch.cuda.empty_cache()
@@ -225,8 +225,8 @@ def test(epoch, exp, tb_logger):
             total_losses.append(total_loss.item())
 
         print('generating plots')
-        # plots = generate_plots(exp, epoch)
-        # tb_logger.write_plots(plots, epoch)
+        plots = generate_plots(exp, epoch)
+        tb_logger.write_plots(plots, epoch)
 
         if (epoch + 1) % exp.flags.eval_freq == 0 or (epoch + 1) == exp.flags.end_epoch:
             if exp.flags.eval_lr:
@@ -273,7 +273,3 @@ def run_epochs(exp):
             exp.mm_vae.save_networks()
             torch.save(exp.mm_vae.state_dict(),
                        os.path.join(dir_network_epoch, exp.flags.mm_vae_save))
-
-    #     if exp.restart_experiment:
-    #         return exp.restart_experiment
-    # return True

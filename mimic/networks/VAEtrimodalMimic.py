@@ -59,6 +59,7 @@ class VAEtrimodalMimic(BaseMMVae, nn.Module):
                     rec = self.lhood_lat(*self.decoder_lat(s_emb, class_embeddings));
                     lhood = self.lhood_lat;
                 elif m_key == 'text':
+                    # fixme do decoder text for word encoding
                     rec = self.lhood_text(*self.decoder_text(s_emb, class_embeddings));
                 results_rec[m_key] = rec;
         results['rec'] = results_rec;

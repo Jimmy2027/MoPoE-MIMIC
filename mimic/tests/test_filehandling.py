@@ -2,7 +2,7 @@ import argparse
 import os
 import tempfile
 from unittest import TestCase
-
+import unittest
 from mimic.utils.filehandling import create_dir_structure
 
 
@@ -19,3 +19,6 @@ class TestFilehandling(TestCase):
             flags.dataset = 'mimic'
             flags.dir_clf = os.path.join(tmpdirname, 'clf_dir')
             _ = create_dir_structure(flags)
+
+if __name__ == '__main__':
+    unittest.main()

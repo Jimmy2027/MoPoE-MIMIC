@@ -5,9 +5,9 @@ import os
 
 import torch
 
-from mimic.experiment import MimicExperiment
-from mimic.flags import parser
-from mimic import run_epochs
+from mimic.utils.experiment import MimicExperiment
+from mimic.utils.flags import parser
+from mimic.run_epochs import run_epochs
 from mimic.utils.filehandling import create_dir_structure, expand_paths, create_dir_structure_testing, get_config_path
 
 
@@ -57,7 +57,7 @@ class Main:
         self.max_tries = 10  # maximum restarts of the experiment
         self.current_tries = 0
 
-    def run_epochs(self):
+    def run_epochs(self) -> bool:
         """
         Wrapper of run_epochs.run_epochs that checks if the workflow was completed and starts it over otherwise
         """
@@ -69,9 +69,9 @@ class Main:
             run_epochs(mimic)
         except ValueError as e:
             print(e)
-            self.restart()
-        # if restart_experiment and self.current_tries < self.max_tries:
-        #     self.restart()
+            return False
+        return True
+
 
     def restart(self):
         """
@@ -86,8 +86,12 @@ class Main:
         print(command)
         os.system(command)
         self.FLAGS = create_dir_structure(self.FLAGS)
-        self.run_epochs()
+        # self.run_epochs()
 
 
 main = Main()
-main.run_epochs()
+success = False
+while not success and main.current_tries < main.max_tries:
+    success = main.run_epochs()
+    if not success:
+        main.restart()

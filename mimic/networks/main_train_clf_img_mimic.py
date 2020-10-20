@@ -10,7 +10,7 @@ from torch.autograd import Variable
 from torch.utils.data import DataLoader
 
 from mimic.dataio.MimicDataset import Mimic
-from mimic.flags import parser
+from mimic.utils.flags import parser
 from mimic.networks.ConvNetworkImgClf import ClfImg
 from mimic.utils.filehandling import create_dir_structure, get_config_path, expand_paths
 from mimic.utils.loss import clf_loss

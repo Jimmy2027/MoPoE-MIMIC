@@ -3,6 +3,8 @@ from mimic.utils.BaseFlags import parser as parser
 parser.add_argument('--dataset', type=str, default='Mimic', help="name of the dataset")
 
 # DATA DEPENDENT
+parser.add_argument('--text_encoding', type=str, default='char',
+                      help="encoding of the text, either character or wordwise")
 parser.add_argument('--len_sequence', type=int, default=1024, help="length of sequence")
 parser.add_argument('--style_pa_dim', type=int, default=0, help="dimension of varying factor latent space")
 parser.add_argument('--style_lat_dim', type=int, default=0, help="dimension of varying factor latent space")

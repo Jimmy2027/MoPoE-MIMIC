@@ -37,12 +37,12 @@ class MimicExperiment(BaseExperiment):
         self.alphabet = alphabet
         self.flags.num_features = len(alphabet)
 
-        self.modalities = self.set_modalities()
-        self.num_modalities = len(self.modalities.keys())
-        self.subsets = self.set_subsets()
         self.dataset_train = None
         self.dataset_test = None
         self.set_dataset()
+        self.modalities = self.set_modalities()
+        self.num_modalities = len(self.modalities.keys())
+        self.subsets = self.set_subsets()
 
         self.mm_vae = self.set_model()
         self.clfs = self.set_clfs()
@@ -86,8 +86,8 @@ class MimicExperiment(BaseExperiment):
             d_train = Mimic_testing()
             d_eval = Mimic_testing()
         else:
-            d_train = Mimic(self.flags, self.labels, self.alphabet, dataset=1)
-            d_eval = Mimic(self.flags, self.labels, self.alphabet, dataset=2)
+            d_train = Mimic(self.flags, self.labels, self.alphabet, split='train')
+            d_eval = Mimic(self.flags, self.labels, self.alphabet, split='eval')
         self.dataset_train = d_train
         self.dataset_test = d_eval
 

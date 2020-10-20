@@ -4,7 +4,7 @@ from mimic.networks.ResidualBlocks import ResidualBlock1dConv
 
 
 def make_res_block_enc_feat_ext(in_channels, out_channels, kernelsize, stride, padding, dilation, a_val=2.0, b_val=0.3):
-    downsample = None;
+    downsample = None
     if (stride != 1) or (in_channels != out_channels) or dilation != 1:
         downsample = nn.Sequential(nn.Conv1d(in_channels, out_channels,
                                              kernel_size=kernelsize,
@@ -56,14 +56,26 @@ class FeatureExtractorText(nn.Module):
                                                       kernelsize=4, stride=2, padding=0, dilation=1)
 
     def forward(self, x):
-        x = x.transpose(-2, -1);
+        """
+        Example for x.shape=torch.Size([200, 1024, 71]):
+        torch.Size([200, 128, 512])
+        torch.Size([200, 256, 256])
+        torch.Size([200, 384, 128])
+        torch.Size([200, 512, 64])
+        torch.Size([200, 512, 32])
+        torch.Size([200, 512, 16])
+        torch.Size([200, 640, 8])
+        torch.Size([200, 640, 4])
+        torch.Size([200, 640, 1])
+        """
+        x = x.transpose(-2, -1)
         out = self.conv1(x)
-        out = self.resblock_1(out);
-        out = self.resblock_2(out);
-        out = self.resblock_3(out);
-        out = self.resblock_4(out);
-        out = self.resblock_5(out);
-        out = self.resblock_6(out);
-        out = self.resblock_7(out);
-        out = self.resblock_8(out);
+        out = self.resblock_1(out)
+        out = self.resblock_2(out)
+        out = self.resblock_3(out)
+        out = self.resblock_4(out)
+        out = self.resblock_5(out)
+        out = self.resblock_6(out)
+        out = self.resblock_7(out)
+        out = self.resblock_8(out)
         return out
