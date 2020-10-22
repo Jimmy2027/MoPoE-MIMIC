@@ -1,17 +1,22 @@
 import torch
 import torch.nn as nn
 
-from mimic.networks.DataGeneratorText import DataGeneratorText
+from networks.char_encoding.DataGeneratorText import DataGeneratorText
 from mimic.networks.FeatureCompressor import LinearFeatureCompressor
-from mimic.networks.char_encoding.FeatureExtractorText import FeatureExtractorText
-from mimic.networks.word_encoding.mmvae_text_enc import FeatureExtractorText as FeatureExtractorText_WordEnc
+from mimic.networks.char_encoding import FeatureExtractorText as FeatureExtractorText_CharEnc
+from mimic.networks.char_encoding import DataGeneratorText as DataGeneratorText_CharEnc
 
+from mimic.networks import word_encoding
+
+from mimic.networks.word_encoding.mmvae_text_enc import FeatureExtractorText as FeatureExtractorText_WordEnc
+from mimic.networks.word_encoding import DataGeneratorText as DataGeneratorText_WordEnc
+from mimic.networks.word_encoding.DataGenerator_mm import Dec
 
 class EncoderText(nn.Module):
     def __init__(self, flags, style_dim):
         super(EncoderText, self).__init__();
         if flags.text_encoding == 'char':
-            self.feature_extractor = FeatureExtractorText(flags)
+            self.feature_extractor = FeatureExtractorText_CharEnc(flags)
         elif flags.text_encoding == 'word':
             self.feature_extractor = FeatureExtractorText_WordEnc(flags)
         self.feature_compressor = LinearFeatureCompressor(5 * flags.DIM_text,
@@ -38,8 +43,13 @@ class DecoderText(nn.Module):
         super(DecoderText, self).__init__();
         self.flags = flags;
         self.feature_generator = nn.Linear(style_dim + flags.class_dim,
-                                           5 * flags.DIM_text, bias=True);
-        self.text_generator = DataGeneratorText(flags)
+                                           5 * flags.DIM_text, bias=True)
+        if flags.text_encoding == 'char':
+            self.text_generator = DataGeneratorText_CharEnc(flags)
+        elif flags.text_encoding == 'word':
+            self.text_generator = DataGeneratorText_WordEnc(flags)
+            # self.text_generator = Dec(flags)
+
 
     def forward(self, z_style, z_content):
         if self.flags.factorized_representation:

@@ -16,10 +16,10 @@ class MimicPA(Modality):
         self.decoder = dec;
         self.likelihood = utils.get_likelihood(self.likelihood_name);
 
-    def save_data(self, d, fn, args):
+    def save_data(self, exp, d, fn, args):
         img_per_row = args['img_per_row'];
         write_samples_img_to_file(d, fn, img_per_row);
 
-    def plot_data(self, d):
+    def plot_data(self, exp, d):
         p = d.repeat(1, 1, 1, 1);
         return p;

@@ -57,7 +57,7 @@ class Mimic(Dataset):
         assert len(np.unique(self.labels)) == 2, \
             'labels should contain 2 classes, might need to remove -1 labels'
         assert self.imgs_pa.shape[0] == self.imgs_lat.shape[0] == len(self.labels) == len(
-            self.report_findings), 'all modalities must have the same length'
+            self.report_findings), f'all modalities must have the same length. len(imgs_pa): {self.imgs_pa.shape[0]}, len(imgs_lat): {self.imgs_lat.shape[0]}, len(labels): {len(self.labels)}, len(report_findings): {len(self.report_findings)}'
 
         if self.args.text_encoding == 'word':
             tx = lambda data: torch.Tensor(data)
@@ -151,7 +151,7 @@ class MimicSentences(Dataset):
     def __len__(self):
         return len(self.data)
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx: int):
         sent = self.data[str(idx)]['idx']
         if self.transform is not None:
             sent = self.transform(sent)
@@ -294,7 +294,7 @@ class Mimic_testing(Dataset):
     """
 
     def __init__(self):
-        pass
+        self.vocab_size = 10
 
     def __getitem__(self, index):
         try:

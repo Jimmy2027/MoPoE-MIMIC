@@ -68,7 +68,6 @@ class FeatureExtractorText(nn.Module):
         torch.Size([200, 640, 4])
         torch.Size([200, 640, 1])
         """
-        # fixme code fails here
         x = self.embedding(x.long())
         x = x.transpose(-2, -1)
         out = self.conv1(x)

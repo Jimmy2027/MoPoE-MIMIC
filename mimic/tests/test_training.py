@@ -48,6 +48,7 @@ class TestTraining(TestCase):
             FLAGS.end_epoch = 2
             FLAGS.batch_size = 10
             FLAGS.eval_freq = 1
+            FLAGS.vocab_size = 10
             FLAGS.text_encoding = text_encoding
 
             FLAGS = create_dir_structure(FLAGS)
@@ -62,10 +63,11 @@ class TestTraining(TestCase):
 
             run_epochs(mimic)
 
-    def test_train_loop(self):
-        text_encodings = ['char', 'word']
-        for text_encoding in text_encodings:
-            self._run_train_loop(text_encoding)
+    def test_train_loop_charEncoding(self):
+        self._run_train_loop('char')
+
+    def test_train_loop_wordEncoding(self):
+        self._run_train_loop('word')
 
 
 if __name__ == '__main__':

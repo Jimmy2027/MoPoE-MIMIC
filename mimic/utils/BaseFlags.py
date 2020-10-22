@@ -87,7 +87,7 @@ parser.add_argument('--modality_moe', type=bool, default=False, help="modality_m
 parser.add_argument('--joint_elbo', type=bool, default=False, help="modality_moe")
 parser.add_argument('--poe_unimodal_elbos', type=bool, default=False, help="unimodal_klds")
 parser.add_argument('--factorized_representation', action='store_true', default=False,
-                    help="factorized_representation")  # question was macht factorized_representation?
+                    help="factorized_representation")
 
 # LOSS TERM WEIGHTS
 parser.add_argument('--beta', type=float, default=5.0, help="default weight of sum of weighted divergence terms")

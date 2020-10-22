@@ -1,0 +1,2 @@
+from mimic.networks.char_encoding.FeatureExtractorText import FeatureExtractorText
+from mimic.networks.char_encoding.DataGeneratorText import DataGeneratorText

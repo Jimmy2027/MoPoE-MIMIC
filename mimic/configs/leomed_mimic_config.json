@@ -5,7 +5,7 @@
 "inception_state_dict":"~/scratch/mimic/pt_inception-2015-12-05-6726825d.pth",
 "dir_fid":"~/scratch/mimic",
 "DIM_img":128,
- "text_encoding":"word",
+ "text_encoding":"char",
  "initial_learning_rate":0.0005,
  "style_pa_dim":0,
  "style_lat_dim":0,

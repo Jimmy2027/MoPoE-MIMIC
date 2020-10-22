@@ -17,6 +17,7 @@ from mimic.evaluation.eval_metrics.representation import train_clf_lr_all_subset
 from mimic.evaluation.eval_metrics.sample_quality import calc_prd_score
 from mimic.utils import utils
 from mimic.utils.TBLogger import TBLogger
+from mimic.utils import text
 
 # global variables
 SEED = None
@@ -28,26 +29,31 @@ if SEED is not None:
 
 
 def calc_log_probs(exp, result, batch):
-    mods = exp.modalities;
+    """
+    Calculates log_probs of batch
+    """
+    mods = exp.modalities
     log_probs = dict()
-    weighted_log_prob = 0.0;
+    weighted_log_prob = 0.0
     for m, m_key in enumerate(mods.keys()):
         mod = mods[m_key]
-        log_probs[mod.name] = -mod.calc_log_prob(result['rec'][mod.name],
-                                                 batch[0][mod.name],
-                                                 exp.flags.batch_size);
-        weighted_log_prob += exp.rec_weights[mod.name] * log_probs[mod.name];
-    return log_probs, weighted_log_prob;
+        ba = batch[0][mod.name]
+        if m_key == 'text' and exp.flags.text_encoding == 'word':
+            ba = text.one_hot_encode_word(exp.flags, ba)
+        log_probs[mod.name] = -mod.calc_log_prob(out_dist=result['rec'][mod.name], target=ba,
+                                                 norm_value=exp.flags.batch_size)
+        weighted_log_prob += exp.rec_weights[mod.name] * log_probs[mod.name]
+    return log_probs, weighted_log_prob
 
 
 def calc_klds(exp, result):
-    latents = result['latents']['subsets'];
-    klds = dict();
+    latents = result['latents']['subsets']
+    klds = dict()
     for m, key in enumerate(latents.keys()):
-        mu, logvar = latents[key];
+        mu, logvar = latents[key]
         klds[key] = calc_kl_divergence(mu, logvar,
                                        norm_value=exp.flags.batch_size)
-    return klds;
+    return klds
 
 
 def calc_klds_style(exp, result):
@@ -121,55 +127,55 @@ def basic_routine_epoch(exp, batch) -> dict:
     end_temp
     """
     # getting the log probabilities
-    log_probs, weighted_log_prob = calc_log_probs(exp, results, batch);
-    group_divergence = results['joint_divergence'];
+    log_probs, weighted_log_prob = calc_log_probs(exp, results, batch)
+    group_divergence = results['joint_divergence']
 
-    klds = calc_klds(exp, results);
+    klds = calc_klds(exp, results)
     if exp.flags.factorized_representation:
-        klds_style = calc_klds_style(exp, results);
+        klds_style = calc_klds_style(exp, results)
 
     # Calculation of the loss
     if (exp.flags.modality_jsd or exp.flags.modality_moe
             or exp.flags.joint_elbo):
         if exp.flags.factorized_representation:
-            kld_style = calc_style_kld(exp, klds_style);
+            kld_style = calc_style_kld(exp, klds_style)
         else:
-            kld_style = 0.0;
-        kld_content = group_divergence;
-        kld_weighted = beta_style * kld_style + beta_content * kld_content;
-        total_loss = rec_weight * weighted_log_prob + beta * kld_weighted;
+            kld_style = 0.0
+        kld_content = group_divergence
+        kld_weighted = beta_style * kld_style + beta_content * kld_content
+        total_loss = rec_weight * weighted_log_prob + beta * kld_weighted
     elif exp.flags.modality_poe:
         klds_joint = {'content': group_divergence,
-                      'style': dict()};
-        recs_joint = dict();
-        elbos = dict();
+                      'style': dict()}
+        recs_joint = dict()
+        elbos = dict()
         for m, m_key in enumerate(mods.keys()):
-            mod = mods[m_key];
+            mod = mods[m_key]
             if exp.flags.factorized_representation:
-                kld_style_m = klds_style[m_key + '_style'];
+                kld_style_m = klds_style[m_key + '_style']
             else:
-                kld_style_m = 0.0;
-            klds_joint['style'][m_key] = kld_style_m;
-            i_batch_mod = {m_key: batch_d[m_key]};
-            r_mod = mm_vae(i_batch_mod);
+                kld_style_m = 0.0
+            klds_joint['style'][m_key] = kld_style_m
+            i_batch_mod = {m_key: batch_d[m_key]}
+            r_mod = mm_vae(i_batch_mod)
             log_prob_mod = -mod.calc_log_prob(r_mod['rec'][m_key],
                                               batch_d[m_key],
-                                              exp.flags.batch_size);
-            log_prob = {m_key: log_prob_mod};
+                                              exp.flags.batch_size)
+            log_prob = {m_key: log_prob_mod}
             klds_mod = {'content': klds[m_key],
-                        'style': {m_key: kld_style_m}};
-            elbo_mod = utils.calc_elbo(exp, m_key, log_prob, klds_mod);
-            elbos[m_key] = elbo_mod;
-        elbo_joint = utils.calc_elbo(exp, 'joint', log_probs, klds_joint);
-        elbos['joint'] = elbo_joint;
+                        'style': {m_key: kld_style_m}}
+            elbo_mod = utils.calc_elbo(exp, m_key, log_prob, klds_mod)
+            elbos[m_key] = elbo_mod
+        elbo_joint = utils.calc_elbo(exp, 'joint', log_probs, klds_joint)
+        elbos['joint'] = elbo_joint
         total_loss = sum(elbos.values())
 
-    out_basic_routine = dict();
-    out_basic_routine['results'] = results;
-    out_basic_routine['log_probs'] = log_probs;
-    out_basic_routine['total_loss'] = total_loss;
-    out_basic_routine['klds'] = klds;
-    return out_basic_routine;
+    out_basic_routine = dict()
+    out_basic_routine['results'] = results
+    out_basic_routine['log_probs'] = log_probs
+    out_basic_routine['total_loss'] = total_loss
+    out_basic_routine['klds'] = klds
+    return out_basic_routine
 
 
 def train(epoch, exp, tb_logger):
@@ -179,7 +185,7 @@ def train(epoch, exp, tb_logger):
 
     d_loader = DataLoader(exp.dataset_train, batch_size=exp.flags.batch_size,
                           shuffle=True,
-                          num_workers=exp.flags.dataloader_workers, drop_last=True);
+                          num_workers=exp.flags.dataloader_workers, drop_last=True)
     if 0 < exp.flags.steps_per_training_epoch < len(d_loader):
         training_steps = exp.flags.steps_per_training_epoch
     else:
@@ -202,9 +208,9 @@ def train(epoch, exp, tb_logger):
 
 def test(epoch, exp, tb_logger):
     with torch.no_grad():
-        mm_vae = exp.mm_vae;
-        mm_vae.eval();
-        exp.mm_vae = mm_vae;
+        mm_vae = exp.mm_vae
+        mm_vae.eval()
+        exp.mm_vae = mm_vae
         # set up weights
         beta_style = exp.flags.beta_style
         beta_content = exp.flags.beta_content
@@ -249,27 +255,27 @@ def test(epoch, exp, tb_logger):
                 print('calculating prediction score')
                 prd_scores = calc_prd_score(exp)
                 tb_logger.write_prd_scores(prd_scores)
-        exp.update_experiments_dataframe({'total_loss': np.mean(total_losses)})
+        exp.update_experiments_dataframe({'total_test_loss': np.mean(total_losses), 'total_epochs': epoch})
 
 
 def run_epochs(exp):
     # initialize summary writer
     writer = SummaryWriter(exp.flags.dir_logs)
     tb_logger = TBLogger(exp.flags.str_experiment, writer)
-    str_flags = utils.save_and_log_flags(exp.flags);
+    str_flags = utils.save_and_log_flags(exp.flags)
     tb_logger.writer.add_text('FLAGS', str_flags, 0)
 
     print('training epochs progress:')
     for epoch in tqdm(range(exp.flags.start_epoch, exp.flags.end_epoch), postfix='epochs'):
         # utils.printProgressBar(epoch, exp.flags.end_epoch)
         # one epoch of training and testing
-        train(epoch, exp, tb_logger);
-        test(epoch, exp, tb_logger);
+        train(epoch, exp, tb_logger)
+        test(epoch, exp, tb_logger)
         # save checkpoints after every 5 epochs
         if (epoch + 1) % 5 == 0 or (epoch + 1) == exp.flags.end_epoch:
-            dir_network_epoch = os.path.join(exp.flags.dir_checkpoints, str(epoch).zfill(4));
+            dir_network_epoch = os.path.join(exp.flags.dir_checkpoints, str(epoch).zfill(4))
             if not os.path.exists(dir_network_epoch):
-                os.makedirs(dir_network_epoch);
+                os.makedirs(dir_network_epoch)
             exp.mm_vae.save_networks()
             torch.save(exp.mm_vae.state_dict(),
                        os.path.join(dir_network_epoch, exp.flags.mm_vae_save))

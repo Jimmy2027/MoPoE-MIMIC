@@ -40,30 +40,31 @@ class VAEtrimodalMimic(BaseMMVae, nn.Module):
         for k, key in enumerate(div.keys()):
             results[key] = div[key];
 
-        input_m1 = input_batch['PA'];
-        input_m2 = input_batch['Lateral'];
-        input_m3 = input_batch['text'];
-        results_rec = dict();
+        results_rec = dict()
         for k, m_key in enumerate(self.modalities.keys()):
             mod = self.modalities[m_key]
-            input_mod = input_batch[m_key];
+            input_mod = input_batch[m_key]
             if input_mod is not None:
-                if self.flags.factorized_representation:  # question was macht factorized_representation?
-                    s_mu, s_logvar = latents[m_key + '_style'];
-                    s_emb = utils.reparameterize(mu=s_mu, logvar=s_logvar);
+                if self.flags.factorized_representation:
+                    s_mu, s_logvar = latents[m_key + '_style']
+                    s_emb = utils.reparameterize(mu=s_mu, logvar=s_logvar)
                 else:
-                    s_emb = None;
+                    s_emb = None
                 if m_key == 'PA':
-                    rec = self.lhood_pa(*self.decoder_pa(s_emb, class_embeddings));
+                    rec = self.lhood_pa(*self.decoder_pa(s_emb, class_embeddings))
                 elif m_key == 'Lateral':
-                    rec = self.lhood_lat(*self.decoder_lat(s_emb, class_embeddings));
-                    lhood = self.lhood_lat;
+                    rec = self.lhood_lat(*self.decoder_lat(s_emb, class_embeddings))
                 elif m_key == 'text':
-                    # fixme do decoder text for word encoding
-                    rec = self.lhood_text(*self.decoder_text(s_emb, class_embeddings));
-                results_rec[m_key] = rec;
-        results['rec'] = results_rec;
-        return results;
+                    # fixme find right input to lhood_text, might be changed for word encoding?
+                    """
+                    for char and word encoding: s_emb: None, class_embeddings.shape: (bs, 64)
+                    input_to lhood_text for char encoding: (bs, 1024, 71)
+                    input_to lhood_text for word encoding: (bs, 1024, 3517)
+                    """
+                    rec = self.lhood_text(*self.decoder_text(s_emb, class_embeddings))
+                results_rec[m_key] = rec
+        results['rec'] = results_rec
+        return results
 
     def encode(self, input_batch):
         latents = dict();
@@ -87,7 +88,10 @@ class VAEtrimodalMimic(BaseMMVae, nn.Module):
             latents['Lateral'] = [None, None]
         if 'text' in input_batch.keys():
             i_m3 = input_batch['text'];
+            # with char encoding, i_m3 has shape (batch_size, 1024,71)
+            # with word encoding, i_m3 has shape (bs, 1024)
             latents['text'] = self.encoder_text(i_m3)
+            # latents['text'] = [(200, 64),(200, 64)] mu and var for both char and word encoding
             if self.encoder_text.feature_compressor.style_mu and self.encoder_text.feature_compressor.style_logvar:
                 latents['text_style'] = latents['text'][2:]
             latents['text'] = latents['text'][:2]

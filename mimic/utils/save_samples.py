@@ -45,5 +45,5 @@ def save_generated_samples_singlegroup(exp, batch_id, group_name, samples):
             mod = exp.modalities[key];
             fn_out = os.path.join(dir_save, key, str(cnt_samples).zfill(6) +
                                   mod.file_suffix);
-            mod.save_data(samples[key][k], fn_out, {'img_per_row': 1});
+            mod.save_data(exp, samples[key][k], fn_out, {'img_per_row': 1});
         cnt_samples += 1;

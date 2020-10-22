@@ -26,27 +26,40 @@ def one_hot_encode(len_seq: int, alphabet: str, seq: str) -> torch.tensor:
     return X
 
 
-def create_text_from_label_mnist(len_seq, label, alphabet):
-    text = digit_text_english[label];
-    sequence = len_seq * [' '];
-    start_index = random.randint(0, len_seq - 1 - len(text));
-    sequence[start_index:start_index + len(text)] = text;
-    sequence_one_hot = one_hot_encode(len_seq, alphabet, sequence);
-    return sequence_one_hot
+def one_hot_encode_word(args, seq: torch.tensor) -> torch.tensor:
+    """
+    One hot encodes word encodings.
+    Example: for tensor of shape (bs, 1024)
+    returns tensor of shape (bs, 1024, vocab_size)
+    """
+    if len(seq.shape) > 1:
+        # need to iterate over batches
+        X = torch.zeros(seq.shape[0], args.len_sequence, args.vocab_size)
+        for sentence in range(seq.shape[0]):
+            for index_char, char in enumerate(seq[sentence]):
+                X[sentence, index_char, int(char.item())] = 1.0
+    else:
+        X = torch.zeros(args.len_sequence, args.vocab_size)
+        for index_char, char in enumerate(seq):
+            X[index_char, int(char.item())] = 1.0
+    return X.to(args.device)
 
 
-def seq2text(alphabet, seq):
+def seq2text(exp, seq):
     decoded = []
     for j in range(len(seq)):
-        decoded.append(alphabet[seq[j]])
+        if exp.flags.text_encoding == 'word':
+            decoded.append(exp.dataset_train.report_findings_dataset.i2w[str(seq[j])])
+        else:
+            decoded.append(exp.alphabet[seq[j]])
     return decoded
 
 
-def tensor_to_text(alphabet, gen_t):
+def tensor_to_text(exp, gen_t: torch.Tensor):
     gen_t = gen_t.cpu().data.numpy()
     gen_t = np.argmax(gen_t, axis=-1)
     decoded_samples = []
     for i in range(len(gen_t)):
-        decoded = seq2text(alphabet, gen_t[i])
+        decoded = seq2text(exp, gen_t[i])
         decoded_samples.append(decoded)
     return decoded_samples;

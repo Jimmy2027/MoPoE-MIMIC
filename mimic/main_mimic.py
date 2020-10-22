@@ -72,7 +72,6 @@ class Main:
             return False
         return True
 
-
     def restart(self):
         """
         restarts run_epochs with new initialisation
@@ -81,7 +80,6 @@ class Main:
         print(f'********  RESTARTING EXPERIMENT FOR THE {self.current_tries} TIME  ********')
         torch.cuda.empty_cache()
         gc.collect()
-        # todo find way to free gpu memory
         command = f'rm -r {self.FLAGS.dir_experiment_run}'
         print(command)
         os.system(command)

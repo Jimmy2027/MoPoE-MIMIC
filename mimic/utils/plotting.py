@@ -1,5 +1,5 @@
 import os
-
+from mimic.utils import text
 import torch
 
 from mimic.utils import plot
@@ -33,7 +33,7 @@ def generate_random_samples_plots(exp, epoch):
         rec = torch.zeros(exp.plot_img_size,
                           dtype=torch.float32).repeat(num_samples, 1, 1, 1);
         for l in range(0, num_samples):
-            rand_plot = mod.plot_data(samples_mod[l]);
+            rand_plot = mod.plot_data(exp, samples_mod[l]);
             rec[l, :, :, :] = rand_plot;
         random_plots[m_key_in] = rec;
 
@@ -59,8 +59,8 @@ def generate_swapping_plot(exp, epoch):
                               dtype=torch.float32).repeat(121, 1, 1, 1);
             rec = rec.to(exp.flags.device);
             for i in range(len(samples)):
-                c_sample_in = mod_in.plot_data(samples[i][mod_in.name]);
-                s_sample_out = mod_out.plot_data(samples[i][mod_out.name]);
+                c_sample_in = mod_in.plot_data(exp, samples[i][mod_in.name]);
+                s_sample_out = mod_out.plot_data(exp, samples[i][mod_out.name]);
                 rec[i + 1, :, :, :] = c_sample_in;
                 rec[(i + 1) * 11, :, :, :] = s_sample_out;
             # style transfer
@@ -79,7 +79,7 @@ def generate_swapping_plot(exp, epoch):
                     style_emb = {mod_out.name: s_emb}
                     emb_swap = {'content': c_emb, 'style': style_emb};
                     swap_sample = model.generate_from_latents(emb_swap);
-                    swap_out = mod_out.plot_data(swap_sample[mod_out.name].squeeze(0));
+                    swap_out = mod_out.plot_data(exp, swap_sample[mod_out.name].squeeze(0));
                     rec[(i + 1) * 11 + (j + 1), :, :, :] = swap_out;
                     fn_comb = (mod_in.name + '_to_' + mod_out.name + '_epoch_'
                                + str(epoch).zfill(4) + '.png');
@@ -111,7 +111,10 @@ def generate_conditional_fig_M(exp, epoch, M):
                                   dtype=torch.float32).repeat(100 + M * 10, 1, 1, 1);
                 for m, sample in enumerate(samples):
                     for n, mod_in in enumerate(s_in):
-                        c_in = mod_in.plot_data(sample[mod_in.name]);
+                        if mod_in.name == 'text' and exp.flags.text_encoding == 'word':
+                            c_in = mod_in.plot_data(exp, text.one_hot_encode_word(exp.flags, sample[mod_in.name]));
+                        else:
+                            c_in = mod_in.plot_data(exp, sample[mod_in.name]);
                         rec[m + n * 10, :, :, :] = c_in;
                 cond_plots[s_key + '__' + mod_out.name] = rec;
 
@@ -138,8 +141,8 @@ def generate_conditional_fig_M(exp, epoch, M):
                     for l, m_key_out in enumerate(mods.keys()):
                         mod_out = mods[m_key_out];
                         rec = cond_plots[s_key + '__' + mod_out.name];
-                        squeezed = cond_gen_samples[mod_out.name].squeeze(0);
-                        p_out = mod_out.plot_data(squeezed);
+                        squeezed = cond_gen_samples[mod_out.name].squeeze(0)
+                        p_out = mod_out.plot_data(exp, squeezed);
                         rec[(i + M) * 10 + j, :, :, :] = p_out;
                         cond_plots[s_key + '__' + mod_out.name] = rec;
 

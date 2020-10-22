@@ -75,7 +75,8 @@ class MimicExperiment(BaseExperiment):
                          self.flags.len_sequence,
                          self.alphabet,
                          self.plot_img_size,
-                         self.font)
+                         self.font,
+                         self.flags)
         mods = {mod1.name: mod1, mod2.name: mod2, mod3.name: mod3}
         return mods;
 
@@ -173,6 +174,7 @@ class MimicExperiment(BaseExperiment):
             experiments_dataframe = pd.read_csv('experiments_dataframe.csv')
             flags_dict = vars(self.flags)
             flags_dict['experiment_uid'] = self.experiment_uid
+            flags_dict['total_epochs'] = 0
             experiments_dataframe = experiments_dataframe.append(flags_dict, ignore_index=True)
         else:
             experiments_dataframe = pd.DataFrame()
