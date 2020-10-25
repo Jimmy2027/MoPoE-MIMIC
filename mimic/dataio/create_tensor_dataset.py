@@ -15,6 +15,11 @@ trans1 = transforms.ToTensor()
 
 
 class CreateTensorDataset:
+    """
+    Makes a tensor dataset of the Mimic-cxr dataset by first resizing the image to the wanted image size
+    and then saving them as torch tensors.
+    """
+
     def __init__(self, dir_base_resize: str, dir_mimic: str, dir_out: str, img_size: Tuple,
                  dir_base_resized_compressed: str = '', max_it: int = -1):
         """
