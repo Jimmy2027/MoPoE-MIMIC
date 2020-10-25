@@ -4,6 +4,7 @@ import os
 import tempfile
 import unittest
 from unittest import TestCase
+
 import torch
 
 from mimic.run_epochs import run_epochs
@@ -13,7 +14,7 @@ from mimic.utils.flags import parser
 
 
 class TestTraining(TestCase):
-    def _run_train_loop(self, text_encoding):
+    def _run_train_loop(self, text_encoding: str, img_size: int):
         """
         General test to see if training loop works
         """
@@ -50,6 +51,7 @@ class TestTraining(TestCase):
             FLAGS.eval_freq = 1
             FLAGS.vocab_size = 10
             FLAGS.text_encoding = text_encoding
+            FLAGS.img_size = img_size
 
             FLAGS = create_dir_structure(FLAGS)
             import mimic
@@ -63,11 +65,11 @@ class TestTraining(TestCase):
 
             run_epochs(mimic)
 
-    def test_train_loop_charEncoding(self):
-        self._run_train_loop('char')
+    def test_train_loop_charEncoding_128(self):
+        self._run_train_loop('char', 128)
 
-    def test_train_loop_wordEncoding(self):
-        self._run_train_loop('word')
+    def test_train_loop_wordEncoding_128(self):
+        self._run_train_loop('word', 128)
 
 
 if __name__ == '__main__':

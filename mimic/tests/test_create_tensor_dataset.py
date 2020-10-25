@@ -27,7 +27,11 @@ class TestFilehandling(TestCase):
                 dataset_creator()
                 assert os.path.exists(dir_out)
                 assert os.path.exists(dir_base_resized_compressed)
-                assert os.path.exists(os.path.join(dir_base_resized_compressed, f'mimic_resized_{img_size[0]}.zip'))
+                assert os.path.exists(os.path.join(dir_base_resized_compressed,
+                                                   f'mimic_resized_{img_size[0]}.zip')), \
+                    'dir_resized_compressed {} does not exist \n {}'.format(
+                        os.path.join(dir_base_resized_compressed, f'mimic_resized_{img_size[0]}.zip'),
+                        os.listdir(dir_base_resized_compressed))
 
     def test_create_tensor_dataset_128(self):
         img_size = (128, 128)

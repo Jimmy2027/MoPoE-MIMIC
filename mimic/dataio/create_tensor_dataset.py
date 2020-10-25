@@ -141,14 +141,19 @@ class CreateTensorDataset:
         labels[:self.max_it].to_csv(fn_labels_out)
 
         assert imgs_pa.shape[0] == imgs_lat.shape[0] == len(labels[:self.max_it]) == len(
-            findings[:self.max_it]), f'all modalities must have the same length. len(imgs_pa): {imgs_pa.shape[0]}, len(imgs_lat): {imgs_lat.shape[0]}, len(labels): {len(labels[:self.max_it])}, len(report_findings): {len(findings[:self.max_it])}'
+            findings[
+            :self.max_it]), f'all modalities must have the same length. len(imgs_pa): {imgs_pa.shape[0]}, len(imgs_lat): {imgs_lat.shape[0]}, len(labels): {len(labels[:self.max_it])}, len(report_findings): {len(findings[:self.max_it])}'
 
         if self.dir_base_resized_compressed:
             if not os.path.exists(self.dir_resized_compressed):
                 print('zipping resized images folder {} to {} -> {}'.format(dir_src,
                                                                             self.dir_resized_compressed.split('.')[0],
                                                                             self.dir_resized_compressed))
-                shutil.make_archive(self.dir_resized_compressed.split('.')[0], 'zip', dir_src, verbose=True)
+
+                shutil.make_archive(self.dir_resized_compressed.replace('.zip', ''), 'zip', dir_src, verbose=True)
+                assert os.path.exists(
+                    self.dir_resized_compressed), 'path does not exist: {}. \n {}'.format(
+                    self.dir_resized_compressed, os.listdir(self.dir_base_resized_compressed))
             # this is automatically done if using tmpdir
             # print(f'deleting resized images folder: {dir_src}')
             # shutil.rmtree(dir_src)
