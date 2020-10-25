@@ -96,36 +96,10 @@ def basic_routine_epoch(exp, batch) -> dict:
                                                    np.isnan(results['latents']['modalities'][key][1].mean().item())):
             print(key, results['latents']['modalities'][key][0].mean().item())
             print(key, results['latents']['modalities'][key][1].mean().item())
-            torch.cuda.empty_cache()
-            gc.collect()
-            del exp
             raise ValueError
-            # exp.restart_experiment = True
+
         results['latents']['modalities'][key][1].mean().item()
-    """
-    temporary section to find out which values ar nan and give the warning of the logger
-    """
-    # temp
-    import pandas as pd
-    bugs_dir = os.path.join(exp.flags.dir_data, 'bugs')
-    run = exp.flags.dir_experiment_run.split('/')[-1]
-    if not os.path.exists(bugs_dir):
-        os.makedirs(bugs_dir)
-    if not os.path.exists(os.path.join(bugs_dir, 'basic_routine_epoch.csv')):
-        table = pd.DataFrame()
-    else:
-        table = pd.read_csv(bugs_dir + '/basic_routine_epoch.csv')
-    row = {'run': run, 'number_restarts': exp.number_restarts}
-    for key in results['latents']['modalities']:
-        row[key + '0_mean'] = results['latents']['modalities'][key][0].mean().item()
-        row[key + '1_mean'] = results['latents']['modalities'][key][1].mean().item()
-        row[key + '0_batch'] = batch_d[key][0].mean().item()
-        row[key + '1_batch'] = batch_d[key][1].mean().item()
-    table = table.append(row, ignore_index=True)
-    table.to_csv(bugs_dir + '/basic_routine_epoch.csv', index=False)
-    """
-    end_temp
-    """
+
     # getting the log probabilities
     log_probs, weighted_log_prob = calc_log_probs(exp, results, batch)
     group_divergence = results['joint_divergence']

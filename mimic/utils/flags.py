@@ -11,7 +11,7 @@ parser.add_argument('--style_pa_dim', type=int, default=0, help="dimension of va
 parser.add_argument('--style_lat_dim', type=int, default=0, help="dimension of varying factor latent space")
 parser.add_argument('--style_text_dim', type=int, default=0, help="dimension of varying factor latent space")
 parser.add_argument('--image_channels', type=int, default=1, help="number of classes on which the data set trained")
-parser.add_argument('--img_size', type=int, default=128, help="number of classes on which the data set trained")
+parser.add_argument('--img_size', type=int, default=128, help="size of the images on which the model is trained")
 parser.add_argument('--DIM_img', type=int, default=128, help="number of classes on which the data set trained")
 parser.add_argument('--DIM_text', type=int, default=128, help="number of classes on which the data set trained")
 parser.add_argument('--likelihood_m1', type=str, default='laplace', help="output distribution")

@@ -9,7 +9,7 @@ from mimic.utils.experiment import MimicExperiment
 from mimic.utils.flags import parser
 from mimic.run_epochs import run_epochs
 from mimic.utils.filehandling import create_dir_structure, expand_paths, create_dir_structure_testing, get_config_path
-
+from timeit import default_timer as timer
 
 class Main:
     def __init__(self):
@@ -24,7 +24,7 @@ class Main:
         FLAGS.device = torch.device('cuda' if use_cuda else 'cpu')
         device = 'gpu' if use_cuda else 'cpu'
 
-        print('running on {}'.format(device))
+        print(f'running on {device} with text {FLAGS.text_encoding} encoding')
 
         if FLAGS.method == 'poe':
             FLAGS.modality_poe = True
@@ -61,6 +61,7 @@ class Main:
         """
         Wrapper of run_epochs.run_epochs that checks if the workflow was completed and starts it over otherwise
         """
+        self.start_time = timer()
         mimic = MimicExperiment(self.FLAGS, self.alphabet)
         create_dir_structure_testing(mimic)
         mimic.set_optimizer()
@@ -70,6 +71,7 @@ class Main:
         except ValueError as e:
             print(e)
             return False
+        mimic.update_experiments_dataframe({'experiment_duration': (timer() - self.start_time) // 60})
         return True
 
     def restart(self):
@@ -84,7 +86,6 @@ class Main:
         print(command)
         os.system(command)
         self.FLAGS = create_dir_structure(self.FLAGS)
-        # self.run_epochs()
 
 
 main = Main()

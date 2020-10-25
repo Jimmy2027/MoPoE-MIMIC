@@ -22,7 +22,7 @@ class CreateTensorDataset:
         dir_base_resize: where the resized image are saved
         dir_base_resize (optional): where the compressed resized images are. It is recommended to compress the resized
         images after their usage and delete the non-compressed ones to save space.
-        max_it: (optional) maximum iterations use this for testing. if -1: do all
+        max_it: (optional) maximum iterations. Use this for testing only. if -1 (default): do all
 
         """
         self.dir_base_orig = os.path.join(dir_mimic, 'files')
@@ -30,6 +30,8 @@ class CreateTensorDataset:
         self.dir_base_resized_compressed = dir_base_resized_compressed
         self.dir_resized_compressed = os.path.join(dir_base_resized_compressed, f'mimic_resized_{img_size[0]}.zip')
         self.dir_out = dir_out
+        if not os.path.exists(dir_out):
+            os.mkdir(dir_out)
         self.fn_train = os.path.join(dir_mimic, 'train.csv')
         self.fn_eval = os.path.join(dir_mimic, 'eval.csv')
         self.fn_test = os.path.join(dir_mimic, 'test.csv')
@@ -61,7 +63,7 @@ class CreateTensorDataset:
                     f'directory of resized images {dir_src} does not exist and needs to be created. This may take a while.')
                 _ = self._resize_all()
         dir_out = self.dir_out
-        num_samples = df.shape[0]
+        num_samples = df.shape[0] if self.max_it < 0 else self.max_it
         imgs_pa = torch.Tensor(num_samples, self.img_size[0], self.img_size[0])
         imgs_lat = torch.Tensor(num_samples, self.img_size[0], self.img_size[0])
         ind = torch.Tensor(num_samples)  # tensor that indicates the images that were found
@@ -109,12 +111,13 @@ class CreateTensorDataset:
             imgs_lat[index, :, :] = img_lat
         print(imgs_pa.shape)
         mask = ind > 0
-        imgs_pa = imgs_pa[mask, :, :]
-        imgs_lat = imgs_lat[mask, :, :]
-        print(imgs_pa.shape)
-
-        # need to remove all cases where the labels have 3 classes
         if self.max_it < 0:
+            # only do this if not test run
+            imgs_pa = imgs_pa[mask, :, :]
+            imgs_lat = imgs_lat[mask, :, :]
+            print(imgs_pa.shape)
+
+            # need to remove all cases where the labels have 3 classes
             indices = []
             indices += labels.index[(labels['Lung Opacity'] == -1)].tolist()
             indices += labels.index[(labels['Pleural Effusion'] == -1)].tolist()
@@ -133,9 +136,12 @@ class CreateTensorDataset:
         torch.save(imgs_pa, fn_pa_out)
         torch.save(imgs_lat, fn_lat_out)
         print(findings.shape)
-        findings.to_csv(fn_findings_out)
-        impressions.to_csv(fn_impressions_out)
-        labels.to_csv(fn_labels_out)
+        findings[:self.max_it].to_csv(fn_findings_out)
+        impressions[:self.max_it].to_csv(fn_impressions_out)
+        labels[:self.max_it].to_csv(fn_labels_out)
+
+        assert imgs_pa.shape[0] == imgs_lat.shape[0] == len(labels[:self.max_it]) == len(
+            findings[:self.max_it]), f'all modalities must have the same length. len(imgs_pa): {imgs_pa.shape[0]}, len(imgs_lat): {imgs_lat.shape[0]}, len(labels): {len(labels[:self.max_it])}, len(report_findings): {len(findings[:self.max_it])}'
 
         if self.dir_base_resized_compressed:
             if not os.path.exists(self.dir_resized_compressed):
@@ -198,6 +204,7 @@ class CreateTensorDataset:
                             img_new.close()
                         except OSError:
                             print('file could not be opened...')
+                    count_imgs += 1
         return True
 
     def _load_image(self, fn_img):
@@ -207,11 +214,13 @@ class CreateTensorDataset:
 
 
 if __name__ == '__main__':
-    img_size = (128, 128)
+    img_size = (256, 256)
     dir_mimic = '/cluster/work/vogtlab/Projects/mimic-cxr/physionet.org/files/mimic-cxr-jpg/2.0.0'
-    dir_out = os.path.expanduser('~/scratch/files_small_new')
+    dir_out = os.path.expanduser('~/klugh/files_small_new')
     dir_base_resized_compressed = f'/cluster/work/vogtlab/Group/klugh/'
     assert os.path.exists(os.path.expandvars('$TMPDIR'))
+    assert os.path.exists(dir_base_resized_compressed)
+
     dir_base_resize = os.path.join(os.path.expandvars('$TMPDIR'), f'files_small_{img_size[0]}')
     dataset_creator = CreateTensorDataset(dir_base_resize=dir_base_resize, dir_mimic=dir_mimic, dir_out=dir_out,
                                           img_size=img_size, dir_base_resized_compressed=dir_base_resized_compressed)

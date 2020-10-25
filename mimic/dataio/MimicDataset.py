@@ -31,9 +31,9 @@ class Mimic(Dataset):
         self.args = args
         self.split = split
         # todo if these paths don't exist run create_tensor_dataset
-        dir_dataset = os.path.join(args.dir_data, 'files_small')
-        fn_img_pa = os.path.join(dir_dataset, split + '_pa.pt')
-        fn_img_lat = os.path.join(dir_dataset, split + '_lat.pt')
+        dir_dataset = os.path.join(args.dir_data, 'files_small_new')
+        fn_img_pa = os.path.join(dir_dataset, split + f'_pa{args.img_size}.pt')
+        fn_img_lat = os.path.join(dir_dataset, split + f'_lat{args.img_size}.pt')
         fn_findings = os.path.join(dir_dataset, split + '_findings.csv')
         fn_labels = os.path.join(dir_dataset, split + '_labels.csv')
 
@@ -293,21 +293,35 @@ class Mimic_testing(Dataset):
     Custom Dataset for the testsuite of the training workflow
     """
 
-    def __init__(self):
+    def __init__(self, flags):
         self.vocab_size = 10
+        self.flags = flags
+        self.report_findings_dataset = Report_findings_dataset_test()
 
     def __getitem__(self, index):
         try:
-            sample = {'PA': torch.from_numpy(np.random.rand(1, 128, 128)).float(),
-                      'Lateral': torch.from_numpy(np.random.rand(1, 128, 128)).float(),
-                      'text': torch.from_numpy(np.random.rand(1024, 71)).float()}
+            if self.flags.text_encoding == 'word':
+                sample = {'PA': torch.from_numpy(np.random.rand(1, 128, 128)).float(),
+                          'Lateral': torch.from_numpy(np.random.rand(1, 128, 128)).float(),
+                          'text': torch.from_numpy(np.random.rand(1024)).float()}
+            elif self.flags.text_encoding == 'char':
+                sample = {'PA': torch.from_numpy(np.random.rand(1, 128, 128)).float(),
+                          'Lateral': torch.from_numpy(np.random.rand(1, 128, 128)).float(),
+                          'text': torch.from_numpy(np.random.rand(1024, 71)).float()}
         except (IndexError, OSError):
             return None
         label = torch.tensor([random.randint(0, 1), random.randint(0, 1), random.randint(0, 1)]).float()
         return sample, label
 
-    def __len__(self):
+    def __len__(self) -> int:
         return 20
 
     def get_text_str(self, index):
         return self.y[index]
+
+
+class Report_findings_dataset_test(Dataset):
+    def __init__(self):
+        self.i2w = dict()
+        for i in range(10):
+            self.i2w[str(i)] = 'w'  # arbitrary letter

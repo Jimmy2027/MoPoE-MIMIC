@@ -10,11 +10,10 @@ dset_str = 'train'
 config_path = get_config_path()
 with open(config_path, 'rt') as json_file:
     json_config = json.load(json_file)
-
-dir_data = json_config['dir_data']
-dir_dataset = os.path.join(dir_data, 'files_small')
-fn_img_pa = os.path.join(dir_dataset, dset_str + '_pa.pt')
-fn_img_lat = os.path.join(dir_dataset, dset_str + '_lat.pt')
+dir_data = os.path.expanduser(json_config['dir_data'])
+dir_dataset = os.path.join(dir_data, 'files_small_new')
+fn_img_pa = os.path.join(dir_dataset, dset_str + '_pa128.pt')
+fn_img_lat = os.path.join(dir_dataset, dset_str + '_lat128.pt')
 fn_findings = pd.read_csv(os.path.join(dir_dataset, dset_str + '_findings.csv'))
 fn_labels = pd.read_csv(os.path.join(dir_dataset, dset_str + '_labels.csv'))
 

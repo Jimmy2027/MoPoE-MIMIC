@@ -84,8 +84,8 @@ class MimicExperiment(BaseExperiment):
         print('setting dataset')
         if self.dataset == 'testing':
             print('using testing dataset')
-            d_train = Mimic_testing()
-            d_eval = Mimic_testing()
+            d_train = Mimic_testing(self.flags)
+            d_eval = Mimic_testing(self.flags)
         else:
             d_train = Mimic(self.flags, self.labels, self.alphabet, split='train')
             d_eval = Mimic(self.flags, self.labels, self.alphabet, split='eval')
@@ -175,6 +175,7 @@ class MimicExperiment(BaseExperiment):
             flags_dict = vars(self.flags)
             flags_dict['experiment_uid'] = self.experiment_uid
             flags_dict['total_epochs'] = 0
+            flags_dict['experiment_duration'] = -1
             experiments_dataframe = experiments_dataframe.append(flags_dict, ignore_index=True)
         else:
             experiments_dataframe = pd.DataFrame()
