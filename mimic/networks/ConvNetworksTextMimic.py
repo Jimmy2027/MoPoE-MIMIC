@@ -1,16 +1,12 @@
 import torch
 import torch.nn as nn
 
-from networks.char_encoding.DataGeneratorText import DataGeneratorText
 from mimic.networks.FeatureCompressor import LinearFeatureCompressor
-from mimic.networks.char_encoding import FeatureExtractorText as FeatureExtractorText_CharEnc
 from mimic.networks.char_encoding import DataGeneratorText as DataGeneratorText_CharEnc
-
-from mimic.networks import word_encoding
-
-from mimic.networks.word_encoding.mmvae_text_enc import FeatureExtractorText as FeatureExtractorText_WordEnc
+from mimic.networks.char_encoding import FeatureExtractorText as FeatureExtractorText_CharEnc
 from mimic.networks.word_encoding import DataGeneratorText as DataGeneratorText_WordEnc
-from mimic.networks.word_encoding.DataGenerator_mm import Dec
+from mimic.networks.word_encoding.mmvae_text_enc import FeatureExtractorText as FeatureExtractorText_WordEnc
+
 
 class EncoderText(nn.Module):
     def __init__(self, flags, style_dim):
@@ -55,9 +51,9 @@ class DecoderText(nn.Module):
         if self.flags.factorized_representation:
             z = torch.cat((z_style, z_content), dim=1).squeeze(-1)
         else:
-            z = z_content;
-        text_feat_hat = self.feature_generator(z);
-        text_feat_hat = text_feat_hat.unsqueeze(-1);
+            z = z_content
+        text_feat_hat = self.feature_generator(z)
+        text_feat_hat = text_feat_hat.unsqueeze(-1)
         text_hat = self.text_generator(text_feat_hat)
-        text_hat = text_hat.transpose(-2, -1);
-        return [text_hat];
+        text_hat = text_hat.transpose(-2, -1)
+        return [text_hat]

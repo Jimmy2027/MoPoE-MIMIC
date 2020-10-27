@@ -64,7 +64,7 @@ class DataGeneratorText(nn.Module):
         torch.Size([200, 384, 128])
         torch.Size([200, 256, 256])
         torch.Size([200, 128, 512])
-        conv2: torch.Size([200, 71, 1024])
+        conv2: torch.Size([bs, vocab_size, 1024])
         toVocabSize:
         """
         d = self.resblock_1(feats)

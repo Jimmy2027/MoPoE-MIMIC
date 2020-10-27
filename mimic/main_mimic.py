@@ -8,8 +8,10 @@ import torch
 from mimic.utils.experiment import MimicExperiment
 from mimic.utils.flags import parser
 from mimic.run_epochs import run_epochs
-from mimic.utils.filehandling import create_dir_structure, expand_paths, create_dir_structure_testing, get_config_path
+from mimic.utils.filehandling import create_dir_structure, expand_paths, create_dir_structure_testing, get_config_path, \
+    get_method
 from timeit import default_timer as timer
+
 
 class Main:
     def __init__(self):
@@ -24,24 +26,8 @@ class Main:
         FLAGS.device = torch.device('cuda' if use_cuda else 'cpu')
         device = 'gpu' if use_cuda else 'cpu'
 
-        print(f'running on {device} with text {FLAGS.text_encoding} encoding')
-
-        if FLAGS.method == 'poe':
-            FLAGS.modality_poe = True
-            FLAGS.poe_unimodal_elbos = True
-        elif FLAGS.method == 'moe':
-            FLAGS.modality_moe = True
-        elif FLAGS.method == 'jsd':
-            FLAGS.modality_jsd = True
-        elif FLAGS.method == 'joint_elbo':
-            FLAGS.joint_elbo = True
-        else:
-            NotImplementedError('method not implemented...exit!')
-
-        print(FLAGS.modality_poe)
-        print(FLAGS.modality_moe)
-        print(FLAGS.modality_jsd)
-        print(FLAGS.joint_elbo)
+        FLAGS = get_method(FLAGS)
+        print(f'running on {device} with text {FLAGS.text_encoding} encoding with method {FLAGS.method}')
         print(FLAGS.dataset)
 
         FLAGS.alpha_modalities = [FLAGS.div_weight_uniform_content, FLAGS.div_weight_m1_content,

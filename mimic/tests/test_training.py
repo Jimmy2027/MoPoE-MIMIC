@@ -9,7 +9,8 @@ import torch
 
 from mimic.run_epochs import run_epochs
 from mimic.utils.experiment import MimicExperiment
-from mimic.utils.filehandling import create_dir_structure, expand_paths, create_dir_structure_testing, get_config_path
+from mimic.utils.filehandling import create_dir_structure, expand_paths, create_dir_structure_testing, get_config_path, \
+    get_method
 from mimic.utils.flags import parser
 
 
@@ -28,31 +29,22 @@ class TestTraining(TestCase):
             FLAGS = expand_paths(t_args)
             use_cuda = torch.cuda.is_available()
             FLAGS.device = torch.device('cuda' if use_cuda else 'cpu')
-            if FLAGS.method == 'poe':
-                FLAGS.modality_poe = True
-                FLAGS.poe_unimodal_elbos = True
-            elif FLAGS.method == 'moe':
-                FLAGS.modality_moe = True
-            elif FLAGS.method == 'jsd':
-                FLAGS.modality_jsd = True
-            elif FLAGS.method == 'joint_elbo':
-                FLAGS.joint_elbo = True
-            else:
-                NotImplementedError('method not implemented... exit!')
+            FLAGS = get_method(FLAGS)
 
             FLAGS.alpha_modalities = [FLAGS.div_weight_uniform_content, FLAGS.div_weight_m1_content,
                                       FLAGS.div_weight_m2_content, FLAGS.div_weight_m3_content]
 
             FLAGS.dir_experiment = tmpdirname
             FLAGS.dataset = 'testing'
-            FLAGS.use_clf = False
+            FLAGS.use_clf = True
             FLAGS.end_epoch = 2
             FLAGS.batch_size = 10
             FLAGS.eval_freq = 1
-            FLAGS.vocab_size = 10
+            FLAGS.vocab_size = 3517
             FLAGS.text_encoding = text_encoding
             FLAGS.img_size = img_size
-
+            FLAGS.steps_per_training_epoch = 10
+            print(f'running on {FLAGS.device} with text {FLAGS.text_encoding} encoding with method {FLAGS.method}')
             FLAGS = create_dir_structure(FLAGS)
             import mimic
             alphabet_path = os.path.join(os.path.dirname(mimic.__file__), 'alphabet.json')
@@ -67,6 +59,9 @@ class TestTraining(TestCase):
 
     def test_train_loop_charEncoding_128(self):
         self._run_train_loop('char', 128)
+
+    def test_train_loop_charEncoding_256(self):
+        self._run_train_loop('char', 256)
 
     def test_train_loop_wordEncoding_128(self):
         self._run_train_loop('word', 128)

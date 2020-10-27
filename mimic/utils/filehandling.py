@@ -5,6 +5,7 @@ from datetime import datetime
 from shutil import copyfile
 import mimic
 
+
 def create_dir(dir_name):
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
@@ -92,12 +93,28 @@ def create_dir_structure(flags: argparse.ArgumentParser(), train: bool = True) -
     return flags
 
 
-def expand_paths(flags):
+def expand_paths(flags: argparse.ArgumentParser()) -> argparse.ArgumentParser():
     flags.dir_data = os.path.expanduser(flags.dir_data)
-    flags.dir_clf = os.path.expanduser(flags.dir_clf)
+    dir_clf = os.path.join(flags.dir_clf, f'Mimic{flags.img_size}')
+    flags.dir_clf = os.path.expanduser(dir_clf)
     flags.dir_experiment = os.path.expanduser(flags.dir_experiment)
     flags.inception_state_dict = os.path.expanduser(flags.inception_state_dict)
     flags.dir_fid = os.path.expanduser(flags.dir_fid)
+    return flags
+
+
+def get_method(flags: argparse.ArgumentParser()) -> argparse.ArgumentParser():
+    if flags.method == 'poe':
+        flags.modality_poe = True
+        flags.poe_unimodal_elbos = True
+    elif flags.method == 'moe':
+        flags.modality_moe = True
+    elif flags.method == 'jsd':
+        flags.modality_jsd = True
+    elif flags.method == 'joint_elbo':
+        flags.joint_elbo = True
+    else:
+        NotImplementedError('method not implemented...exit!')
     return flags
 
 

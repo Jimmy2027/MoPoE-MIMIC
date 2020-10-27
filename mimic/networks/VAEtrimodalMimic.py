@@ -55,7 +55,6 @@ class VAEtrimodalMimic(BaseMMVae, nn.Module):
                 elif m_key == 'Lateral':
                     rec = self.lhood_lat(*self.decoder_lat(s_emb, class_embeddings))
                 elif m_key == 'text':
-                    # fixme find right input to lhood_text, might be changed for word encoding?
                     """
                     for char and word encoding: s_emb: None, class_embeddings.shape: (bs, 64)
                     input_to lhood_text for char encoding: (bs, 1024, 71)
@@ -134,35 +133,35 @@ class VAEtrimodalMimic(BaseMMVae, nn.Module):
         styles = {'PA': m1_dist, 'Lateral': m2_dist, 'text': m3_dist};
         return styles;
 
-    def generate(self, num_samples=None):
+    def generate(self, num_samples=None) -> dict:
         if num_samples is None:
-            num_samples = self.flags.batch_size;
-        z_class = torch.randn(num_samples, self.flags.class_dim);
-        z_class = z_class.to(self.flags.device);
+            num_samples = self.flags.batch_size
+        z_class = torch.randn(num_samples, self.flags.class_dim)
+        z_class = z_class.to(self.flags.device)
 
-        style_latents = self.get_random_styles(num_samples);
-        random_latents = {'content': z_class, 'style': style_latents};
-        random_samples = self.generate_from_latents(random_latents);
-        return random_samples;
+        style_latents = self.get_random_styles(num_samples)
+        random_latents = {'content': z_class, 'style': style_latents}
+        random_samples = self.generate_from_latents(random_latents)
+        return random_samples
 
-    def generate_from_latents(self, latents):
-        suff_stats = self.generate_sufficient_statistics_from_latents(latents);
-        cond_gen_pa = suff_stats['PA'].mean;
-        cond_gen_lat = suff_stats['Lateral'].mean;
-        cond_gen_text = suff_stats['text'].mean;
+    def generate_from_latents(self, latents: dict) -> dict:
+        suff_stats = self.generate_sufficient_statistics_from_latents(latents)
+        cond_gen_pa = suff_stats['PA'].mean
+        cond_gen_lat = suff_stats['Lateral'].mean
+        cond_gen_text = suff_stats['text'].mean
         cond_gen = {'PA': cond_gen_pa,
                     'Lateral': cond_gen_lat,
-                    'text': cond_gen_text};
-        return cond_gen;
+                    'text': cond_gen_text}
+        return cond_gen
 
-    def generate_sufficient_statistics_from_latents(self, latents):
-        style_pa = latents['style']['PA'];
-        style_lat = latents['style']['Lateral'];
-        style_text = latents['style']['text'];
+    def generate_sufficient_statistics_from_latents(self, latents: dict) -> dict:
+        style_pa = latents['style']['PA']
+        style_lat = latents['style']['Lateral']
+        style_text = latents['style']['text']
         content = latents['content']
-        cond_gen_m1 = self.lhood_pa(*self.decoder_pa(style_pa, content));
-        cond_gen_m2 = self.lhood_lat(*self.decoder_lat(style_lat, content));
-        cond_gen_m3 = self.lhood_text(*self.decoder_text(style_text, content));
+        cond_gen_m1 = self.lhood_pa(*self.decoder_pa(style_pa, content))
+        cond_gen_m2 = self.lhood_lat(*self.decoder_lat(style_lat, content))
+        cond_gen_m3 = self.lhood_text(*self.decoder_text(style_text, content))
         return {'PA': cond_gen_m1, 'Lateral': cond_gen_m2, 'text': cond_gen_m3}
 
     def save_networks(self):

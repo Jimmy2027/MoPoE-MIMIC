@@ -23,7 +23,7 @@ def generate_plots(exp, epoch):
 
 def generate_random_samples_plots(exp, epoch):
     model = exp.mm_vae;
-    mods = exp.modalities;
+    mods = exp.modalities
     num_samples = 100;
     random_samples = model.generate(num_samples)
     random_plots = dict();

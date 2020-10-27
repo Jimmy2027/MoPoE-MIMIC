@@ -12,7 +12,7 @@ from mimic.utils.filehandling import expand_paths, get_config_path
 from mimic.utils.flags import parser
 
 
-class TestTraining(TestCase):
+class TestDataset(TestCase):
     def _test_datasets(self, split, img_shape):
         """
         General test to see if training loop works
@@ -24,9 +24,9 @@ class TestTraining(TestCase):
             t_args.__dict__.update(json.load(json_file))
             FLAGS = parser.parse_args([], namespace=t_args)
         FLAGS = expand_paths(t_args)
-        dir_dataset = os.path.join(FLAGS.dir_data, 'files_small_new')
-        fn_img_pa = os.path.join(dir_dataset, split + f'_pa{img_shape}.pt')
-        fn_img_lat = os.path.join(dir_dataset, split + f'_lat{img_shape}.pt')
+        dir_dataset = os.path.join(FLAGS.dir_data, f'files_small_{img_shape}')
+        fn_img_pa = os.path.join(dir_dataset, split + f'_pa.pt')
+        fn_img_lat = os.path.join(dir_dataset, split + f'_lat.pt')
         fn_findings = os.path.join(dir_dataset, split + '_findings.csv')
         fn_labels = os.path.join(dir_dataset, split + '_labels.csv')
         str_labels = ['Lung Opacity', 'Pleural Effusion', 'Support Devices']

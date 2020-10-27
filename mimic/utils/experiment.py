@@ -18,6 +18,7 @@ from mimic.modalities.MimicLateral import MimicLateral
 from mimic.modalities.MimicPA import MimicPA
 from mimic.modalities.MimicText import MimicText
 from mimic.utils.BaseExperiment import BaseExperiment
+from mimic.networks.main_train_clf_text_mimic import training_procedure_clf
 
 
 class MimicExperiment(BaseExperiment):
@@ -109,8 +110,12 @@ class MimicExperiment(BaseExperiment):
             model_clf_m2 = model_clf_m2.to(self.flags.device)
 
             model_clf_m3 = ClfText(self.flags, self.labels)
+            if not os.path.exists(os.path.join(self.flags.dir_clf, f'clf_text_{self.flags.text_encoding}_encoding')):
+                print(
+                    f'training classifier for text modality with {self.flags.text_encoding} encoding, this may take some time...')
+                training_procedure_clf(self.flags)
             model_clf_m3.load_state_dict(torch.load(os.path.join(self.flags.dir_clf,
-                                                                 self.flags.clf_save_m3)))
+                                                                 f'clf_text_{self.flags.text_encoding}_encoding')))
             model_clf_m3 = model_clf_m3.to(self.flags.device)
 
         clfs = {'PA': model_clf_m1,

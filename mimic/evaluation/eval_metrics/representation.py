@@ -13,7 +13,7 @@ def train_clf_lr_all_subsets(exp):
                           shuffle=True,
                           num_workers=exp.flags.dataloader_workers, drop_last=True)
 
-    if exp.flags.steps_per_training_epoch > len(d_loader):
+    if 0 < exp.flags.steps_per_training_epoch < len(d_loader) and exp.flags.dataset == 'test':
         training_steps = exp.flags.steps_per_training_epoch
     else:
         training_steps = len(d_loader)

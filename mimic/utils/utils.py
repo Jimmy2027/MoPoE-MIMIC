@@ -3,6 +3,7 @@ import os
 import torch
 import torch.distributions as dist
 from torch.autograd import Variable
+import numpy as np
 
 
 # Print iterations progress
@@ -155,3 +156,4 @@ class Unflatten(torch.nn.Module):
 
     def forward(self, x):
         return x.view(x.size(0), *self.ndims)
+

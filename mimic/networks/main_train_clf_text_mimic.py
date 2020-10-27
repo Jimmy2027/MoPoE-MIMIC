@@ -8,7 +8,7 @@ import torch.optim as optim
 from tensorboardX import SummaryWriter
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
-
+from tqdm import tqdm
 from mimic.dataio.MimicDataset import Mimic
 from mimic.utils.flags import parser
 from mimic.networks.ConvNetworkTextClf import ClfText
@@ -80,20 +80,21 @@ def training_procedure_clf(FLAGS):
     with open(alphabet_path) as alphabet_file:
         alphabet = str(''.join(json.load(alphabet_file)))
     FLAGS.num_features = len(alphabet)
-    mimic_train = Mimic(FLAGS, LABELS, alphabet, dataset=1)
-    mimic_eval = Mimic(FLAGS, LABELS, alphabet, dataset=2)
+    mimic_train = Mimic(FLAGS, LABELS, alphabet, split='train')
+    mimic_eval = Mimic(FLAGS, LABELS, alphabet, split='eval')
     print(mimic_eval.__len__())
     use_cuda = torch.cuda.is_available();
     FLAGS.device = torch.device('cuda' if use_cuda else 'cpu');
 
     logger = SummaryWriter(FLAGS.dir_logs_clf)
     model = ClfText(FLAGS, LABELS).to(FLAGS.device);
-
-    for epoch in range(0, 100):
+    for epoch in tqdm(range(0, 100), postfix='train_clf_text'):
         print('epoch: ' + str(epoch))
-        model = train_clf(FLAGS, epoch, model, mimic_train, logger);
-        test_clf(FLAGS, epoch, model, mimic_eval, logger);
-        torch.save(model.state_dict(), os.path.join(FLAGS.dir_clf, FLAGS.clf_save_m3))
+        model = train_clf(FLAGS, epoch, model, mimic_train, logger)
+        test_clf(FLAGS, epoch, model, mimic_eval, logger)
+        print('saving text classifier to {}'.format(
+            os.path.join(FLAGS.dir_clf, f'clf_text_{FLAGS.text_encoding}_encoding')))
+        torch.save(model.state_dict(), os.path.join(FLAGS.dir_clf, f'clf_text_{FLAGS.text_encoding}_encoding'))
 
 
 if __name__ == '__main__':

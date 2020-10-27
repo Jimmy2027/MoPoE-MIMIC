@@ -107,8 +107,8 @@ def training_procedure_clf(FLAGS):
     with open(alphabet_path) as alphabet_file:
         alphabet = str(''.join(json.load(alphabet_file)))
     FLAGS.num_features = len(alphabet)
-    mimic_train = Mimic(FLAGS, LABELS, alphabet, dataset=1)
-    mimic_eval = Mimic(FLAGS, LABELS, alphabet, dataset=2)
+    mimic_train = Mimic(FLAGS, LABELS, alphabet, split='train')
+    mimic_eval = Mimic(FLAGS, LABELS, alphabet, split='eval')
     print(mimic_eval.__len__())
     use_cuda = torch.cuda.is_available();
     FLAGS.device = torch.device('cuda' if use_cuda else 'cpu');
