@@ -1,9 +1,10 @@
 {
 "dir_data": "/mnt/data/hendrik/mimic_scratch",
-"dir_clf":"/mnt/data/hendrik/mimic_scratch/mimic/trained_classifiers/Mimic128",
+"dir_clf":"/mnt/data/hendrik/mimic_scratch/mimic/trained_classifiers",
 "dir_experiment":"/mnt/data/hendrik/mimic_scratch/mimic/moe/non_factorized",
 "inception_state_dict":"/mnt/data/hendrik/mimic_scratch/mimic/pt_inception-2015-12-05-6726825d.pth",
 "dir_fid":"/mnt/data/hendrik/mimic_scratch/mimic",
+ "save_figure": true,
 "DIM_img":64,
  "img_size": 128,
  "text_encoding":"word",
@@ -14,7 +15,7 @@
  "style_text_dim":0,
  "class_dim":64,
  "dataloader_workers":0,
- "method":"joint_elbo",
+ "method":"jsd",
  "beta":1.0,
  "beta_style":3.0,
  "beta_content":1.0,
@@ -25,14 +26,14 @@
  "div_weight_m2_content":0.25,
  "div_weight_m3_content":0.25,
  "div_weight_uniform_content":0.25,
- "batch_size":10,
+ "batch_size":50,
  "eval_freq":5,
  "eval_freq_fid":5,
- "end_epoch":2,
+ "end_epoch":10,
  "calc_nll":true,
  "eval_lr":true,
  "calc_prd":true,
  "use_clf":true,
  "use_toy_dataset":false,
- "steps_per_training_epoch": 10
+ "steps_per_training_epoch": 100
 }

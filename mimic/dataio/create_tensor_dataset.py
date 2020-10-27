@@ -21,7 +21,7 @@ class CreateTensorDataset:
     """
 
     def __init__(self, dir_base_resize: str, dir_mimic: str, dir_out: str, img_size: Tuple,
-                 dir_base_resized_compressed: str = '', max_it: int = -1):
+                 dir_base_resized_compressed: str = '', max_it: int = None):
         """
         dir_out: where the tensor dataset will be saved
         dir_base_resize: where the resized image are saved
@@ -47,8 +47,8 @@ class CreateTensorDataset:
         self.img_size = img_size
 
     def __call__(self):
-        splits = ['train', 'eval', 'test']
-        dataframes = [self.df_train, self.df_eval, self.df_test]
+        splits = ['test', 'eval', 'train']
+        dataframes = [self.df_test, self.df_eval, self.df_train]
         for split, df in zip(splits, dataframes):
             self.create_dataset(df, split=split)
 
@@ -57,6 +57,7 @@ class CreateTensorDataset:
         dir_out: where the tensor dataset should be created
         """
         dir_src = self.dir_base_resize  # directory of the resized images
+
         if not os.path.exists(dir_src):
             if os.path.exists(self.dir_resized_compressed):
                 print(f'compressed images are found and are decompressed to {dir_src}')
@@ -67,8 +68,21 @@ class CreateTensorDataset:
                 print(
                     f'directory of resized images {dir_src} does not exist and needs to be created. This may take a while.')
                 _ = self._resize_all()
+                if self.dir_base_resized_compressed:
+                    if not os.path.exists(self.dir_resized_compressed):
+                        print('zipping resized images folder {} to {} -> {}'.format(dir_src,
+                                                                                    self.dir_resized_compressed.split(
+                                                                                        '.')[0],
+                                                                                    self.dir_resized_compressed))
+
+                        shutil.make_archive(self.dir_resized_compressed.replace('.zip', ''), 'zip', dir_src,
+                                            verbose=True)
+                        assert os.path.exists(
+                            self.dir_resized_compressed), 'path does not exist: {}. \n {}'.format(
+                            self.dir_resized_compressed, os.listdir(self.dir_base_resized_compressed))
+
         dir_out = self.dir_out
-        num_samples = df.shape[0] if self.max_it < 0 else self.max_it
+        num_samples = self.max_it if self.max_it else df.shape[0]
         imgs_pa = torch.Tensor(num_samples, self.img_size[0], self.img_size[0])
         imgs_lat = torch.Tensor(num_samples, self.img_size[0], self.img_size[0])
         ind = torch.Tensor(num_samples)  # tensor that indicates the images that were found
@@ -78,7 +92,7 @@ class CreateTensorDataset:
         findings = df.filter(['findings'])
         impressions = df.filter(['impression'])
         for index, row in tqdm(df.iterrows(), postfix=split):
-            if self.max_it > 0 and index >= self.max_it:
+            if self.max_it and index >= self.max_it:
                 break
             # load lat and pa image for each row
             s_id = row['study_id']
@@ -116,12 +130,11 @@ class CreateTensorDataset:
             imgs_lat[index, :, :] = img_lat
         print(imgs_pa.shape)
         mask = ind > 0
-        if self.max_it < 0:
+        if self.max_it is None:
             # only do this if not test run
             imgs_pa = imgs_pa[mask, :, :]
             imgs_lat = imgs_lat[mask, :, :]
             print(imgs_pa.shape)
-
             # need to remove all cases where the labels have 3 classes
             indices = []
             indices += labels.index[(labels['Lung Opacity'] == -1)].tolist()
@@ -133,8 +146,8 @@ class CreateTensorDataset:
             imgs_pa = torch.tensor(np.delete(imgs_pa.numpy(), indices, 0))
             imgs_lat = torch.tensor(np.delete(imgs_lat.numpy(), indices, 0))
 
-        fn_pa_out = os.path.join(dir_out, split + f'_pa{self.img_size[0]}.pt')
-        fn_lat_out = os.path.join(dir_out, split + f'_lat{self.img_size[0]}.pt')
+        fn_pa_out = os.path.join(dir_out, split + '_pa.pt')
+        fn_lat_out = os.path.join(dir_out, split + '_lat.pt')
         fn_findings_out = os.path.join(dir_out, split + '_findings.csv')
         fn_impressions_out = os.path.join(dir_out, split + '_impressions.csv')
         fn_labels_out = os.path.join(dir_out, split + '_labels.csv')
@@ -149,21 +162,7 @@ class CreateTensorDataset:
             findings[
             :self.max_it]), f'all modalities must have the same length. len(imgs_pa): {imgs_pa.shape[0]}, len(imgs_lat): {imgs_lat.shape[0]}, len(labels): {len(labels[:self.max_it])}, len(report_findings): {len(findings[:self.max_it])}'
 
-        if self.dir_base_resized_compressed:
-            if not os.path.exists(self.dir_resized_compressed):
-                print('zipping resized images folder {} to {} -> {}'.format(dir_src,
-                                                                            self.dir_resized_compressed.split('.')[0],
-                                                                            self.dir_resized_compressed))
-
-                shutil.make_archive(self.dir_resized_compressed.replace('.zip', ''), 'zip', dir_src, verbose=True)
-                assert os.path.exists(
-                    self.dir_resized_compressed), 'path does not exist: {}. \n {}'.format(
-                    self.dir_resized_compressed, os.listdir(self.dir_base_resized_compressed))
-            # this is automatically done if using tmpdir
-            # print(f'deleting resized images folder: {dir_src}')
-            # shutil.rmtree(dir_src)
-
-    def _fast_scandir(self, dirname):
+    def _fast_scandir(self, dirname: str):
         subfolders = [f.path for f in os.scandir(dirname) if f.is_dir()]
         for dirname in list(subfolders):
             subfolders.extend(self._fast_scandir(dirname))
@@ -192,7 +191,7 @@ class CreateTensorDataset:
         """
         dir_src_base = self.dir_base_orig
         print('computing total folders')
-        total_folders = self._compute_total_folders(dir_src_base) if self.max_it < 0 else None
+        total_folders = self._compute_total_folders(dir_src_base) if self.max_it is None else None
         count_imgs = 0
         for dirName, subdirList, fileList in tqdm(os.walk(dir_src_base), total=total_folders, postfix='resize'):
             f_imgs = glob(os.path.join(dirName, '*.jpg'))
@@ -201,7 +200,7 @@ class CreateTensorDataset:
                 if not os.path.exists(d_new):
                     os.makedirs(d_new)
                 for f in f_imgs:
-                    if self.max_it > 0 and count_imgs >= self.max_it:
+                    if self.max_it and count_imgs >= self.max_it:
                         return True
                     n_img = f.split('/')[-1]
                     f_new = os.path.join(d_new, n_img)
@@ -225,13 +224,16 @@ class CreateTensorDataset:
 
 if __name__ == '__main__':
     img_size = (256, 256)
+    # img_size = (128, 128)
+
     dir_mimic = '/cluster/work/vogtlab/Projects/mimic-cxr/physionet.org/files/mimic-cxr-jpg/2.0.0'
-    dir_out = os.path.expanduser('~/klugh/files_small_new')
-    dir_base_resized_compressed = f'/cluster/work/vogtlab/Group/klugh/'
+    dir_out = os.path.expanduser(f'~/klugh/files_small_{img_size[0]}')
+    dir_base_resized_compressed = '/cluster/work/vogtlab/Group/klugh/'
     assert os.path.exists(os.path.expandvars('$TMPDIR'))
     assert os.path.exists(dir_base_resized_compressed)
 
     dir_base_resize = os.path.join(os.path.expandvars('$TMPDIR'), f'files_small_{img_size[0]}')
+
     dataset_creator = CreateTensorDataset(dir_base_resize=dir_base_resize, dir_mimic=dir_mimic, dir_out=dir_out,
                                           img_size=img_size, dir_base_resized_compressed=dir_base_resized_compressed)
     dataset_creator()

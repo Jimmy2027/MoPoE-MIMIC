@@ -1,6 +1,6 @@
 {
 "dir_data": "~/scratch",
-"dir_clf":"~/scratch/mimic/trained_classifiers/Mimic128",
+"dir_clf":"~/scratch/mimic/trained_classifiers",
 "dir_experiment":"~/scratch/mimic/moe/non_factorized",
 "inception_state_dict":"~/scratch/mimic/pt_inception-2015-12-05-6726825d.pth",
 "dir_fid":"~/scratch/mimic",

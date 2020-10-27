@@ -11,7 +11,7 @@ import PIL.Image as Image
 import numpy as np
 import pandas as pd
 import torch
-from nltk.tokenize import sent_tokenize, word_tokenize
+from nltk.tokenize import word_tokenize
 from torch.utils.data import Dataset
 from torchvision import transforms
 
@@ -31,9 +31,9 @@ class Mimic(Dataset):
         self.args = args
         self.split = split
         # todo if these paths don't exist run create_tensor_dataset
-        dir_dataset = os.path.join(args.dir_data, 'files_small_new')
-        fn_img_pa = os.path.join(dir_dataset, split + f'_pa{args.img_size}.pt')
-        fn_img_lat = os.path.join(dir_dataset, split + f'_lat{args.img_size}.pt')
+        dir_dataset = os.path.join(args.dir_data, f'files_small_{args.img_size}')
+        fn_img_pa = os.path.join(dir_dataset, split + '_pa.pt')
+        fn_img_lat = os.path.join(dir_dataset, split + '_lat.pt')
         fn_findings = os.path.join(dir_dataset, split + '_findings.csv')
         fn_labels = os.path.join(dir_dataset, split + '_labels.csv')
 
@@ -152,10 +152,12 @@ class MimicSentences(Dataset):
         return len(self.data)
 
     def __getitem__(self, idx: int):
+        """
+        Returns tensors/list of length len_sentence
+        """
         sent = self.data[str(idx)]['idx']
         if self.transform is not None:
             sent = self.transform(sent)
-        # return sent, self.data[str(idx)]['length']
         return sent
 
     @property
@@ -294,9 +296,9 @@ class Mimic_testing(Dataset):
     """
 
     def __init__(self, flags):
-        self.vocab_size = 10
+        self.vocab_size = flags.vocab_size
         self.flags = flags
-        self.report_findings_dataset = Report_findings_dataset_test()
+        self.report_findings_dataset = Report_findings_dataset_test(self.vocab_size)
 
     def __getitem__(self, index):
         try:
@@ -321,7 +323,7 @@ class Mimic_testing(Dataset):
 
 
 class Report_findings_dataset_test(Dataset):
-    def __init__(self):
+    def __init__(self, vocab_size: int):
         self.i2w = dict()
-        for i in range(10):
+        for i in range(vocab_size + 1):
             self.i2w[str(i)] = 'w'  # arbitrary letter

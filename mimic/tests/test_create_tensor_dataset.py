@@ -6,7 +6,7 @@ from unittest import TestCase
 from mimic.dataio.create_tensor_dataset import CreateTensorDataset
 
 
-class TestFilehandling(TestCase):
+class TestCreateTensorDataset(TestCase):
     def _create_tensor_dataset(self, img_size):
         """
         Checks if function create_dir_structure is running.
