@@ -26,29 +26,64 @@ class FeatureExtractorImg(nn.Module):
         self.args = args;
         self.a = a;
         self.b = b;
-        modules = [];
-        modules.append(nn.Conv2d(self.args.image_channels, self.args.DIM_img,
-                                 kernel_size=3,
-                                 stride=2,
-                                 padding=1,
-                                 dilation=1,
-                                 bias=False));
-        modules.append(make_res_block_feature_extractor(args.DIM_img, 2 * args.DIM_img, kernelsize=4, stride=2,
-                                                        padding=1, dilation=1, a_val=a, b_val=b));
-        modules.append(make_res_block_feature_extractor(2 * args.DIM_img, 3 * args.DIM_img, kernelsize=4, stride=2,
-                                                        padding=1, dilation=1, a_val=self.a, b_val=self.b));
-        modules.append(make_res_block_feature_extractor(3 * args.DIM_img, 4 * args.DIM_img, kernelsize=4, stride=2,
-                                                        padding=1, dilation=1, a_val=self.a, b_val=self.b));
+        self.conv1 = nn.Conv2d(self.args.image_channels, self.args.DIM_img,
+                               kernel_size=3,
+                               stride=2,
+                               padding=1,
+                               dilation=1,
+                               bias=False)
+        self.resblock_1 = make_res_block_feature_extractor(args.DIM_img, 2 * args.DIM_img, kernelsize=4, stride=2,
+                                                           padding=1, dilation=1, a_val=a, b_val=b)
+        self.resblock_2 = make_res_block_feature_extractor(2 * args.DIM_img, 3 * args.DIM_img, kernelsize=4, stride=2,
+                                                           padding=1, dilation=1, a_val=self.a, b_val=self.b)
+        self.resblock_3 = make_res_block_feature_extractor(3 * args.DIM_img, 4 * args.DIM_img, kernelsize=4, stride=2,
+                                                           padding=1, dilation=1, a_val=self.a, b_val=self.b)
         if args.img_size == 64:
-            modules.append(make_res_block_feature_extractor(4 * args.DIM_img, 5 * args.DIM_img, kernelsize=4, stride=2,
-                                                            padding=0, dilation=1, a_val=self.a, b_val=self.b));
+            self.resblock_4 = make_res_block_feature_extractor(4 * args.DIM_img, 5 * args.DIM_img, kernelsize=4,
+                                                               stride=2,
+                                                               padding=0, dilation=1, a_val=self.a, b_val=self.b)
         elif args.img_size == 128:
-            modules.append(make_res_block_feature_extractor(4 * args.DIM_img, 5 * args.DIM_img, kernelsize=4, stride=2,
-                                                            padding=1, dilation=1, a_val=self.a, b_val=self.b));
-            modules.append(make_res_block_feature_extractor(5 * args.DIM_img, 5 * args.DIM_img, kernelsize=4, stride=2,
-                                                            padding=0, dilation=1, a_val=self.a, b_val=self.b));
-        self.extractor = nn.Sequential(*modules);
+            self.resblock_4 = make_res_block_feature_extractor(4 * args.DIM_img, 5 * args.DIM_img, kernelsize=4,
+                                                               stride=2,
+                                                               padding=1, dilation=1, a_val=self.a, b_val=self.b)
+            self.resblock_5 = make_res_block_feature_extractor(5 * args.DIM_img, 5 * args.DIM_img, kernelsize=4,
+                                                               stride=2,
+                                                               padding=0, dilation=1, a_val=self.a, b_val=self.b)
+        elif args.img_size == 256:
+            self.resblock_4 = make_res_block_feature_extractor(4 * args.DIM_img, 5 * args.DIM_img, kernelsize=4,
+                                                               stride=4,
+                                                               padding=1, dilation=1, a_val=self.a, b_val=self.b)
+            #question warum geht das nicht?
+            # self.resblock_4 = make_res_block_feature_extractor(4 * args.DIM_img, 4 * args.DIM_img + args.DIM_img // 2,
+            #                                                    kernelsize=4,
+            #                                                    stride=2,
+            #                                                    padding=1, dilation=1, a_val=self.a, b_val=self.b)
+            # self.resblock_4 = make_res_block_feature_extractor(4 * args.DIM_img + args.DIM_img // 2, 5 * args.DIM_img,
+            #                                                    kernelsize=4,
+            #                                                    stride=2,
+            #                                                    padding=1, dilation=1, a_val=self.a, b_val=self.b)
+            self.resblock_5 = make_res_block_feature_extractor(5 * args.DIM_img, 5 * args.DIM_img, kernelsize=4,
+                                                               stride=2,
+                                                               padding=0, dilation=1, a_val=self.a, b_val=self.b)
 
     def forward(self, x):
-        out = self.extractor(x);
+        """
+        Example:
+            x_shape: torch.Size([10, 1, 128, 128])
+            torch.Size([10, 64, 64, 64])
+            torch.Size([10, 128, 32, 32])
+            torch.Size([10, 192, 16, 16])
+            torch.Size([10, 256, 8, 8])
+            torch.Size([10, 320, 4, 4])
+            torch.Size([10, 320, 1, 1])
+        """
+        out = self.conv1(x)
+        out = self.resblock_1(out)
+        out = self.resblock_2(out)
+        out = self.resblock_3(out)
+        out = self.resblock_4(out)
+        if self.args.img_size == 128:
+            out = self.resblock_5(out)
+        elif self.args.img_size == 256:
+            out = self.resblock_5(out)
         return out

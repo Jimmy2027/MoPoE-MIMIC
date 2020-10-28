@@ -15,7 +15,7 @@ from mimic.utils.flags import parser
 class TestDataset(TestCase):
     def _test_datasets(self, split, img_shape):
         """
-        General test to see if training loop works
+        Test to see if datasets have the same shape
         """
         FLAGS = parser.parse_args([])
         config_path = get_config_path()

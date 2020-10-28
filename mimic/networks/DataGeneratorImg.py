@@ -62,6 +62,19 @@ class DataGeneratorImg(nn.Module):
                                                          padding=1, dilation=1,
                                                          o_padding=0, a_val=a,
                                                          b_val=b));
+        if args.img_size == 256:
+            modules.append(make_res_block_data_generator(1 * self.args.DIM_img,
+                                                         1 * self.args.DIM_img,
+                                                         kernelsize=4, stride=2,
+                                                         padding=1, dilation=1,
+                                                         o_padding=0, a_val=a,
+                                                         b_val=b))
+            modules.append(make_res_block_data_generator(1 * self.args.DIM_img,
+                                                         1 * self.args.DIM_img,
+                                                         kernelsize=4, stride=2,
+                                                         padding=1, dilation=1,
+                                                         o_padding=0, a_val=a,
+                                                         b_val=b))
         modules.append(nn.ConvTranspose2d(self.args.DIM_img, self.args.image_channels,
                                           kernel_size=3,
                                           stride=2,
@@ -71,5 +84,9 @@ class DataGeneratorImg(nn.Module):
         self.generator = nn.Sequential(*modules);
 
     def forward(self, feats):
+        """
+        Example:
+            feats.shape = [10, 320, 1, 1]
+        """
         d = self.generator(feats);
         return d;

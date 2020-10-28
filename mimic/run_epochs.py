@@ -1,4 +1,3 @@
-import gc
 import os
 import random
 
@@ -8,16 +7,17 @@ from tensorboardX import SummaryWriter
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from mimic.utils.plotting import generate_plots
+
 from mimic.evaluation.divergence_measures.kl_div import calc_kl_divergence
 from mimic.evaluation.eval_metrics.coherence import test_generation
 from mimic.evaluation.eval_metrics.likelihood import estimate_likelihoods
 from mimic.evaluation.eval_metrics.representation import test_clf_lr_all_subsets
 from mimic.evaluation.eval_metrics.representation import train_clf_lr_all_subsets
 from mimic.evaluation.eval_metrics.sample_quality import calc_prd_score
+from mimic.utils import text
 from mimic.utils import utils
 from mimic.utils.TBLogger import TBLogger
-from mimic.utils import text
+from mimic.utils.plotting import generate_plots
 
 # global variables
 SEED = None

@@ -1,9 +1,7 @@
-import random
-
 import numpy as np
 import torch
+import typing
 
-# digit_text = ['null', 'eins', 'zwei', 'drei', 'vier', 'fuenf', 'sechs', 'sieben', 'acht', 'neun'];
 digit_text_german = ['null', 'eins', 'zwei', 'drei', 'vier', 'fuenf', 'sechs', 'sieben', 'acht', 'neun'];
 digit_text_english = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'];
 
@@ -26,20 +24,6 @@ def one_hot_encode(len_seq: int, alphabet: str, seq: str) -> torch.tensor:
     return X
 
 
-def undo_OneHotEncoding(flags, sample):
-    """
-    Un-does the one hot encoding.
-    Example:
-        with input of shape [bs, 1024, 3517] with values between 0 and 1
-        return tensor of shape [bs, 1024] with values between 0 and 3517
-    """
-    temp = np.zeros((flags.batch_size, flags.len_sequence))
-    for batch_idx, batch_elem in enumerate(sample):
-        for col_index, column in enumerate(batch_elem):
-            temp[batch_idx, col_index] = torch.max(column).item()
-    return torch.from_numpy(temp).to(flags.device)
-
-
 def one_hot_encode_word(args, seq: torch.tensor) -> torch.tensor:
     """
     One hot encodes word encodings.
@@ -59,7 +43,7 @@ def one_hot_encode_word(args, seq: torch.tensor) -> torch.tensor:
     return X.to(args.device)
 
 
-def seq2text(exp, seq):
+def seq2text(exp, seq) -> typing.List[str]:
     decoded = []
     for j in range(len(seq)):
         if exp.flags.text_encoding == 'word':
@@ -69,9 +53,10 @@ def seq2text(exp, seq):
     return decoded
 
 
-def tensor_to_text(exp, gen_t: torch.Tensor):
+def tensor_to_text(exp, gen_t: torch.Tensor) -> typing.List[typing.List[str]]:
     gen_t = gen_t.cpu().data.numpy()
     gen_t = np.argmax(gen_t, axis=-1)
+    gen_t: np.ndarray
     decoded_samples = []
     for i in range(len(gen_t)):
         decoded = seq2text(exp, gen_t[i])

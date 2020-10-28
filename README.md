@@ -7,12 +7,20 @@ git clone https://github.com/Jimmy2027/joint_elbo
 cd joint_elbo
 path/to/conda/environment/bin/python -m pip install -e .
 ```
-or to enable testing:
+to enable testing:
 ```
 git clone https://github.com/Jimmy2027/joint_elbo
 cd joint_elbo
 path/to/conda/environment/bin/python -m pip install -e .[test]
 ```
+
+## Usage
+Run main training workflow with:
+```
+cd mimic
+python main_mimic.py
+```
+You can use a json config in `configs` to give arguments to `main.py`  
 ## Testing
 run unittests with:
 ```

@@ -5,7 +5,7 @@ import torch
 class Modality(ABC):
 
     @abstractmethod
-    def save_data(self, exp, d, fn):
+    def save_data(self, exp, d, fn, args):
         pass;
 
     @abstractmethod

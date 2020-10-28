@@ -99,13 +99,16 @@ class MimicExperiment(BaseExperiment):
         model_clf_m2 = None
         model_clf_m3 = None
         if self.flags.use_clf:
+            dir_img_clf = os.path.join(self.flags.dir_clf, f'Mimic{self.flags.img_size}')
+            dir_img_clf = os.path.expanduser(dir_img_clf)
+
             model_clf_m1 = ClfImg(self.flags, self.labels)
-            model_clf_m1.load_state_dict(torch.load(os.path.join(self.flags.dir_clf,
+            model_clf_m1.load_state_dict(torch.load(os.path.join(dir_img_clf,
                                                                  self.flags.clf_save_m1)))
             model_clf_m1 = model_clf_m1.to(self.flags.device)
 
             model_clf_m2 = ClfImg(self.flags, self.labels)
-            model_clf_m2.load_state_dict(torch.load(os.path.join(self.flags.dir_clf,
+            model_clf_m2.load_state_dict(torch.load(os.path.join(dir_img_clf,
                                                                  self.flags.clf_save_m2)))
             model_clf_m2 = model_clf_m2.to(self.flags.device)
 

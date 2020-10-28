@@ -1,7 +1,7 @@
 import argparse
 import json
 import os
-
+from tqdm import tqdm
 import numpy as np
 import torch
 import torch.optim as optim
@@ -15,6 +15,7 @@ from mimic.networks.ConvNetworkImgClf import ClfImg
 from mimic.utils.filehandling import create_dir_structure, get_config_path, expand_paths
 from mimic.utils.loss import clf_loss
 from mimic.utils.utils import printProgressBar
+import shutil
 
 LABELS = ['Lung Opacity', 'Pleural Effusion', 'Support Devices']
 
@@ -101,6 +102,7 @@ def test_clf(flags, epoch, models, dataset, log_writer):
 
 
 def training_procedure_clf(FLAGS):
+    epoch = 0
     logger = SummaryWriter(FLAGS.dir_logs_clf)
 
     alphabet_path = os.path.join(os.getcwd(), 'alphabet.json');
@@ -116,13 +118,23 @@ def training_procedure_clf(FLAGS):
     model_pa = ClfImg(FLAGS, LABELS).to(FLAGS.device);
     model_lat = ClfImg(FLAGS, LABELS).to(FLAGS.device);
     models = {'pa': model_pa, 'lateral': model_lat};
-
-    for epoch in range(0, 100):
-        print('epoch: ' + str(epoch))
+    for epoch in tqdm(range(0, 100), postfix='train_clf_img'):
         models = train_clf(FLAGS, epoch, models, mimic_train, logger);
-        test_clf(FLAGS, epoch, models, mimic_eval, logger);
-        torch.save(models['pa'].state_dict(), os.path.join(FLAGS.dir_clf, FLAGS.clf_save_m1))
-        torch.save(models['lateral'].state_dict(), os.path.join(FLAGS.dir_clf, FLAGS.clf_save_m2))
+        test_clf(FLAGS, epoch, models, mimic_eval, logger)
+    save_and_overwrite_model(models['pa'].state_dict(), FLAGS.dir_clf, FLAGS.clf_save_m1, epoch)
+    save_and_overwrite_model(models['lateral'].state_dict(), FLAGS.dir_clf, FLAGS.clf_save_m1, epoch)
+
+
+def save_and_overwrite_model(state_dict, dir_path: str, checkpoint_name: str, epoch: int):
+    """
+    saves the model and deletes old one
+    """
+    for file in os.listdir(dir_path):
+        if file.startswith(checkpoint_name):
+            print(f'deleting old checkpoint: {os.path.join(dir_path, file)}')
+            os.remove(os.path.join(dir_path, file))
+    print('saving model to {}'.format(os.path.join(dir_path, checkpoint_name + f'_{epoch}')))
+    torch.save(state_dict, os.path.join(dir_path, checkpoint_name + f'_{epoch}'))
 
 
 if __name__ == '__main__':
@@ -133,8 +145,11 @@ if __name__ == '__main__':
         t_args = argparse.Namespace()
         t_args.__dict__.update(json.load(json_file))
         FLAGS = parser.parse_args(namespace=t_args)
+    FLAGS.img_size = 128
+    FLAGS.dir_clf = os.path.join(FLAGS.dir_clf, f'Mimic{FLAGS.img_size}')
     FLAGS = expand_paths(FLAGS)
-
+    print(f'Training image classifier for images of size {FLAGS.img_size}')
+    print(os.path.join(FLAGS.dir_clf, FLAGS.clf_save_m1))
     use_cuda = torch.cuda.is_available()
     FLAGS.device = torch.device('cuda' if use_cuda else 'cpu')
     FLAGS.alpha_modalities = [FLAGS.div_weight_uniform_content,
@@ -142,4 +157,5 @@ if __name__ == '__main__':
                               FLAGS.div_weight_m2_content,
                               FLAGS.div_weight_m3_content];
     create_dir_structure(FLAGS, train=False);
+    # This will overwrite old classifiers!!
     training_procedure_clf(FLAGS)

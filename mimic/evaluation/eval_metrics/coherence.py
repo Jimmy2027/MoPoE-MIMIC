@@ -1,9 +1,10 @@
 import numpy as np
+import torch
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from mimic.utils.save_samples import save_generated_samples_singlegroup
-from mimic.utils.text import undo_OneHotEncoding, one_hot_encode_word
+from mimic.utils.text import one_hot_encode_word
 
 
 def classify_cond_gen_samples(exp, labels, cond_samples):
@@ -17,7 +18,7 @@ def classify_cond_gen_samples(exp, labels, cond_samples):
             mod_cond_gen = cond_samples[key];
             mod_clf = clfs[key];
             if key == 'text' and exp.flags.text_encoding == 'word':
-                mod_cond_gen = undo_OneHotEncoding(exp.flags, mod_cond_gen)
+                mod_cond_gen = torch.argmax(mod_cond_gen, dim=-1)
             attr_hat = mod_clf(mod_cond_gen);
             for l, label_str in enumerate(exp.labels):
                 score = exp.eval_label(attr_hat.cpu().data.numpy(), labels,
@@ -44,7 +45,7 @@ def calculate_coherence(exp, samples) -> dict:
             clf_mod = clfs[mod.name];
             samples_mod = samples[mod.name]
             if m_key == 'text' and exp.flags.text_encoding == 'word':
-                samples_mod = undo_OneHotEncoding(exp.flags, samples_mod)
+                samples_mod = torch.argmax(samples_mod, dim=-1)
             attr_mod = clf_mod(samples_mod);
             output_prob_mod = attr_mod.cpu().data.numpy();
             pred_mod = np.argmax(output_prob_mod, axis=1).astype(int);

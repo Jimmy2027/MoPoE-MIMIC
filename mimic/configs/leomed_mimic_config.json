@@ -4,7 +4,7 @@
 "dir_experiment":"~/klugh/mimic/moe/non_factorized",
 "inception_state_dict":"~/klugh/mimic/pt_inception-2015-12-05-6726825d.pth",
 "dir_fid":"~/klugh/mimic",
- "save_figure": true,
+ "save_figure": false,
 "DIM_img":64,
  "img_size": 128,
  "text_encoding":"char",

@@ -30,7 +30,6 @@ class Mimic(Dataset):
             raise DeprecationWarning
         self.args = args
         self.split = split
-        # todo if these paths don't exist run create_tensor_dataset
         dir_dataset = os.path.join(args.dir_data, f'files_small_{args.img_size}')
         fn_img_pa = os.path.join(dir_dataset, split + '_pa.pt')
         fn_img_lat = os.path.join(dir_dataset, split + '_lat.pt')
@@ -301,14 +300,15 @@ class Mimic_testing(Dataset):
         self.report_findings_dataset = Report_findings_dataset_test(self.vocab_size)
 
     def __getitem__(self, index):
+        img_size = (self.flags.img_size, self.flags.img_size)
         try:
             if self.flags.text_encoding == 'word':
-                sample = {'PA': torch.from_numpy(np.random.rand(1, 128, 128)).float(),
-                          'Lateral': torch.from_numpy(np.random.rand(1, 128, 128)).float(),
+                sample = {'PA': torch.from_numpy(np.random.rand(1, *img_size)).float(),
+                          'Lateral': torch.from_numpy(np.random.rand(1, *img_size)).float(),
                           'text': torch.from_numpy(np.random.rand(1024)).float()}
             elif self.flags.text_encoding == 'char':
-                sample = {'PA': torch.from_numpy(np.random.rand(1, 128, 128)).float(),
-                          'Lateral': torch.from_numpy(np.random.rand(1, 128, 128)).float(),
+                sample = {'PA': torch.from_numpy(np.random.rand(1, *img_size)).float(),
+                          'Lateral': torch.from_numpy(np.random.rand(1, *img_size)).float(),
                           'text': torch.from_numpy(np.random.rand(1024, 71)).float()}
         except (IndexError, OSError):
             return None

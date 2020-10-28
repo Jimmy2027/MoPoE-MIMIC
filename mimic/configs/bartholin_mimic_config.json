@@ -4,7 +4,7 @@
 "dir_experiment":"/mnt/data/hendrik/mimic_scratch/mimic/moe/non_factorized",
 "inception_state_dict":"/mnt/data/hendrik/mimic_scratch/mimic/pt_inception-2015-12-05-6726825d.pth",
 "dir_fid":"/mnt/data/hendrik/mimic_scratch/mimic",
- "save_figure": true,
+ "save_figure": false,
 "DIM_img":64,
  "img_size": 128,
  "text_encoding":"word",
