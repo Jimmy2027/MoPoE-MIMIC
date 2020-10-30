@@ -66,7 +66,8 @@ class CreateTensorDataset:
                     zip_ref.extractall(dir_src)
             else:
                 print(
-                    f'directory of resized images {dir_src} does not exist and needs to be created. This may take a while.')
+                    f'directory of resized images {dir_src} does not exist and needs to be created. '
+                    f'This may take a while.')
                 _ = self._resize_all()
                 if self.dir_base_resized_compressed:
                     if not os.path.exists(self.dir_resized_compressed):

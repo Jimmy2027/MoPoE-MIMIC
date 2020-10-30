@@ -37,15 +37,16 @@ for modality_method in ['moe']:
     for factorization in os.listdir(os.path.join(checkpoint_path, modality_method)):
         for experiment in os.listdir(os.path.join(checkpoint_path, modality_method, factorization)):
             experiment_dir = os.path.join(checkpoint_path, modality_method, factorization, experiment)
-            if os.path.isdir(experiment_dir):
-                if not os.path.exists(os.path.join(experiment_dir, 'logs')) or len(
-                        os.listdir(os.path.join(experiment_dir, 'logs'))) == 0:
-                    print(f'removing dir {experiment_dir}')
-                    shutil.rmtree(experiment_dir)
-                if len(
-                        os.listdir(os.path.join(experiment_dir, 'checkpoints'))) == 0:
-                    print(f'removing dir {experiment_dir}')
-                    shutil.rmtree(experiment_dir)
-                # else:
-                #     shutil.make_archive(experiment_dir, 'zip', experiment_dir)
-                # todo if this works, rm experiment_dir
+            if experiment.startswith('Mimic'):
+                if os.path.isdir(experiment_dir):
+                    if not os.path.exists(os.path.join(experiment_dir, 'logs')) or len(
+                            os.listdir(os.path.join(experiment_dir, 'logs'))) == 0:
+                        print(f'removing dir {experiment_dir}')
+                        shutil.rmtree(experiment_dir)
+                    elif len(
+                            os.listdir(os.path.join(experiment_dir, 'checkpoints'))) == 0:
+                        print(f'removing dir {experiment_dir}')
+                        shutil.rmtree(experiment_dir)
+                    # else:
+                    #     shutil.make_archive(experiment_dir, 'zip', experiment_dir)
+                    # todo if this works, rm experiment_dir
