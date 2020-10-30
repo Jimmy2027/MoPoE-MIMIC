@@ -9,10 +9,12 @@ from tensorboardX import SummaryWriter
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
 from tqdm import tqdm
+
 from mimic.dataio.MimicDataset import Mimic
-from mimic.utils.flags import parser
 from mimic.networks.ConvNetworkTextClf import ClfText
 from mimic.utils.filehandling import create_dir_structure, expand_paths, get_config_path
+from mimic.utils.filehandling import get_str_experiments
+from mimic.utils.flags import parser
 from mimic.utils.loss import clf_loss
 from mimic.utils.utils import printProgressBar
 
@@ -75,26 +77,40 @@ def test_clf(flags, epoch, model, dataset, log_writer):
         step += 1;
 
 
-def training_procedure_clf(FLAGS):
+def training_procedure_clf(flags):
     alphabet_path = os.path.join(os.getcwd(), 'alphabet.json');
     with open(alphabet_path) as alphabet_file:
         alphabet = str(''.join(json.load(alphabet_file)))
-    FLAGS.num_features = len(alphabet)
-    mimic_train = Mimic(FLAGS, LABELS, alphabet, split='train')
-    mimic_eval = Mimic(FLAGS, LABELS, alphabet, split='eval')
+    flags.num_features = len(alphabet)
+    mimic_train = Mimic(flags, LABELS, alphabet, split='train')
+    mimic_eval = Mimic(flags, LABELS, alphabet, split='eval')
     print(mimic_eval.__len__())
     use_cuda = torch.cuda.is_available();
-    FLAGS.device = torch.device('cuda' if use_cuda else 'cpu');
+    flags.device = torch.device('cuda' if use_cuda else 'cpu');
 
-    logger = SummaryWriter(FLAGS.dir_logs_clf)
-    model = ClfText(FLAGS, LABELS).to(FLAGS.device);
+    logger = SummaryWriter(flags.dir_logs_clf)
+    model = ClfText(flags, LABELS).to(flags.device);
     for epoch in tqdm(range(0, 100), postfix='train_clf_text'):
         print('epoch: ' + str(epoch))
-        model = train_clf(FLAGS, epoch, model, mimic_train, logger)
-        test_clf(FLAGS, epoch, model, mimic_eval, logger)
+        model = train_clf(flags, epoch, model, mimic_train, logger)
+        test_clf(flags, epoch, model, mimic_eval, logger)
         print('saving text classifier to {}'.format(
-            os.path.join(FLAGS.dir_clf, f'clf_text_{FLAGS.text_encoding}_encoding')))
-        torch.save(model.state_dict(), os.path.join(FLAGS.dir_clf, f'clf_text_{FLAGS.text_encoding}_encoding'))
+            os.path.join(flags.dir_clf, f'clf_text_{flags.text_encoding}_encoding')))
+        save_and_overwrite_model(model.state_dict(), flags.dir_clf, f'clf_text_{flags.text_encoding}_encoding', epoch)
+
+    torch.save(flags, os.path.join(flags.dir_clf, f'flags_clf_text_{epoch}.rar'))
+
+
+def save_and_overwrite_model(state_dict, dir_path: str, checkpoint_name: str, epoch: int):
+    """
+    saves the model and deletes old one
+    """
+    for file in os.listdir(dir_path):
+        if file.startswith(checkpoint_name):
+            print(f'deleting old checkpoint: {os.path.join(dir_path, file)}')
+            os.remove(os.path.join(dir_path, file))
+    print('saving model to {}'.format(os.path.join(dir_path, checkpoint_name + f'_{epoch}')))
+    torch.save(state_dict, os.path.join(dir_path, checkpoint_name + f'_{epoch}'))
 
 
 if __name__ == '__main__':
@@ -104,8 +120,10 @@ if __name__ == '__main__':
         t_args = argparse.Namespace()
         t_args.__dict__.update(json.load(json_file))
         FLAGS = parser.parse_args(namespace=t_args)
-    FLAGS = expand_paths(FLAGS)
 
+    FLAGS = expand_paths(FLAGS)
+    # temp
+    FLAGS.dir_clf += '_new'
     use_cuda = torch.cuda.is_available()
     FLAGS.device = torch.device('cuda' if use_cuda else 'cpu')
 
@@ -113,5 +131,7 @@ if __name__ == '__main__':
                               FLAGS.div_weight_m1_content,
                               FLAGS.div_weight_m2_content,
                               FLAGS.div_weight_m3_content];
-    create_dir_structure(FLAGS, train=False);
+    create_dir_structure(FLAGS, train=False)
+    FLAGS.dir_logs_clf = os.path.join(os.path.expanduser(FLAGS.dir_clf),
+                                      get_str_experiments(FLAGS, prefix='clf_img'))
     training_procedure_clf(FLAGS)

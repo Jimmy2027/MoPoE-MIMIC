@@ -205,8 +205,9 @@ def test(epoch, exp, tb_logger):
             total_losses.append(total_loss.item())
 
         print('generating plots')
-        plots = generate_plots(exp, epoch)
-        tb_logger.write_plots(plots, epoch)
+        if epoch >= np.ceil(exp.flags.end_epoch * 0.8):
+            plots = generate_plots(exp, epoch)
+            tb_logger.write_plots(plots, epoch)
 
         if (epoch + 1) % exp.flags.eval_freq == 0 or (epoch + 1) == exp.flags.end_epoch:
             if exp.flags.eval_lr:
@@ -253,3 +254,5 @@ def run_epochs(exp):
             exp.mm_vae.save_networks()
             torch.save(exp.mm_vae.state_dict(),
                        os.path.join(dir_network_epoch, exp.flags.mm_vae_save))
+
+    tb_logger.writer.close()
