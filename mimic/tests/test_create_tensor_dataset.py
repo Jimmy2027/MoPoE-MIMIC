@@ -13,11 +13,19 @@ class TestCreateTensorDataset(TestCase):
         This tests only works if dir_mimic exists. The test passes if it doesn't
         """
         with tempfile.TemporaryDirectory() as tmpdirname:
-            dir_mimic = '/cluster/work/vogtlab/Projects/mimic-cxr/physionet.org/files/mimic-cxr-jpg/2.0.0'
+            dir_mimic = '/cluster/work/vogtlab/Projects/mimic-cxr/physionet.org/files/mimic-cxr-jpg/2.0.0/files'
             if os.path.exists(dir_mimic):
+                # only run test if original data exists
+
+                if os.path.exists('/cluster/home/klugh/'):
+                    tmpdirname = os.path.join(os.path.expandvars('$TMPDIR'), 'test_create_tensor_dataset')
+                    if not os.path.exists(tmpdirname):
+                        os.mkdir(tmpdirname)
                 dir_out = os.path.expanduser(os.path.join(tmpdirname, 'dir_out'))
+
                 dir_base_resized_compressed = os.path.expanduser(os.path.join(tmpdirname))
-                assert os.path.exists(tmpdirname)
+                self.assertTrue(os.path.exists(tmpdirname))
+
                 dir_base_resize = os.path.join(tmpdirname, f'files_small_{img_size[0]}')
                 dataset_creator = CreateTensorDataset(dir_base_resize=dir_base_resize, dir_mimic=dir_mimic,
                                                       dir_out=dir_out,
@@ -25,8 +33,9 @@ class TestCreateTensorDataset(TestCase):
                                                       dir_base_resized_compressed=dir_base_resized_compressed,
                                                       max_it=10)
                 dataset_creator()
-                assert os.path.exists(dir_out)
-                assert os.path.exists(dir_base_resized_compressed)
+                self.assertTrue(os.path.exists(dir_out))
+                self.assertTrue(os.path.exists(dir_base_resized_compressed))
+
                 assert os.path.exists(os.path.join(dir_base_resized_compressed,
                                                    f'mimic_resized_{img_size[0]}.zip')), \
                     'dir_resized_compressed {} does not exist \n {}'.format(

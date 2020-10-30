@@ -9,31 +9,29 @@ from PIL import ImageFont
 from sklearn.metrics import average_precision_score
 
 from mimic.dataio.MimicDataset import Mimic, Mimic_testing
+from mimic.modalities.MimicLateral import MimicLateral
+from mimic.modalities.MimicPA import MimicPA
+from mimic.modalities.MimicText import MimicText
 from mimic.networks.ConvNetworkImgClf import ClfImg as ClfImg
 from mimic.networks.ConvNetworkTextClf import ClfText as ClfText
 from mimic.networks.ConvNetworksImgMimic import EncoderImg, DecoderImg
 from mimic.networks.ConvNetworksTextMimic import EncoderText, DecoderText
 from mimic.networks.VAEtrimodalMimic import VAEtrimodalMimic
-from mimic.modalities.MimicLateral import MimicLateral
-from mimic.modalities.MimicPA import MimicPA
-from mimic.modalities.MimicText import MimicText
-from mimic.utils.BaseExperiment import BaseExperiment
 from mimic.networks.main_train_clf_text_mimic import training_procedure_clf
+from mimic.utils.BaseExperiment import BaseExperiment
+from mimic.utils.utils import get_clf_path
 
 
 class MimicExperiment(BaseExperiment):
-    def __init__(self, flags, alphabet, **kwargs):
+    def __init__(self, flags, alphabet):
         super().__init__(flags)
         self.labels = ['Lung Opacity', 'Pleural Effusion', 'Support Devices']
         self.flags = flags
         self.experiment_uid = flags.str_experiment
         self.dataset = flags.dataset
         self.plot_img_size = torch.Size((1, 128, 128))
-        # some fonts are not found on some devices and need to be passed as argument
-        if 'font' in kwargs.keys():
-            self.font = kwargs['font']
-        else:
-            self.font = ImageFont.truetype('FreeSerif.ttf', 38)
+
+        self.font = ImageFont.truetype('FreeSerif.ttf', 38)
 
         self.alphabet = alphabet
         self.flags.num_features = len(alphabet)
@@ -103,22 +101,23 @@ class MimicExperiment(BaseExperiment):
             dir_img_clf = os.path.expanduser(dir_img_clf)
 
             model_clf_m1 = ClfImg(self.flags, self.labels)
-            model_clf_m1.load_state_dict(torch.load(os.path.join(dir_img_clf,
-                                                                 self.flags.clf_save_m1)))
+            clf_m1_path = get_clf_path(dir_img_clf, self.flags.clf_save_m1)
+            model_clf_m1.load_state_dict(torch.load(clf_m1_path))
             model_clf_m1 = model_clf_m1.to(self.flags.device)
 
             model_clf_m2 = ClfImg(self.flags, self.labels)
-            model_clf_m2.load_state_dict(torch.load(os.path.join(dir_img_clf,
-                                                                 self.flags.clf_save_m2)))
+            clf_m2_path = get_clf_path(dir_img_clf, self.flags.clf_save_m2)
+            model_clf_m2.load_state_dict(torch.load(clf_m2_path))
             model_clf_m2 = model_clf_m2.to(self.flags.device)
 
             model_clf_m3 = ClfText(self.flags, self.labels)
-            if not os.path.exists(os.path.join(self.flags.dir_clf, f'clf_text_{self.flags.text_encoding}_encoding')):
-                print(
-                    f'training classifier for text modality with {self.flags.text_encoding} encoding, this may take some time...')
+            clf_m3_path = get_clf_path(self.flags.dir_clf, f'clf_text_{self.flags.text_encoding}_encoding')
+
+            if not clf_m3_path:
+                print(f'training classifier for text modality with {self.flags.text_encoding} encoding, '
+                      f'this may take some time...')
                 training_procedure_clf(self.flags)
-            model_clf_m3.load_state_dict(torch.load(os.path.join(self.flags.dir_clf,
-                                                                 f'clf_text_{self.flags.text_encoding}_encoding')))
+            model_clf_m3.load_state_dict(torch.load(clf_m3_path))
             model_clf_m3 = model_clf_m3.to(self.flags.device)
 
         clfs = {'PA': model_clf_m1,

@@ -137,7 +137,7 @@ def save_and_log_flags(flags):
     #    json.dump(flags.__dict__, f, indent=2, sort_keys=True)
 
     filename_flags_rar = os.path.join(flags.dir_experiment_run, 'flags.rar')
-    torch.save(flags, filename_flags_rar);
+    torch.save(flags, filename_flags_rar)
     str_args = '';
     for k, key in enumerate(sorted(flags.__dict__.keys())):
         str_args = str_args + '\n' + key + ': ' + str(flags.__dict__[key]);
@@ -157,3 +157,16 @@ class Unflatten(torch.nn.Module):
     def forward(self, x):
         return x.view(x.size(0), *self.ndims)
 
+
+def get_clf_path(clf_dir: str, clf_name: str) -> str:
+    """
+    Since the total training epochs of the classifier is not known but is in its filename, the filename needs to be
+    found by scanning the directory.
+    """
+    for file in os.listdir(clf_dir):
+        if file.startswith(clf_name):
+            return os.path.join(clf_dir, file)
+    if clf_name.startswith('clf_text_'):
+        return None
+    else:
+        FileNotFoundError, f'No {clf_name} classifier was found in {clf_dir}'

@@ -60,17 +60,19 @@ class TestTraining(TestCase):
 
         run_epochs(mimic)
 
+        return True
+
     def test_train_loop_charEncoding_128(self):
-        with tempfile.TemporaryDirectory() as tmpdirname:
-            self._run_train_loop('char', 128, tmpdirname)
+        with tempfile.TemporaryDirectory() as tmpdirname1:
+            _ = self._run_train_loop('char', 128, tmpdirname1)
 
     def test_train_loop_charEncoding_256(self):
-        with tempfile.TemporaryDirectory() as tmpdirname:
-            self._run_train_loop('char', 256, tmpdirname)
+        with tempfile.TemporaryDirectory() as tmpdirname2:
+            _ = self._run_train_loop('char', 256, tmpdirname2)
 
     def test_train_loop_wordEncoding_128(self):
-        with tempfile.TemporaryDirectory() as tmpdirname:
-            self._run_train_loop('word', 128, tmpdirname)
+        with tempfile.TemporaryDirectory() as tmpdirname3:
+            _ = self._run_train_loop('word', 128, tmpdirname3)
 
 
 if __name__ == '__main__':

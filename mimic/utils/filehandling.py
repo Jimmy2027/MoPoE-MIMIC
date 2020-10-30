@@ -14,10 +14,13 @@ def create_dir(dir_name):
         os.makedirs(dir_name)
 
 
-def get_str_experiments(flags):
+def get_str_experiments(flags, prefix: str = ''):
     dateTimeObj = datetime.now()
     dateStr = dateTimeObj.strftime("%Y_%m_%d_%H_%M_%S_%f")
-    str_experiments = flags.dataset + '_' + dateStr;
+    if prefix:
+        str_experiments = prefix + '_' + dateStr;
+    else:
+        str_experiments = flags.dataset + '_' + dateStr;
     return str_experiments
 
 
@@ -98,6 +101,7 @@ def expand_paths(flags: argparse.ArgumentParser()) -> argparse.ArgumentParser():
     flags.dir_experiment = os.path.expanduser(flags.dir_experiment)
     flags.inception_state_dict = os.path.expanduser(flags.inception_state_dict)
     flags.dir_fid = os.path.expanduser(flags.dir_fid)
+    flags.dir_clf = os.path.expanduser(flags.dir_clf)
     return flags
 
 

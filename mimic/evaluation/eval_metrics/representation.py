@@ -97,21 +97,21 @@ def test_clf_lr_all_subsets(epoch, clf_lr, exp):
 
 
 def classify_latent_representations(exp, epoch, clf_lr, data, labels):
-    labels = np.array(np.reshape(labels, (labels.shape[0], len(exp.labels))));
+    labels = np.array(np.reshape(labels, (labels.shape[0], len(exp.labels))))
     eval_all_labels = dict()
     for l, label_str in enumerate(exp.labels):
-        gt = labels[:, l];
-        clf_lr_label = clf_lr[label_str];
-        eval_all_reps = dict();
+        gt = labels[:, l]
+        clf_lr_label = clf_lr[label_str]
+        eval_all_reps = dict()
         for s_key in data.keys():
-            data_rep = data[s_key];
-            clf_lr_rep = clf_lr_label[s_key];
-            y_pred_rep = clf_lr_rep.predict(data_rep);
+            data_rep = data[s_key]
+            clf_lr_rep = clf_lr_label[s_key]
+            y_pred_rep = clf_lr_rep.predict(data_rep)
             eval_label_rep = exp.eval_metric(gt.ravel(),
-                                             y_pred_rep.ravel());
-            eval_all_reps[s_key] = eval_label_rep;
-        eval_all_labels[label_str] = eval_all_reps;
-    return eval_all_labels;
+                                             y_pred_rep.ravel())
+            eval_all_reps[s_key] = eval_label_rep
+        eval_all_labels[label_str] = eval_all_reps
+    return eval_all_labels
 
 
 def train_clf_lr(exp, data, labels):

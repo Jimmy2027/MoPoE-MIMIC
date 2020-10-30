@@ -82,8 +82,6 @@ class FeatureExtractorImg(nn.Module):
         out = self.resblock_2(out)
         out = self.resblock_3(out)
         out = self.resblock_4(out)
-        if self.args.img_size == 128:
-            out = self.resblock_5(out)
-        elif self.args.img_size == 256:
+        if not self.args.img_size == 64:
             out = self.resblock_5(out)
         return out
