@@ -2,15 +2,16 @@ import argparse
 import gc
 import json
 import os
+from timeit import default_timer as timer
 
 import torch
+from termcolor import colored
 
-from mimic.utils.experiment import MimicExperiment
-from mimic.utils.flags import parser
 from mimic.run_epochs import run_epochs
+from mimic.utils.experiment import MimicExperiment
 from mimic.utils.filehandling import create_dir_structure, expand_paths, create_dir_structure_testing, get_config_path, \
     get_method
-from timeit import default_timer as timer
+from mimic.utils.flags import parser
 
 
 class Main:
@@ -28,8 +29,8 @@ class Main:
         device = 'gpu' if use_cuda else 'cpu'
 
         flags = get_method(flags)
-        print(f'running on {device} with text {flags.text_encoding} encoding '
-              f'with method {flags.method} and img size {flags.img_size}')
+        print(colored(f'running on {device} with text {flags.text_encoding} encoding '
+              f'with method {flags.method}, batch size: {flags.batch_size} and img size {flags.img_size}', 'red'))
         print(flags.dataset)
 
         flags.alpha_modalities = [flags.div_weight_uniform_content, flags.div_weight_m1_content,
