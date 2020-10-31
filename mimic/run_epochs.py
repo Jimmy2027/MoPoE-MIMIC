@@ -92,7 +92,8 @@ def basic_routine_epoch(exp, batch) -> dict:
     results = mm_vae(batch_d)
     # checking if the latents contain NaNs. If they do the experiment is started again
     for key in results['latents']['modalities']:
-        if not exp.flags.dataset == 'testing' and (np.isnan(results['latents']['modalities'][key][0].mean().item()) or \
+        if not exp.flags.dataset == 'testing' and (np.isnan(results['latents']['modalities'][key][0].mean().item())
+                                                   or
                                                    np.isnan(results['latents']['modalities'][key][1].mean().item())):
             print(key, results['latents']['modalities'][key][0].mean().item())
             print(key, results['latents']['modalities'][key][1].mean().item())
@@ -239,6 +240,7 @@ def run_epochs(exp):
     tb_logger = TBLogger(exp.flags.str_experiment, writer)
     str_flags = utils.save_and_log_flags(exp.flags)
     tb_logger.writer.add_text('FLAGS', str_flags, 0)
+    tb_logger.write_model_graph(exp.mm_vae)
 
     print('training epochs progress:')
     for epoch in tqdm(range(exp.flags.start_epoch, exp.flags.end_epoch), postfix='epochs'):

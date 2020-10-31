@@ -86,3 +86,9 @@ class TBLogger():
     def write_testing_logs(self, results, loss, log_probs, klds):
         self.add_basic_logs(self.testing_prefix, results, loss, log_probs, klds)
         self.step += 1
+
+    def write_model_graph(self, model):
+        """
+        writes the model graph to tensorboard
+        """
+        self.writer.add_graph(model)
