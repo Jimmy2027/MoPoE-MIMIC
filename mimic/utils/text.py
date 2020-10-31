@@ -54,6 +54,10 @@ def seq2text(exp, seq) -> typing.List[str]:
 
 
 def tensor_to_text(exp, gen_t: torch.Tensor) -> typing.List[typing.List[str]]:
+    """
+    Converts a one hot encoded tensor to sentences
+    gen_t: tensor of shape (bs, length_sent)
+    """
     gen_t = gen_t.cpu().data.numpy()
     gen_t = np.argmax(gen_t, axis=-1)
     gen_t: np.ndarray
@@ -61,4 +65,4 @@ def tensor_to_text(exp, gen_t: torch.Tensor) -> typing.List[typing.List[str]]:
     for i in range(len(gen_t)):
         decoded = seq2text(exp, gen_t[i])
         decoded_samples.append(decoded)
-    return decoded_samples;
+    return decoded_samples
