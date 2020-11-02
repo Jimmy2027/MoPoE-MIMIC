@@ -30,7 +30,7 @@ class Main:
 
         flags = get_method(flags)
         print(colored(f'running on {device} with text {flags.text_encoding} encoding '
-              f'with method {flags.method}, batch size: {flags.batch_size} and img size {flags.img_size}', 'red'))
+              f'with method {flags.method}, batch size: {flags.batch_size} and img size {flags.img_size}', 'blue'))
         print(flags.dataset)
 
         flags.alpha_modalities = [flags.div_weight_uniform_content, flags.div_weight_m1_content,

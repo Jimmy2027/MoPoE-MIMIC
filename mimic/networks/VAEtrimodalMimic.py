@@ -55,11 +55,6 @@ class VAEtrimodalMimic(BaseMMVae, nn.Module):
                 elif m_key == 'Lateral':
                     rec = self.lhood_lat(*self.decoder_lat(s_emb, class_embeddings))
                 elif m_key == 'text':
-                    """
-                    for char and word encoding: s_emb: None, class_embeddings.shape: (bs, 64)
-                    input_to lhood_text for char encoding: (bs, 1024, 71)
-                    input_to lhood_text for word encoding: (bs, 1024, 3517)
-                    """
                     rec = self.lhood_text(*self.decoder_text(s_emb, class_embeddings))
                 results_rec[m_key] = rec
         results['rec'] = results_rec

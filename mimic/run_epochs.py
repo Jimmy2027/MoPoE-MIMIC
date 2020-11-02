@@ -39,6 +39,8 @@ def calc_log_probs(exp, result, batch):
         mod = mods[m_key]
         ba = batch[0][mod.name]
         if m_key == 'text' and exp.flags.text_encoding == 'word':
+            # fixme this doesn't make any sense, calculate log prob with sentence not one hot encoded,
+            #  use torch.dist.Categorical for this
             ba = text.one_hot_encode_word(exp.flags, ba)
         log_probs[mod.name] = -mod.calc_log_prob(out_dist=result['rec'][mod.name], target=ba,
                                                  norm_value=exp.flags.batch_size)
@@ -90,7 +92,7 @@ def basic_routine_epoch(exp, batch) -> dict:
     for k, m_key in enumerate(batch_d.keys()):
         batch_d[m_key] = Variable(batch_d[m_key]).to(exp.flags.device)
     results = mm_vae(batch_d)
-    # checking if the latents contain NaNs. If they do the experiment is started again
+    # checking if the latents contain NaNs. If they do raise Value error and the experiment is started again
     for key in results['latents']['modalities']:
         if not exp.flags.dataset == 'testing' and (np.isnan(results['latents']['modalities'][key][0].mean().item())
                                                    or
@@ -205,10 +207,11 @@ def test(epoch, exp, tb_logger):
             tb_logger.write_testing_logs(results, total_loss, log_probs, klds)
             total_losses.append(total_loss.item())
 
-        print('generating plots')
-        if epoch >= np.ceil(exp.flags.end_epoch * 0.8):
-            plots = generate_plots(exp, epoch)
-            tb_logger.write_plots(plots, epoch)
+        #temp
+        # if epoch >= np.ceil(exp.flags.end_epoch * 0.8):
+        #     print('generating plots')
+        #     plots = generate_plots(exp, epoch)
+        #     tb_logger.write_plots(plots, epoch)
 
         if (epoch + 1) % exp.flags.eval_freq == 0 or (epoch + 1) == exp.flags.end_epoch:
             if exp.flags.eval_lr:
@@ -240,7 +243,8 @@ def run_epochs(exp):
     tb_logger = TBLogger(exp.flags.str_experiment, writer)
     str_flags = utils.save_and_log_flags(exp.flags)
     tb_logger.writer.add_text('FLAGS', str_flags, 0)
-    tb_logger.write_model_graph(exp.mm_vae)
+    # todo find a way to store model graph
+    # tb_logger.write_model_graph(exp.mm_vae)
 
     print('training epochs progress:')
     for epoch in tqdm(range(exp.flags.start_epoch, exp.flags.end_epoch), postfix='epochs'):
@@ -248,7 +252,7 @@ def run_epochs(exp):
         # one epoch of training and testing
         train(epoch, exp, tb_logger)
         test(epoch, exp, tb_logger)
-        # save checkpoints after every 5 epochs
+        # save checkpoints every 5 epochs
         if (epoch + 1) % 5 == 0 or (epoch + 1) == exp.flags.end_epoch:
             dir_network_epoch = os.path.join(exp.flags.dir_checkpoints, str(epoch).zfill(4))
             if not os.path.exists(dir_network_epoch):
