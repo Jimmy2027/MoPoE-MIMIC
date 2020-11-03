@@ -38,9 +38,12 @@ class TestTraining(TestCase):
             FLAGS.dir_experiment = tmpdirname
         FLAGS.dataset = 'testing'
         FLAGS.use_clf = True
+        FLAGS.calc_nll = True
+        FLAGS.eval_lr = True
+        FLAGS.calc_prd = True
         FLAGS.save_figure = False
         FLAGS.end_epoch = 2
-        FLAGS.batch_size = 10
+        FLAGS.batch_size = 100
         FLAGS.eval_freq = 1
         FLAGS.vocab_size = 3517
         FLAGS.text_encoding = text_encoding

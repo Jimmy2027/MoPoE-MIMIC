@@ -302,21 +302,19 @@ class Mimic_testing(Dataset):
     def __getitem__(self, index):
         img_size = (self.flags.img_size, self.flags.img_size)
         try:
+            sample = {'PA': torch.from_numpy(np.random.rand(1, *img_size)).float(),
+                      'Lateral': torch.from_numpy(np.random.rand(1, *img_size)).float()}
             if self.flags.text_encoding == 'word':
-                sample = {'PA': torch.from_numpy(np.random.rand(1, *img_size)).float(),
-                          'Lateral': torch.from_numpy(np.random.rand(1, *img_size)).float(),
-                          'text': torch.from_numpy(np.random.rand(1024)).float()}
+                sample['text'] = torch.from_numpy(np.random.rand(1024)).float()
             elif self.flags.text_encoding == 'char':
-                sample = {'PA': torch.from_numpy(np.random.rand(1, *img_size)).float(),
-                          'Lateral': torch.from_numpy(np.random.rand(1, *img_size)).float(),
-                          'text': torch.from_numpy(np.random.rand(1024, 71)).float()}
+                sample['text'] = torch.from_numpy(np.random.rand(1024, 71)).float()
         except (IndexError, OSError):
             return None
         label = torch.tensor([random.randint(0, 1), random.randint(0, 1), random.randint(0, 1)]).float()
         return sample, label
 
     def __len__(self) -> int:
-        return 20
+        return 2 * self.flags.batch_size
 
     def get_text_str(self, index):
         return self.y[index]
