@@ -14,6 +14,7 @@ from mimic.utils.experiment import MimicExperiment
 from mimic.utils.filehandling import expand_paths, get_config_path
 from mimic.utils.flags import parser
 from sklearn import metrics
+from sklearn.dummy import DummyClassifier
 
 
 def test_clfs(flags, img_size: int, text_encoding: str, alphabet=''):
@@ -111,6 +112,46 @@ def test_clf(flags, mimic_experiment, mimic_test, modality: str):
     return metrics.classification_report(list_labels, list_prediction_vals, digits=4), list_precision_vals
 
 
+def test_dummy(flags, alphabet, modality: str = 'PA'):
+    """
+    Trains and evaluates a dummy classifier on the test set as baseline.
+    Returns the average precision values
+    """
+    mimic_experiment = MimicExperiment(flags=flags, alphabet=alphabet)
+    mimic_test = Mimic(flags, mimic_experiment.labels, alphabet, split='eval')
+    dataloader = torch.utils.data.DataLoader(mimic_test, batch_size=flags.batch_size, shuffle=True,
+                                             num_workers=0,
+                                             drop_last=True)
+    list_batches = []
+    list_labels = []
+    list_precision_vals = []
+
+    for idx, batch in enumerate(dataloader):
+        batch_d = batch[0]
+        batch_l = batch[1]
+        ground_truth = batch_l.cpu().data.numpy()
+        clf_input = Variable(batch_d[modality]).cpu().data.numpy()
+        list_batches.extend(clf_input)
+        list_labels.extend(ground_truth)
+    # dummy classifier has no partial_fit, so all the data must be fed at once
+    dummy_clf = DummyClassifier(strategy="most_frequent")
+    dummy_clf.fit(list_batches, list_labels)
+    for idx, batch in enumerate(dataloader):
+        batch_d = batch[0]
+        batch_l = batch[1]
+        clf_input = Variable(batch_d[modality]).cpu().data.numpy()
+        predictions = dummy_clf.predict(clf_input)
+        labels = np.array(np.reshape(batch_l, (batch_l.shape[0], len(mimic_experiment.labels)))).ravel()
+        avg_precision = average_precision_score(labels, predictions.ravel())
+        if not np.isnan(avg_precision):
+            list_precision_vals.append(avg_precision)
+        else:
+            warnings.warn(
+                f'avg_precision_{modality} has value {avg_precision} with labels: {labels.ravel()} and '
+                f'prediction: {predictions.cpu().data.numpy().ravel()}')
+    return list_precision_vals
+
+
 if __name__ == '__main__':
     alphabet_path = os.path.join(os.getcwd(), 'alphabet.json')
     with open(alphabet_path) as alphabet_file:
@@ -129,10 +170,12 @@ if __name__ == '__main__':
     FLAGS.alpha_modalities = [FLAGS.div_weight_uniform_content, FLAGS.div_weight_m1_content,
                               FLAGS.div_weight_m2_content, FLAGS.div_weight_m3_content]
     FLAGS.text_encoding = 'char'
-    FLAGS.img_size = 256
-    # mimic_experiment = MimicExperiment(flags=FLAGS, alphabet=alphabet)
-    # mimic_test = Mimic(FLAGS, mimic_experiment.labels, alphabet, split='eval')
-    results = test_clfs(FLAGS, 128, 'char', alphabet)
+    FLAGS.img_size = 128
+    mimic_experiment = MimicExperiment(flags=FLAGS, alphabet=alphabet)
+    mimic_test = Mimic(FLAGS, mimic_experiment.labels, alphabet, split='eval')
+    test_dummy(FLAGS, mimic_experiment, mimic_test)
+    asdasd = 0
+    # results = test_clfs(FLAGS, 128, 'char', alphabet)
 
     # for modality in ['PA', 'Lateral', 'text']:
     #     report, list_precision = test_clf(FLAGS, mimic_experiment, mimic_test, modality)
