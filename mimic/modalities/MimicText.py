@@ -8,13 +8,13 @@ from mimic.utils.text import tensor_to_text
 
 
 class MimicText(Modality):
-    def __init__(self, enc, dec, len_sequence, alphabet, plotImgSize, font, args):
+    def __init__(self, enc, dec, len_sequence, plotImgSize, font, args):
         self.name = 'text'
         self.likelihood_name = 'categorical'
-        self.alphabet = alphabet
         self.len_sequence = len_sequence
         if args.text_encoding == 'char':
-            self.data_size = torch.Size((len(alphabet), len_sequence))
+            self.alphabet = args.alphabet
+            self.data_size = torch.Size((len(args.alphabet), len_sequence))
         elif args.text_encoding == 'word':
             self.data_size = torch.Size((args.vocab_size, len_sequence))
         self.plot_img_size = plotImgSize

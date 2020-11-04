@@ -3,7 +3,7 @@ import os
 import torch
 import torch.distributions as dist
 from torch.autograd import Variable
-import numpy as np
+import json
 
 
 # Print iterations progress
@@ -170,3 +170,9 @@ def get_clf_path(clf_dir: str, clf_name: str) -> str:
         return None
     else:
         FileNotFoundError, f'No {clf_name} classifier was found in {clf_dir}'
+
+
+def get_alphabet(alphabet_path : str = os.path.join(os.getcwd(), 'alphabet.json')):
+    with open(alphabet_path) as alphabet_file:
+        alphabet = str(''.join(json.load(alphabet_file)))
+    return alphabet

@@ -43,7 +43,7 @@ class TestTraining(TestCase):
         FLAGS.calc_prd = True
         FLAGS.save_figure = False
         FLAGS.end_epoch = 2
-        FLAGS.batch_size = 100
+        FLAGS.batch_size = 50
         FLAGS.eval_freq = 1
         FLAGS.vocab_size = 3517
         FLAGS.text_encoding = text_encoding
@@ -57,7 +57,7 @@ class TestTraining(TestCase):
         with open(alphabet_path) as alphabet_file:
             alphabet = str(''.join(json.load(alphabet_file)))
 
-        mimic = MimicExperiment(FLAGS, alphabet)
+        mimic = MimicExperiment(FLAGS)
         create_dir_structure_testing(mimic)
         mimic.set_optimizer()
 

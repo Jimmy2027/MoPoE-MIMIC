@@ -20,9 +20,9 @@ from sklearn.dummy import DummyClassifier
 def test_clfs(flags, img_size: int, text_encoding: str, alphabet=''):
     flags.img_size = img_size
     flags.text_encoding = text_encoding
-    mimic_experiment = MimicExperiment(flags=flags, alphabet=alphabet)
+    mimic_experiment = MimicExperiment(flags=flags)
 
-    mimic_test = Mimic(flags, mimic_experiment.labels, alphabet, split='eval')
+    mimic_test = Mimic(flags, mimic_experiment.labels, split='eval')
 
     models = {}
 
@@ -117,8 +117,8 @@ def test_dummy(flags, alphabet, modality: str = 'PA'):
     Trains and evaluates a dummy classifier on the test set as baseline.
     Returns the average precision values
     """
-    mimic_experiment = MimicExperiment(flags=flags, alphabet=alphabet)
-    mimic_test = Mimic(flags, mimic_experiment.labels, alphabet, split='eval')
+    mimic_experiment = MimicExperiment(flags=flags)
+    mimic_test = Mimic(flags, mimic_experiment.labels, split='eval')
     dataloader = torch.utils.data.DataLoader(mimic_test, batch_size=flags.batch_size, shuffle=True,
                                              num_workers=0,
                                              drop_last=True)
@@ -171,8 +171,8 @@ if __name__ == '__main__':
                               FLAGS.div_weight_m2_content, FLAGS.div_weight_m3_content]
     FLAGS.text_encoding = 'char'
     FLAGS.img_size = 128
-    mimic_experiment = MimicExperiment(flags=FLAGS, alphabet=alphabet)
-    mimic_test = Mimic(FLAGS, mimic_experiment.labels, alphabet, split='eval')
+    mimic_experiment = MimicExperiment(flags=FLAGS)
+    mimic_test = Mimic(FLAGS, mimic_experiment.labels, split='eval')
     test_dummy(FLAGS, mimic_experiment, mimic_test)
     asdasd = 0
     # results = test_clfs(FLAGS, 128, 'char', alphabet)

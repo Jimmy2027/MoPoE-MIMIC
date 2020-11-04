@@ -51,7 +51,7 @@ class Main:
         Wrapper of run_epochs.run_epochs that checks if the workflow was completed and starts it over otherwise
         """
         self.start_time = timer()
-        mimic = MimicExperiment(self.flags, self.alphabet)
+        mimic = MimicExperiment(self.flags)
         create_dir_structure_testing(mimic)
         mimic.set_optimizer()
         mimic.number_restarts = self.current_tries

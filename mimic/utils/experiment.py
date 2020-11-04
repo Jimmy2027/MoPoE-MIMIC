@@ -19,11 +19,11 @@ from mimic.networks.ConvNetworksTextMimic import EncoderText, DecoderText
 from mimic.networks.VAEtrimodalMimic import VAEtrimodalMimic
 from mimic.networks.main_train_clf_text_mimic import training_procedure_clf
 from mimic.utils.BaseExperiment import BaseExperiment
-from mimic.utils.utils import get_clf_path
+from mimic.utils.utils import get_clf_path, get_alphabet
 
 
 class MimicExperiment(BaseExperiment):
-    def __init__(self, flags, alphabet):
+    def __init__(self, flags):
         super().__init__(flags)
         self.labels = ['Lung Opacity', 'Pleural Effusion', 'Support Devices']
         self.flags = flags
@@ -33,8 +33,9 @@ class MimicExperiment(BaseExperiment):
 
         self.font = ImageFont.truetype('FreeSerif.ttf', 38)
 
-        self.alphabet = alphabet
-        self.flags.num_features = len(alphabet)
+        if self.flags.text_encoding == 'char':
+            self.alphabet = get_alphabet()
+            self.flags.num_features = len(self.alphabet)
 
         self.dataset_train = None
         self.dataset_test = None
@@ -70,12 +71,8 @@ class MimicExperiment(BaseExperiment):
         mod2 = MimicLateral(EncoderImg(self.flags, self.flags.style_lat_dim),
                             DecoderImg(self.flags, self.flags.style_lat_dim))
         mod3 = MimicText(EncoderText(self.flags, self.flags.style_text_dim),
-                         DecoderText(self.flags, self.flags.style_text_dim),
-                         self.flags.len_sequence,
-                         self.alphabet,
-                         self.plot_img_size,
-                         self.font,
-                         self.flags)
+                         DecoderText(self.flags, self.flags.style_text_dim), self.flags.len_sequence,
+                         self.plot_img_size, self.font, self.flags)
         mods = {mod1.name: mod1, mod2.name: mod2, mod3.name: mod3}
         return mods;
 
@@ -86,8 +83,8 @@ class MimicExperiment(BaseExperiment):
             d_train = Mimic_testing(self.flags)
             d_eval = Mimic_testing(self.flags)
         else:
-            d_train = Mimic(self.flags, self.labels, self.alphabet, split='train')
-            d_eval = Mimic(self.flags, self.labels, self.alphabet, split='eval')
+            d_train = Mimic(self.flags, self.labels, split='train')
+            d_eval = Mimic(self.flags, self.labels, split='eval')
         self.dataset_train = d_train
         self.dataset_test = d_eval
 
@@ -97,7 +94,7 @@ class MimicExperiment(BaseExperiment):
         model_clf_m2 = None
         model_clf_m3 = None
         if self.flags.use_clf:
-            dir_img_clf = os.path.join(self.flags.dir_clf, f'Mimic{self.flags.img_size}')
+            dir_img_clf = os.path.join(self.flags.dir_clf, f'Mimic{self.flags.img_size}_{self.flags.img_clf_type}')
             dir_img_clf = os.path.expanduser(dir_img_clf)
 
             model_clf_m1 = ClfImg(self.flags, self.labels)

@@ -82,8 +82,8 @@ def training_procedure_clf(flags):
     with open(alphabet_path) as alphabet_file:
         alphabet = str(''.join(json.load(alphabet_file)))
     flags.num_features = len(alphabet)
-    mimic_train = Mimic(flags, LABELS, alphabet, split='train')
-    mimic_eval = Mimic(flags, LABELS, alphabet, split='eval')
+    mimic_train = Mimic(flags, LABELS, split='train')
+    mimic_eval = Mimic(flags, LABELS, split='eval')
     print(mimic_eval.__len__())
     use_cuda = torch.cuda.is_available();
     flags.device = torch.device('cuda' if use_cuda else 'cpu');
@@ -122,7 +122,6 @@ if __name__ == '__main__':
         FLAGS = parser.parse_args(namespace=t_args)
 
     FLAGS = expand_paths(FLAGS)
-    # temp
     FLAGS.dir_clf += '_new'
     use_cuda = torch.cuda.is_available()
     FLAGS.device = torch.device('cuda' if use_cuda else 'cpu')

@@ -207,11 +207,10 @@ def test(epoch, exp, tb_logger):
             tb_logger.write_testing_logs(results, total_loss, log_probs, klds)
             total_losses.append(total_loss.item())
 
-        #temp
-        # if epoch >= np.ceil(exp.flags.end_epoch * 0.8):
-        #     print('generating plots')
-        #     plots = generate_plots(exp, epoch)
-        #     tb_logger.write_plots(plots, epoch)
+        if epoch >= np.ceil(exp.flags.end_epoch * 0.8):
+            print('generating plots')
+            plots = generate_plots(exp, epoch)
+            tb_logger.write_plots(plots, epoch)
 
         if (epoch + 1) % exp.flags.eval_freq == 0 or (epoch + 1) == exp.flags.end_epoch:
             if exp.flags.eval_lr:
