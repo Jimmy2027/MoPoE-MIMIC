@@ -86,7 +86,7 @@ class DataGeneratorImg(nn.Module):
     def forward(self, feats):
         """
         Example:
-            feats.shape = [10, 320, 1, 1]
+            feats.shape = [bs, 320, 1, 1]
         """
         d = self.generator(feats);
         return d;

@@ -16,12 +16,13 @@ from torch.utils.data import Dataset
 from torchvision import transforms
 
 from mimic.utils import text as text
+from mimic.utils.utils import get_alphabet
 
 
 class Mimic(Dataset):
     """Custom Dataset for loading mimic images"""
 
-    def __init__(self, args, str_labels, alphabet: str, split: str):
+    def __init__(self, args, str_labels, split: str, **kwargs):
         """
         split: string, either train, eval or test
         """
@@ -56,7 +57,9 @@ class Mimic(Dataset):
         assert len(np.unique(self.labels)) == 2, \
             'labels should contain 2 classes, might need to remove -1 labels'
         assert self.imgs_pa.shape[0] == self.imgs_lat.shape[0] == len(self.labels) == len(
-            self.report_findings), f'all modalities must have the same length. len(imgs_pa): {self.imgs_pa.shape[0]}, len(imgs_lat): {self.imgs_lat.shape[0]}, len(labels): {len(self.labels)}, len(report_findings): {len(self.report_findings)}'
+            self.report_findings), f'all modalities must have the same length. len(imgs_pa): {self.imgs_pa.shape[0]},' \
+                                   f' len(imgs_lat): {self.imgs_lat.shape[0]}, len(labels): {len(self.labels)},' \
+                                   f' len(report_findings): {len(self.report_findings)}'
 
         if self.args.text_encoding == 'word':
             tx = lambda data: torch.Tensor(data)
@@ -65,12 +68,16 @@ class Mimic(Dataset):
             assert len(self.report_findings_dataset) == len(self.report_findings), \
                 'report findings dataset must have the same length than the report findings dataframe'
             args.vocab_size = self.report_findings_dataset.vocab_size
-
-        self.alphabet = alphabet
-        self.transform_img = transforms.Compose([transforms.ToPILImage(),
-                                                 transforms.Resize(size=(self.args.img_size, self.args.img_size),
-                                                                   interpolation=Image.BICUBIC),
-                                                 transforms.ToTensor()])
+        if self.args.text_encoding == 'char':
+            self.alphabet = get_alphabet()
+            args.num_features = len(self.alphabet)
+        if 'transform_img' in kwargs.keys():
+            self.transform_img = kwargs['transform_img']
+        else:
+            self.transform_img = transforms.Compose([transforms.ToPILImage(),
+                                                     transforms.Resize(size=(self.args.img_size, self.args.img_size),
+                                                                       interpolation=Image.BICUBIC),
+                                                     transforms.ToTensor()])
 
     def __getitem__(self, index):
         try:
@@ -295,15 +302,20 @@ class Mimic_testing(Dataset):
     """
 
     def __init__(self, flags):
-        self.vocab_size = flags.vocab_size
+        self.vocab_size = 3517
         self.flags = flags
         self.report_findings_dataset = Report_findings_dataset_test(self.vocab_size)
 
     def __getitem__(self, index):
         img_size = (self.flags.img_size, self.flags.img_size)
+        # todo implement for densenet
         try:
-            sample = {'PA': torch.from_numpy(np.random.rand(1, *img_size)).float(),
-                      'Lateral': torch.from_numpy(np.random.rand(1, *img_size)).float()}
+            if self.flags.img_clf_type == 'resnet':
+                sample = {'PA': torch.from_numpy(np.random.rand(1, *img_size)).float(),
+                          'Lateral': torch.from_numpy(np.random.rand(1, *img_size)).float()}
+            elif self.flags.img_clf_type == 'cheXnet':
+                sample = {'PA': torch.from_numpy(np.random.rand(10, 3, 256, 256)).float(),
+                          'Lateral': torch.from_numpy(np.random.rand(10, 3, 256, 256)).float()}
             if self.flags.text_encoding == 'word':
                 sample['text'] = torch.from_numpy(np.random.rand(1024)).float()
             elif self.flags.text_encoding == 'char':

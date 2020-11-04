@@ -5,7 +5,7 @@ parser.add_argument('--dataset', type=str, default='Mimic', help="name of the da
 # DATA DEPENDENT
 # Text Dependent
 parser.add_argument('--text_encoding', type=str, default='char',
-                      help="encoding of the text, either character or wordwise")
+                    help="encoding of the text, either character or wordwise")
 parser.add_argument('--len_sequence', type=int, default=1024, help="length of sequence")
 parser.add_argument('--style_pa_dim', type=int, default=0, help="dimension of varying factor latent space")
 parser.add_argument('--style_lat_dim', type=int, default=0, help="dimension of varying factor latent space")
@@ -29,6 +29,8 @@ parser.add_argument('--decoder_save_m2', type=str, default='decoderM2', help="mo
 parser.add_argument('--decoder_save_m3', type=str, default='decoderM3', help="model save for decoder")
 
 # classifiers
+parser.add_argument('--img_clf_type', type=str, default='resnet',
+                    help="image classifier type, implemented are 'resnet' and 'cheXnet'")
 parser.add_argument('--clf_save_m1', type=str, default='clf_m1', help="model save for clf")
 parser.add_argument('--clf_save_m2', type=str, default='clf_m2', help="model save for clf")
 parser.add_argument('--clf_save_m3', type=str, default='clf_m3', help="model save for clf")

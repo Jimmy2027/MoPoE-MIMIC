@@ -11,121 +11,105 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from mimic.dataio.MimicDataset import Mimic
+from mimic.networks.CheXNet import CheXNet
 from mimic.networks.ConvNetworkImgClf import ClfImg
 from mimic.utils.filehandling import create_dir_structure, get_config_path, expand_paths
 from mimic.utils.filehandling import get_str_experiments
 from mimic.utils.flags import parser
 from mimic.utils.loss import clf_loss
-from mimic.utils.utils import printProgressBar
 
 LABELS = ['Lung Opacity', 'Pleural Effusion', 'Support Devices']
 
 
-def train_clf(flags, epoch, models, dataset, log_writer):
-    model_pa = models['pa'];
-    model_lat = models['lateral'];
+def train_clf(flags, epoch, model, dataset, log_writer, modality) -> torch.nn.Module():
     # optimizer definition
-    optimizer_pa = optim.Adam(
-        list(model_pa.parameters()),
-        lr=flags.initial_learning_rate,
-        betas=(flags.beta_1, flags.beta_2))
-    optimizer_lat = optim.Adam(
-        list(model_lat.parameters()),
+    optimizer = optim.Adam(
+        list(model.parameters()),
         lr=flags.initial_learning_rate,
         betas=(flags.beta_1, flags.beta_2))
 
     num_samples_train = dataset.__len__()
     name_logs = "train_clf_img"
-    model_pa.train()
-    model_lat.train()
+    model.train()
+
     num_batches_train = np.floor(num_samples_train / flags.batch_size)
     step = epoch * num_batches_train
-    step_print_progress = 0
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=flags.batch_size, shuffle=True,
                                              num_workers=flags.dataloader_workers,
                                              drop_last=True)
-    for idx, batch in enumerate(dataloader):
-        batch_d = batch[0]
-        batch_l = batch[1]
-        imgs_pa = Variable(batch_d['PA']).to(flags.device)
-        imgs_lat = Variable(batch_d['Lateral']).to(flags.device)
+    for idx, (batch_d, batch_l) in tqdm(enumerate(dataloader), total=num_batches_train, postfix='steps epoch'):
+        if flags.img_clf_type == 'cheXnet':
+            bs, n_crops, c, h, w = batch_d[modality].size()
+            imgs = torch.autograd.Variable(batch_d[modality].view(-1, c, h, w).cuda(), volatile=True)
+        else:
+            imgs = Variable(batch_d[modality]).to(flags.device)
         labels = Variable(batch_l).to(flags.device)
 
-        attr_hat_pa = model_pa(imgs_pa)
-        loss_pa = clf_loss(attr_hat_pa, labels)
-        optimizer_pa.zero_grad()
-        loss_pa.backward()
-        optimizer_pa.step()
+        attr_hat = model(imgs)
+        if flags.img_clf_type == 'cheXnet':
+            attr_hat = attr_hat.view(bs, n_crops, -1).mean(1)
+        loss = clf_loss(attr_hat, labels)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
 
-        attr_hat_lat = model_lat(imgs_lat);
-        loss_lat = clf_loss(attr_hat_lat, labels);
-        optimizer_lat.zero_grad()
-        loss_lat.backward()
-        optimizer_lat.step()
-
-        log_writer.add_scalars('%s/Loss PA' % name_logs, {'pa': loss_pa.item()}, step)
-        log_writer.add_scalars('%s/Loss Lateral' % name_logs, {'lateral': loss_lat.item()}, step)
+        log_writer.add_scalars(f'%s/Loss {modality}' % name_logs, {modality: loss.item()}, step)
 
         step += 1;
-        step_print_progress += 1;
-        printProgressBar(step_print_progress, num_batches_train)
-    models = {'pa': model_pa, 'lateral': model_lat};
-    return models;
+    return model;
 
 
-def eval_clf(flags, epoch, models, dataset, log_writer):
-    model_pa = models['pa']
-    model_lat = models['lateral']
-
+def eval_clf(flags, epoch, model, dataset, log_writer, modality: str):
     num_samples_test = dataset.__len__()
     name_logs = "eval_clf_img"
-    model_pa.eval()
-    model_lat.eval()
+    model.eval()
     step = epoch * np.floor(num_samples_test / flags.batch_size)
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=flags.batch_size, shuffle=True, num_workers=0,
                                              drop_last=True)
-    for idx, batch in enumerate(dataloader):
-        batch_d = batch[0]
-        batch_l = batch[1]
-        imgs_pa = Variable(batch_d['PA']).to(flags.device)
-        imgs_lat = Variable(batch_d['Lateral']).to(flags.device)
+    for idx, (batch_d, batch_l) in enumerate(dataloader):
+        if flags.img_clf_type == 'cheXnet':
+            bs, n_crops, c, h, w = batch_d[modality].size()
+            imgs = torch.autograd.Variable(batch_d[modality].view(-1, c, h, w).cuda(), volatile=True)
+        else:
+            imgs = Variable(batch_d[modality]).to(flags.device)
         labels = Variable(batch_l).to(flags.device)
 
-        attr_hat_pa = model_pa(imgs_pa)
-        loss_pa = clf_loss(attr_hat_pa, labels)
-        attr_hat_lat = model_pa(imgs_lat)
-        loss_lat = clf_loss(attr_hat_lat, labels)
+        attr_hat = model(imgs)
+        if flags.img_clf_type == 'cheXnet':
+            attr_hat = attr_hat.view(bs, n_crops, -1).mean(1)
+        loss = clf_loss(attr_hat, labels)
 
-        log_writer.add_scalars('%s/Loss' % name_logs, {'PA': loss_pa.item()}, step)
-        log_writer.add_scalars('%s/Loss' % name_logs, {'LATERAL': loss_lat.item()}, step)
+        log_writer.add_scalars('%s/Loss' % name_logs, {modality: loss.item()}, step)
 
         step += 1
 
 
-def training_procedure_clf(flags):
+def get_models(flags):
+    if flags.img_clf_type == 'cheXnet':
+        model = CheXNet(len(LABELS)).cuda()
+        # todo pytorch recommends to use DistributedDataParallel instead of DataParallel
+        model = torch.nn.DataParallel(model).cuda()
+    elif flags.img_clf_type == 'resnet':
+        model = ClfImg(flags, LABELS).to(flags.device)
+    else:
+        raise NotImplementedError(f'{flags.img_clf_type} is not implemented, chose between "cheXnet" and "resnet"')
+    return model
+
+
+def training_procedure_clf(flags, train_set, eval_set, modality: str, total_epochs: int = 100):
     epoch = 0
     logger = SummaryWriter(flags.dir_logs_clf)
 
-    alphabet_path = os.path.join(os.getcwd(), 'alphabet.json')
-    with open(alphabet_path) as alphabet_file:
-        alphabet = str(''.join(json.load(alphabet_file)))
-    flags.num_features = len(alphabet)
-    mimic_train = Mimic(flags, LABELS, alphabet, split='train')
-    mimic_eval = Mimic(flags, LABELS, alphabet, split='eval')
-    print(mimic_eval.__len__())
+    print(eval_set.__len__())
     use_cuda = torch.cuda.is_available()
     flags.device = torch.device('cuda' if use_cuda else 'cpu')
+    model = get_models(flags)
 
-    model_pa = ClfImg(flags, LABELS).to(flags.device)
-    model_lat = ClfImg(flags, LABELS).to(flags.device)
-    models = {'pa': model_pa, 'lateral': model_lat}
-
-    for epoch in tqdm(range(0, 100), postfix='train_clf_img'):
+    for epoch in tqdm(range(0, total_epochs), postfix='train_clf_img'):
         print(f'epoch: {epoch}')
-        models = train_clf(flags, epoch, models, mimic_train, logger)
-        eval_clf(flags, epoch, models, mimic_eval, logger)
-        save_and_overwrite_model(models['pa'].state_dict(), flags.dir_clf, flags.clf_save_m1, epoch)
-        save_and_overwrite_model(models['lateral'].state_dict(), flags.dir_clf, flags.clf_save_m2, epoch)
+        model = train_clf(flags, epoch, model, train_set, logger, modality)
+        eval_clf(flags, epoch, model, eval_set, logger, modality)
+        save_and_overwrite_model(model.state_dict(), flags.dir_clf, flags.clf_save_m1, epoch)
 
     torch.save(flags, os.path.join(flags.dir_clf, f'flags_clf_img_{epoch}.rar'))
 
@@ -144,18 +128,18 @@ def save_and_overwrite_model(state_dict, dir_path: str, checkpoint_name: str, ep
 
 if __name__ == '__main__':
     FLAGS = parser.parse_args()
-
+    MODALITY = 'PA'
     config_path = get_config_path()
     with open(config_path, 'rt') as json_file:
         t_args = argparse.Namespace()
         t_args.__dict__.update(json.load(json_file))
         FLAGS = parser.parse_args(namespace=t_args)
     FLAGS.img_size = 256
-    # temp
     FLAGS.batch_size = 150
-    FLAGS.dir_clf = os.path.expanduser(os.path.join(FLAGS.dir_clf, f'Mimic{FLAGS.img_size}'))
+    FLAGS.img_clf_type = 'cheXnet'
+    FLAGS.dir_clf = os.path.expanduser(os.path.join(FLAGS.dir_clf, f'Mimic{FLAGS.img_size}_{FLAGS.img_clf_type}_new'))
     FLAGS = expand_paths(FLAGS)
-    print(f'Training image classifier for images of size {FLAGS.img_size}')
+    print(f'Training image classifier {FLAGS.img_clf_type} for images of size {FLAGS.img_size}')
     print(os.path.join(FLAGS.dir_clf, FLAGS.clf_save_m1))
     use_cuda = torch.cuda.is_available()
     FLAGS.device = torch.device('cuda' if use_cuda else 'cpu')
@@ -167,4 +151,6 @@ if __name__ == '__main__':
     FLAGS.dir_logs_clf = os.path.join(os.path.expanduser(FLAGS.dir_clf),
                                       get_str_experiments(FLAGS, prefix='clf_img'))
     # This will overwrite old classifiers!!
-    training_procedure_clf(FLAGS)
+    mimic_train = Mimic(FLAGS, LABELS, split='train')
+    mimic_eval = Mimic(FLAGS, LABELS, split='eval')
+    training_procedure_clf(FLAGS, mimic_train, mimic_eval, MODALITY)
