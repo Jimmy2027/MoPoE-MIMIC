@@ -13,7 +13,7 @@ DO NOT run this when a model is training, it will erase its directory
 """
 
 df = pd.read_csv('experiments_dataframe.csv')
-subdf = df.loc[df['total_epochs'] < 10]
+subdf = df.loc[df['total_epochs'] < 20]
 for idx, row in subdf.iterrows():
     if row.total_epochs < 5:
         # makes sense to keep experiments in the df for later comparison
