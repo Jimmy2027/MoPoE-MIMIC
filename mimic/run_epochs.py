@@ -39,8 +39,6 @@ def calc_log_probs(exp, result, batch):
         mod = mods[m_key]
         ba = batch[0][mod.name]
         if m_key == 'text' and exp.flags.text_encoding == 'word':
-            # fixme this doesn't make any sense, calculate log prob with sentence not one hot encoded,
-            #  use torch.dist.Categorical for this
             ba = text.one_hot_encode_word(exp.flags, ba)
         log_probs[mod.name] = -mod.calc_log_prob(out_dist=result['rec'][mod.name], target=ba,
                                                  norm_value=exp.flags.batch_size)

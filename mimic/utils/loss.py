@@ -48,7 +48,7 @@ def loss_text(input, target, norm_value=None):
 
 
 def clf_loss(estimate, gt):
-    loss = F.binary_cross_entropy(estimate, gt, reduction='mean');
+    loss = F.binary_cross_entropy(estimate, gt, reduction='mean')
     return loss
 
 
