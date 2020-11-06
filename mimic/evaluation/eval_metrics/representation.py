@@ -13,7 +13,7 @@ def train_clf_lr_all_subsets(exp):
                           shuffle=True,
                           num_workers=exp.flags.dataloader_workers, drop_last=True)
 
-    if 0 < exp.flags.steps_per_training_epoch < len(d_loader) and exp.flags.dataset == 'test':
+    if exp.flags.dataset == 'testing':
         training_steps = exp.flags.steps_per_training_epoch
     else:
         training_steps = len(d_loader)
@@ -106,7 +106,11 @@ def classify_latent_representations(exp, epoch, clf_lr, data, labels):
         for s_key in data.keys():
             data_rep = data[s_key]
             clf_lr_rep = clf_lr_label[s_key]
-            y_pred_rep = clf_lr_rep.predict(data_rep)
+            if exp.flags.dataset == 'testing':
+                # when using the testing dataset, the vae data_rep might contain nans. Replace them for testing purposes
+                y_pred_rep = clf_lr_rep.predict(np.nan_to_num(data_rep))
+            else:
+                y_pred_rep = clf_lr_rep.predict(data_rep)
             eval_label_rep = exp.eval_metric(gt.ravel(),
                                              y_pred_rep.ravel())
             eval_all_reps[s_key] = eval_label_rep
@@ -123,7 +127,11 @@ def train_clf_lr(exp, data, labels):
         for s_key in data.keys():
             data_rep = data[s_key];
             clf_lr_s = LogisticRegression(random_state=0, solver='lbfgs', multi_class='auto', max_iter=1000);
-            clf_lr_s.fit(data_rep, gt.ravel());
+            if exp.flags.dataset == 'testing':
+                # when using the testing dataset, the vae data_rep might contain nans. Replace them for testing purposes
+                clf_lr_s.fit(np.nan_to_num(data_rep), gt.ravel())
+            else:
+                clf_lr_s.fit(data_rep, gt.ravel())
             clf_lr_reps[s_key] = clf_lr_s;
         clf_lr_labels[label_str] = clf_lr_reps;
     return clf_lr_labels;

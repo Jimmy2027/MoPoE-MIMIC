@@ -83,6 +83,7 @@ class MimicExperiment(BaseExperiment):
         print('setting dataset')
         if self.dataset == 'testing':
             print('using testing dataset')
+            self.flags.vocab_size = 3517
             d_train = Mimic_testing(self.flags)
             d_eval = Mimic_testing(self.flags)
         else:
