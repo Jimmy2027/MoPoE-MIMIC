@@ -71,13 +71,26 @@ class Mimic(Dataset):
         if self.args.text_encoding == 'char':
             self.alphabet = get_alphabet()
             args.num_features = len(self.alphabet)
-        if 'transform_img' in kwargs.keys():
-            self.transform_img = kwargs['transform_img']
+        if args.img_clf_type == 'cheXnet':
+            normalize = transforms.Normalize([0.485, 0.456, 0.406],
+                                             [0.229, 0.224, 0.225])
+            self.transform_img = transforms.Compose([
+                transforms.ToPILImage(),
+                transforms.Lambda(lambda x: x.convert('RGB')),
+                transforms.Resize(256),
+                transforms.TenCrop(224),
+                transforms.Lambda
+                (lambda crops: torch.stack([transforms.ToTensor()(crop) for crop in crops])),
+                transforms.Lambda
+                (lambda crops: torch.stack([normalize(crop) for crop in crops]))
+            ])
         else:
-            self.transform_img = transforms.Compose([transforms.ToPILImage(),
-                                                     transforms.Resize(size=(self.args.img_size, self.args.img_size),
-                                                                       interpolation=Image.BICUBIC),
-                                                     transforms.ToTensor()])
+            self.transform_img = transforms.Compose([
+                transforms.ToPILImage(),
+                transforms.Resize(size=(self.args.img_size, self.args.img_size),
+                                  interpolation=Image.BICUBIC),
+                transforms.ToTensor()
+            ])
 
     def __getitem__(self, index):
         try:
@@ -308,14 +321,13 @@ class Mimic_testing(Dataset):
 
     def __getitem__(self, index):
         img_size = (self.flags.img_size, self.flags.img_size)
-        # todo implement for densenet
         try:
-            if self.flags.img_clf_type == 'resnet':
-                sample = {'PA': torch.from_numpy(np.random.rand(1, *img_size)).float(),
-                          'Lateral': torch.from_numpy(np.random.rand(1, *img_size)).float()}
-            elif self.flags.img_clf_type == 'cheXnet':
+            if self.flags.img_clf_type == 'cheXnet':
                 sample = {'PA': torch.from_numpy(np.random.rand(10, 3, 256, 256)).float(),
                           'Lateral': torch.from_numpy(np.random.rand(10, 3, 256, 256)).float()}
+            else:
+                sample = {'PA': torch.from_numpy(np.random.rand(1, *img_size)).float(),
+                          'Lateral': torch.from_numpy(np.random.rand(1, *img_size)).float()}
             if self.flags.text_encoding == 'word':
                 sample['text'] = torch.from_numpy(np.random.rand(1024)).float()
             elif self.flags.text_encoding == 'char':
