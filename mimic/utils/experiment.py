@@ -50,8 +50,8 @@ class MimicExperiment(BaseExperiment):
         self.rec_weights = self.set_rec_weights()
         self.style_weights = self.set_style_weights()
 
-        self.test_samples = self.get_test_samples();
-        self.eval_metric = average_precision_score;
+        self.test_samples = self.get_test_samples()
+        self.eval_metric = average_precision_score
         self.paths_fid = self.set_paths_fid()
         self.experiments_dataframe = self.get_experiments_dataframe()
 
@@ -59,10 +59,13 @@ class MimicExperiment(BaseExperiment):
         self.number_restarts = 0
 
     def set_model(self):
-        print('setting model')
+        available_gpus = torch.cuda.device_count()
+        print(f'setting model with {available_gpus} GPUs')
         model = VAEtrimodalMimic(self.flags, self.modalities, self.subsets)
-        model = model.to(self.flags.device);
-        return model;
+        if torch.cuda.device_count() > 1:
+            model = torch.nn.DataParallel(model)
+        model = model.to(self.flags.device)
+        return model
 
     def set_modalities(self):
         print('setting modalities')
