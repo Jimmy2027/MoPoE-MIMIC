@@ -13,7 +13,7 @@ DO NOT run this when a model is training, it will erase its directory
 """
 
 df = pd.read_csv('experiments_dataframe.csv')
-subdf = df.loc[df['total_epochs'] < 20]
+subdf = df.loc[df['total_epochs'] < 15]
 for idx, row in subdf.iterrows():
     if row.total_epochs < 5:
         # makes sense to keep experiments in the df for later comparison
@@ -50,3 +50,16 @@ for modality_method in ['moe']:
                     # else:
                     #     shutil.make_archive(experiment_dir, 'zip', experiment_dir)
                     # todo if this works, rm experiment_dir
+
+"""
+Remove all classifier training experiment dirs
+"""
+clf_path = os.path.expanduser(config['dir_clf'])
+
+for dir in os.listdir(clf_path):
+    if dir.startswith('Mimic'):
+        for experiment in os.listdir(os.path.join(clf_path, dir)):
+            experiment_dir = os.path.join(clf_path, dir, experiment)
+            modality = experiment.split('_')[1]
+            if f'train_clf_{modality}' not in os.listdir(experiment_dir) or f'eval_clf_{modality}':
+                shutil.rmtree(experiment_dir)
