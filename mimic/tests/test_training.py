@@ -12,6 +12,7 @@ from mimic.utils.experiment import MimicExperiment
 from mimic.utils.filehandling import create_dir_structure, expand_paths, create_dir_structure_testing, get_config_path, \
     get_method
 from mimic.utils.flags import parser
+import torch.autograd.profiler as profiler
 
 
 class TestTraining(TestCase):
@@ -38,31 +39,33 @@ class TestTraining(TestCase):
             FLAGS.dir_experiment = tmpdirname
         FLAGS.dataset = 'testing'
         FLAGS.use_clf = True
-        FLAGS.calc_nll = True
+        FLAGS.calc_nll = False
         FLAGS.eval_lr = True
         FLAGS.calc_prd = True
         FLAGS.save_figure = False
         FLAGS.end_epoch = 2
-        FLAGS.batch_size = 50
+        FLAGS.batch_size = 10
         FLAGS.eval_freq = 1
         FLAGS.vocab_size = 3517
         FLAGS.text_encoding = text_encoding
         FLAGS.img_size = img_size
         FLAGS.steps_per_training_epoch = 10
         print(
-            f'running on {FLAGS.device} with text {FLAGS.text_encoding} encoding with method {FLAGS.method} and img size {FLAGS.img_size}')
+            f'running on {FLAGS.device} with text {FLAGS.text_encoding} encoding with method {FLAGS.method} '
+            f'and img size {FLAGS.img_size}')
         FLAGS = create_dir_structure(FLAGS)
         import mimic
         alphabet_path = os.path.join(os.path.dirname(mimic.__file__), 'alphabet.json')
         with open(alphabet_path) as alphabet_file:
             alphabet = str(''.join(json.load(alphabet_file)))
-
+        FLAGS.alphabet = alphabet
         mimic = MimicExperiment(FLAGS)
         create_dir_structure_testing(mimic)
         mimic.set_optimizer()
 
-        run_epochs(mimic)
-
+        with profiler.profile(profile_memory=True, record_shapes=True) as prof:
+            run_epochs(mimic)
+        print(prof.key_averages().table(sort_by="self_cuda_memory_usage", row_limit=10))
         return True
 
     def test_train_loop_charEncoding_128(self):
@@ -76,6 +79,10 @@ class TestTraining(TestCase):
     def test_train_loop_wordEncoding_128(self):
         with tempfile.TemporaryDirectory() as tmpdirname3:
             _ = self._run_train_loop('word', 128, tmpdirname3)
+
+    def test_train_loop_wordEncoding_256(self):
+        with tempfile.TemporaryDirectory() as tmpdirname2:
+            _ = self._run_train_loop('word', 256, tmpdirname2)
 
 
 if __name__ == '__main__':
