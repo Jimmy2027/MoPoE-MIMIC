@@ -5,6 +5,8 @@ import warnings
 
 import numpy as np
 import torch
+from sklearn import metrics
+from sklearn.dummy import DummyClassifier
 from sklearn.metrics import average_precision_score
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
@@ -13,8 +15,6 @@ from mimic.dataio.MimicDataset import Mimic
 from mimic.utils.experiment import MimicExperiment
 from mimic.utils.filehandling import expand_paths, get_config_path
 from mimic.utils.flags import parser
-from sklearn import metrics
-from sklearn.dummy import DummyClassifier
 
 
 def test_clfs(flags, img_size: int, text_encoding: str, alphabet=''):
@@ -26,8 +26,7 @@ def test_clfs(flags, img_size: int, text_encoding: str, alphabet=''):
 
     models = {}
 
-    dataloader = torch.utils.data.DataLoader(mimic_test, batch_size=flags.batch_size, shuffle=True, num_workers=0,
-                                             drop_last=True)
+    dataloader = torch.utils.data.DataLoader(mimic_test, batch_size=flags.batch_size, shuffle=True, num_workers=0)
     results = {}
     for modality in ['PA', 'Lateral', 'text']:
         models[modality] = mimic_experiment.clfs[modality].eval()
@@ -79,12 +78,14 @@ def translate(batch, list_labels: list) -> list:
 
 
 def test_clf(flags, mimic_experiment, mimic_test, modality: str):
+    """
+    Tests the classifier that the workflow would
+    """
     model = mimic_experiment.clfs[modality]
 
     model.eval()
 
-    dataloader = torch.utils.data.DataLoader(mimic_test, batch_size=flags.batch_size, shuffle=True, num_workers=0,
-                                             drop_last=True)
+    dataloader = torch.utils.data.DataLoader(mimic_test, batch_size=flags.batch_size, shuffle=True, num_workers=0)
     list_precision_vals = []
     list_prediction_vals = []
     list_labels = []
@@ -110,6 +111,37 @@ def test_clf(flags, mimic_experiment, mimic_test, modality: str):
                 f'prediction: {prediction.cpu().data.numpy().ravel()}')
 
     return metrics.classification_report(list_labels, list_prediction_vals, digits=4), list_precision_vals
+
+
+def test_model(flags, model, clf_type: str, test_set, modality, labels):
+    model.eval()
+
+    dataloader = torch.utils.data.DataLoader(test_set, batch_size=flags.batch_size, shuffle=True, num_workers=0)
+    list_predicted_labels = []
+    list_gt = []
+    list_predictions = []
+    list_labels = []
+    for idx, (batch_d, batch_l) in enumerate(dataloader):
+        if clf_type == 'cheXnet' and not modality == 'text':
+            bs, n_crops, c, h, w = batch_d[modality].size()
+            imgs = Variable(batch_d[modality].view(-1, c, h, w)).to(flags.device)
+        else:
+            imgs = Variable(batch_d[modality]).to(flags.device)
+        gt = np.array(np.reshape(batch_l, (batch_l.shape[0], len(labels)))).ravel()
+
+        prediction = model(imgs)
+        if flags.img_clf_type == 'cheXnet' and not modality == 'text':
+            prediction = prediction.view(bs, n_crops, -1).mean(1)
+
+        list_predicted_labels = translate(prediction.cpu(), list_predicted_labels)
+        list_labels = translate(batch_l.cpu(), list_labels)
+        prediction = prediction.cpu().data.numpy().ravel()
+        list_gt.extend(gt)
+        list_predictions.extend(prediction)
+
+    avg_precision = average_precision_score(list_gt, list_predictions)
+
+    return metrics.classification_report(list_labels, list_predicted_labels, digits=4), avg_precision
 
 
 def test_dummy(flags, alphabet, modality: str = 'PA'):
@@ -171,14 +203,14 @@ if __name__ == '__main__':
                               FLAGS.div_weight_m2_content, FLAGS.div_weight_m3_content]
     FLAGS.text_encoding = 'char'
     FLAGS.img_size = 128
-    mimic_experiment = MimicExperiment(flags=FLAGS)
-    mimic_test = Mimic(FLAGS, mimic_experiment.labels, split='eval')
-    test_dummy(FLAGS, mimic_experiment, mimic_test)
+    MIMIC_EXPERIMENT = MimicExperiment(flags=FLAGS)
+    mimic_test = Mimic(FLAGS, MIMIC_EXPERIMENT.labels, split='eval')
+    test_dummy(FLAGS, MIMIC_EXPERIMENT, mimic_test)
     asdasd = 0
     # results = test_clfs(FLAGS, 128, 'char', alphabet)
 
     # for modality in ['PA', 'Lateral', 'text']:
-    #     report, list_precision = test_clf(FLAGS, mimic_experiment, mimic_test, modality)
+    #     report, list_precision = test_clf(FLAGS, MIMIC_EXPERIMENT, mimic_test, modality)
 
     # print(list_precision_pa)
     # print(list_precision_lat)

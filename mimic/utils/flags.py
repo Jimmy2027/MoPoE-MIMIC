@@ -1,4 +1,8 @@
+import argparse
+import json
+
 from mimic.utils.BaseFlags import parser as parser
+from mimic.utils.filehandling import get_config_path
 
 parser.add_argument('--dataset', type=str, default='Mimic', help="name of the dataset")
 
@@ -47,3 +51,12 @@ parser.add_argument('--div_weight_m3_content', type=float, default=0.25,
                     help="default weight divergence term content modality 2")
 parser.add_argument('--div_weight_uniform_content', type=float, default=0.25,
                     help="default weight divergence term prior")
+
+
+def update_flags_with_config(flags):
+    config_path = get_config_path()
+    with open(config_path, 'rt') as json_file:
+        t_args = argparse.Namespace()
+        t_args.__dict__.update(json.load(json_file))
+        flags = parser.parse_args(namespace=t_args)
+    return flags

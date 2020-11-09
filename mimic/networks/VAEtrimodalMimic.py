@@ -27,18 +27,18 @@ class VAEtrimodalMimic(BaseMMVae, nn.Module):
         self.lhood_text = modalities['text'].likelihood
 
     def forward(self, input_batch):
-        latents = self.inference(input_batch);
-        results = dict();
-        results['latents'] = latents;
+        latents = self.inference(input_batch)
+        results = dict()
+        results['latents'] = latents
         div = self.calc_joint_divergence(latents['mus'],
                                          latents['logvars'],
-                                         latents['weights']);
-        results['group_distr'] = latents['joint'];
+                                         latents['weights'])
+        results['group_distr'] = latents['joint']
         class_embeddings = utils.reparameterize(latents['joint'][0],
-                                                latents['joint'][1]);
+                                                latents['joint'][1])
 
         for k, key in enumerate(div.keys()):
-            results[key] = div[key];
+            results[key] = div[key]
 
         results_rec = dict()
         for k, m_key in enumerate(self.modalities.keys()):
@@ -82,10 +82,7 @@ class VAEtrimodalMimic(BaseMMVae, nn.Module):
             latents['Lateral'] = [None, None]
         if 'text' in input_batch.keys():
             i_m3 = input_batch['text'];
-            # with char encoding, i_m3 has shape (batch_size, 1024,71)
-            # with word encoding, i_m3 has shape (bs, 1024)
             latents['text'] = self.encoder_text(i_m3)
-            # latents['text'] = [(200, 64),(200, 64)] mu and var for both char and word encoding
             if self.encoder_text.feature_compressor.style_mu and self.encoder_text.feature_compressor.style_logvar:
                 latents['text_style'] = latents['text'][2:]
             latents['text'] = latents['text'][:2]

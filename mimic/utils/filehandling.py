@@ -3,6 +3,7 @@ import os
 import shutil
 from datetime import datetime
 from shutil import copyfile
+
 import mimic
 
 
@@ -40,8 +41,8 @@ def create_dir_structure(flags: argparse.ArgumentParser(), train: bool = True) -
         flags.str_experiment = str_experiments
     else:
         flags.dir_experiment_run = os.path.expanduser(flags.dir_experiment)
-
-    print(flags.dir_experiment_run)
+        flags.experiment_uid = get_str_experiments(flags)
+    print('dir_experiment_run: ', flags.dir_experiment_run)
     if train:
         create_dir(flags.dir_experiment_run)
 
@@ -53,11 +54,7 @@ def create_dir_structure(flags: argparse.ArgumentParser(), train: bool = True) -
     flags.dir_logs = os.path.join(os.path.expanduser(flags.dir_experiment_run), 'logs')
     if train:
         create_dir(flags.dir_logs)
-    print(flags.dir_logs)
-
-    flags.dir_logs_clf = os.path.join(os.path.expanduser(flags.dir_experiment_run), 'logs_clf')
-    if train:
-        create_dir(flags.dir_logs_clf)
+    print('dir_logs: ', flags.dir_logs)
 
     flags.dir_gen_eval = os.path.join(os.path.expanduser(flags.dir_experiment_run), 'generation_evaluation')
     if train:

@@ -13,15 +13,27 @@ DO NOT run this when a model is training, it will erase its directory
 """
 
 df = pd.read_csv('experiments_dataframe.csv')
-subdf = df.loc[df['total_epochs'] < 15]
+subdf = df.loc[df['total_epochs'] < 8]
 for idx, row in subdf.iterrows():
     if row.total_epochs < 5:
-        # makes sense to keep experiments in the df for later comparison
         df = df.drop(idx)
     print(f'deleting {row.dir_experiment_run}')
     if os.path.exists(row.dir_experiment_run):
         shutil.rmtree(row.dir_experiment_run)
 df.to_csv('experiments_dataframe.csv', index=False)
+
+"""
+Same for classifier experiments:
+"""
+df = pd.read_csv('clf_experiments_dataframe.csv')
+subdf = df.loc[df['total_epochs'] < 15]
+for idx, row in subdf.iterrows():
+    if row.total_epochs < 5:
+        df = df.drop(idx)
+    print(f'deleting {row.dir_logs_clf}')
+    if os.path.exists(row.dir_logs_clf):
+        shutil.rmtree(row.dir_logs_clf)
+df.to_csv('clf_experiments_dataframe.csv', index=False)
 
 """
 Removes all experiment dirs that don't have a log dir or where the log dir is empty. 
@@ -54,12 +66,16 @@ for modality_method in ['moe']:
 """
 Remove all classifier training experiment dirs
 """
-clf_path = os.path.expanduser(config['dir_clf'])
-
-for dir in os.listdir(clf_path):
-    if dir.startswith('Mimic'):
-        for experiment in os.listdir(os.path.join(clf_path, dir)):
-            experiment_dir = os.path.join(clf_path, dir, experiment)
-            modality = experiment.split('_')[1]
-            if f'train_clf_{modality}' not in os.listdir(experiment_dir) or f'eval_clf_{modality}':
-                shutil.rmtree(experiment_dir)
+clf_paths = [config['dir_clf'], config['dir_clf'] + '_new']
+for clf_path in clf_paths:
+    clf_path = os.path.expanduser(clf_path)
+    for d in os.listdir(clf_path):
+        if d.startswith('logs'):
+            for experiment in os.listdir(os.path.join(clf_path, d)):
+                if os.path.isdir(os.path.join(clf_path, d, experiment)):
+                    experiment_dir = os.path.join(clf_path, d, experiment)
+                    modality = experiment.split('_')[1]
+                    if f'train_clf_{modality}' not in os.listdir(experiment_dir) \
+                            or f'eval_clf_{modality}' not in os.listdir(experiment_dir):
+                        shutil.rmtree(experiment_dir)
+                        print(f'removing dir {experiment_dir}')

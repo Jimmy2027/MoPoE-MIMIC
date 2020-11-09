@@ -59,11 +59,12 @@ class MimicExperiment(BaseExperiment):
         self.number_restarts = 0
 
     def set_model(self):
-        available_gpus = torch.cuda.device_count()
-        print(f'setting model with {available_gpus} GPUs')
+        # available_gpus = torch.cuda.device_count()
+        # print(f'setting model with {available_gpus} GPUs')
         model = VAEtrimodalMimic(self.flags, self.modalities, self.subsets)
-        if torch.cuda.device_count() > 1:
-            model = torch.nn.DataParallel(model)
+        # todo find way to train model on multiple GPUs
+        # if torch.cuda.device_count() > 1:
+        #     model = torch.nn.DataParallel(model)
         model = model.to(self.flags.device)
         return model
 
@@ -201,5 +202,5 @@ class MimicExperiment(BaseExperiment):
         for key in values_dict:
             self.experiments_dataframe.loc[
                 self.experiments_dataframe['experiment_uid'] == self.experiment_uid, key] = values_dict[key]
-        if not self.flags.dataset == 'test':
+        if not self.flags.dataset == 'testing':
             self.experiments_dataframe.to_csv('experiments_dataframe.csv', index=False)
