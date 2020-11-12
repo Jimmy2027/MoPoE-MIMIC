@@ -8,7 +8,6 @@ from tensorboardX import SummaryWriter
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-
 from mimic.dataio.MimicDataset import Mimic
 from mimic.networks.classifiers.utils import set_clf_paths, ExperimentDf, get_models, LABELS, Callbacks
 from mimic.utils.flags import parser
@@ -19,7 +18,7 @@ START_EARLY_STOPPING_EPOCH = 2
 MAX_EARLY_STOPPING_IDX = 5
 
 
-def train_clf(flags, epoch, model, dataset, log_writer, modality, optimizer) -> torch.nn.Module():
+def train_clf(flags, epoch, model, dataset: Mimic, log_writer, modality, optimizer) -> torch.nn.Module():
     num_samples_train = dataset.__len__()
     name_logs = f"train_clf_{modality}"
     model.train()
@@ -36,12 +35,12 @@ def train_clf(flags, epoch, model, dataset, log_writer, modality, optimizer) -> 
         else:
             imgs = Variable(batch_d[modality]).to(flags.device)
         labels = Variable(batch_l).to(flags.device)
+        optimizer.zero_grad()
         attr_hat = model(imgs)
 
         if flags.img_clf_type == 'cheXnet' and not modality == 'text':
             attr_hat = attr_hat.view(bs, n_crops, -1).mean(1)
         loss = clf_loss(attr_hat, labels)
-        optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
@@ -82,27 +81,25 @@ def eval_clf(flags, epoch, model, dataset, log_writer, modality: str):
     return np.mean(losses), mean_AP
 
 
-def training_procedure_clf(flags, train_set, eval_set, modality: str, total_epochs: int = 100):
+def training_procedure_clf(flags, train_set: Mimic, eval_set: Mimic, modality: str, total_epochs: int = 100):
     experiment_df = ExperimentDf(flags)
     epoch = 0
     logger = SummaryWriter(flags.dir_logs_clf)
     use_cuda = torch.cuda.is_available()
     flags.device = torch.device('cuda' if use_cuda else 'cpu')
     model = get_models(flags, modality)
-    callbacks = Callbacks(flags, START_EARLY_STOPPING_EPOCH, MAX_EARLY_STOPPING_IDX, modality, experiment_df, logger)
     # optimizer definition
     optimizer = optim.Adam(
         list(model.parameters()),
         lr=flags.initial_learning_rate)
-    # initialise losses list with 0
-    val_metric_values = [0]
-    patience_idx = 0
+    callbacks = Callbacks(flags, START_EARLY_STOPPING_EPOCH, MAX_EARLY_STOPPING_IDX, modality,
+                          experiment_df, logger, optimizer)
     for epoch in tqdm(range(0, total_epochs), postfix=f'train_clf_{modality}'):
         print(f'epoch: {epoch}')
         model = train_clf(flags, epoch, model, train_set, logger, modality, optimizer)
         loss, mean_AP = eval_clf(flags, epoch, model, eval_set, logger, modality)
-        callbacks.update_epoch(epoch, loss, mean_AP, model)
-        val_metric_values.append(mean_AP)
+        if callbacks.update_epoch(epoch, loss, mean_AP, model):
+            break
 
     torch.save(flags, os.path.join(flags.dir_clf, f'flags_clf_{modality}_{epoch}.rar'))
     experiment_df.write_experiment_time()
@@ -118,7 +115,8 @@ if __name__ == '__main__':
     FLAGS.img_size = 256
     # temp batch size=30
     FLAGS.batch_size = 35
-    FLAGS.initial_learning_rate = 1e-4
+    # FLAGS.initial_learning_rate = 1e-4
+    FLAGS.n_crops = 10
     FLAGS.img_clf_type = 'cheXnet'
     # temp
     FLAGS.dir_clf += '_new'

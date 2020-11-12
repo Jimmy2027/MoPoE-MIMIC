@@ -11,13 +11,14 @@ from mimic.utils.filehandling import create_dir
 from mimic.utils.filehandling import expand_paths
 from mimic.utils.filehandling import get_str_experiments
 import numpy as np
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 LABELS = ['Lung Opacity', 'Pleural Effusion', 'Support Devices']
 
 
 class Callbacks:
     def __init__(self, flags, start_early_stopping_epoch: int, max_early_stopping_index, modality: str,
-                 experiment_df: any, logger: any):
+                 experiment_df: any, logger: any, optimizer: torch.optim):
         self.modality = modality
         self.logger = logger
         self.flags = flags
@@ -26,10 +27,11 @@ class Callbacks:
         self.max_early_stopping_index = max_early_stopping_index
         self.val_metric_values = [0]
         self.patience_idx = 0
+        self.scheduler = ReduceLROnPlateau(optimizer, 'min', patience=5, verbose=True)
 
     def update_epoch(self, epoch, loss, mean_AP, model):
         stop_early = False
-
+        self.scheduler.step(loss)
         self.logger.add_scalars(f'eval_clf_{self.modality}/mean_AP', {self.modality: mean_AP}, epoch)
         self.logger.add_scalars(f'eval_clf_{self.modality}/mean_loss', {self.modality: loss}, epoch)
         self.experiment_df.update_experiments_dataframe(
@@ -37,7 +39,8 @@ class Callbacks:
 
         print(f'current eval loss: {loss}, mean_AP: {mean_AP}')
         # start saving checkpoints after epoch 10, if the loss improved
-        if epoch > self.start_early_stopping_epoch and mean_AP > self.val_metric_values[-1]:
+        if epoch > self.start_early_stopping_epoch and mean_AP > max(
+                self.val_metric_values[-(self.patience_idx + 1):]):
             if self.modality == 'PA':
                 filename = self.flags.clf_save_m1
             elif self.modality == 'Lateral':
