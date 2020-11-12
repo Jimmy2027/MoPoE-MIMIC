@@ -49,6 +49,7 @@ class Main:
     def run_epochs(self) -> bool:
         """
         Wrapper of run_epochs.run_epochs that checks if the workflow was completed and starts it over otherwise
+        returns bool: true if run_epochs finishes, False if an error occurs
         """
         self.start_time = timer()
         mimic = MimicExperiment(self.flags)

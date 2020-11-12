@@ -7,14 +7,13 @@ from collections import Counter, OrderedDict
 from collections import defaultdict
 from typing import List
 
-import PIL.Image as Image
 import numpy as np
 import pandas as pd
 import torch
 from nltk.tokenize import word_tokenize
 from torch.utils.data import Dataset
-from torchvision import transforms
 
+from mimic.dataio.utils import get_transform_img
 from mimic.utils import text as text
 from mimic.utils.utils import get_alphabet
 
@@ -41,56 +40,12 @@ class Mimic(Dataset):
         self.imgs_pa = torch.load(fn_img_pa)
         self.imgs_lat = torch.load(fn_img_lat)
         self.report_findings = pd.read_csv(fn_findings)['findings']
-
-        # need to remove all cases where the labels have 3 classes
-        # todo this should be done in the preprocessing
-        indices = []
-        indices += self.labels.index[(self.labels['Lung Opacity'] == -1)].tolist()
-        indices += self.labels.index[(self.labels['Pleural Effusion'] == -1)].tolist()
-        indices += self.labels.index[(self.labels['Support Devices'] == -1)].tolist()
-        indices = list(set(indices))
-        self.labels = self.labels.drop(indices).values
-        self.report_findings = self.report_findings.drop(indices).values
-        self.imgs_pa = torch.tensor(np.delete(self.imgs_pa.numpy(), indices, 0))
-        self.imgs_lat = torch.tensor(np.delete(self.imgs_lat.numpy(), indices, 0))
-
-        assert len(np.unique(self.labels)) == 2, \
-            'labels should contain 2 classes, might need to remove -1 labels'
-        assert self.imgs_pa.shape[0] == self.imgs_lat.shape[0] == len(self.labels) == len(
-            self.report_findings), f'all modalities must have the same length. len(imgs_pa): {self.imgs_pa.shape[0]},' \
-                                   f' len(imgs_lat): {self.imgs_lat.shape[0]}, len(labels): {len(self.labels)},' \
-                                   f' len(report_findings): {len(self.report_findings)}'
-
-        if self.args.text_encoding == 'word':
-            tx = lambda data: torch.Tensor(data)
-            self.report_findings_dataset = MimicSentences(args=args, data_dir=dir_dataset,
-                                                          findings=self.report_findings, split=split, transform=tx)
-            assert len(self.report_findings_dataset) == len(self.report_findings), \
-                'report findings dataset must have the same length than the report findings dataframe'
-            args.vocab_size = self.report_findings_dataset.vocab_size
+        self._filter_labels()
+        self.get_report_findings_dataset(dir_dataset)
         if self.args.text_encoding == 'char':
             self.alphabet = get_alphabet()
             args.num_features = len(self.alphabet)
-        if args.img_clf_type == 'cheXnet':
-            normalize = transforms.Normalize([0.485, 0.456, 0.406],
-                                             [0.229, 0.224, 0.225])
-            self.transform_img = transforms.Compose([
-                transforms.ToPILImage(),
-                transforms.Lambda(lambda x: x.convert('RGB')),
-                transforms.Resize(256),
-                transforms.TenCrop(224),
-                transforms.Lambda
-                (lambda crops: torch.stack([transforms.ToTensor()(crop) for crop in crops])),
-                transforms.Lambda
-                (lambda crops: torch.stack([normalize(crop) for crop in crops]))
-            ])
-        else:
-            self.transform_img = transforms.Compose([
-                transforms.ToPILImage(),
-                transforms.Resize(size=(self.args.img_size, self.args.img_size),
-                                  interpolation=Image.BICUBIC),
-                transforms.ToTensor()
-            ])
+        self.transform_img = get_transform_img(args)
 
     def __getitem__(self, index):
         try:
@@ -118,6 +73,34 @@ class Mimic(Dataset):
 
     def get_text_str(self, index):
         return self.y[index]
+
+    def get_report_findings_dataset(self, dir_dataset):
+        if self.args.text_encoding == 'word':
+            tx = lambda data: torch.Tensor(data)
+            self.report_findings_dataset = MimicSentences(args=self.args, data_dir=dir_dataset,
+                                                          findings=self.report_findings, split=self.split, transform=tx)
+            assert len(self.report_findings_dataset) == len(self.report_findings), \
+                'report findings dataset must have the same length than the report findings dataframe'
+            self.args.vocab_size = self.report_findings_dataset.vocab_size
+
+    def _filter_labels(self):
+        # need to remove all cases where the labels have 3 classes
+        indices = []
+        indices += self.labels.index[(self.labels['Lung Opacity'] == -1)].tolist()
+        indices += self.labels.index[(self.labels['Pleural Effusion'] == -1)].tolist()
+        indices += self.labels.index[(self.labels['Support Devices'] == -1)].tolist()
+        indices = list(set(indices))
+        self.labels = self.labels.drop(indices).values
+        self.report_findings = self.report_findings.drop(indices).values
+        self.imgs_pa = torch.tensor(np.delete(self.imgs_pa.numpy(), indices, 0))
+        self.imgs_lat = torch.tensor(np.delete(self.imgs_lat.numpy(), indices, 0))
+
+        assert len(np.unique(self.labels)) == 2, \
+            'labels should contain 2 classes, might need to remove -1 labels'
+        assert self.imgs_pa.shape[0] == self.imgs_lat.shape[0] == len(self.labels) == len(
+            self.report_findings), f'all modalities must have the same length. len(imgs_pa): {self.imgs_pa.shape[0]},' \
+                                   f' len(imgs_lat): {self.imgs_lat.shape[0]}, len(labels): {len(self.labels)},' \
+                                   f' len(report_findings): {len(self.report_findings)}'
 
 
 class OrderedCounter(Counter, OrderedDict):
@@ -149,7 +132,6 @@ class MimicSentences(Dataset):
         self.min_occ = kwargs.get('min_occ', 3)
         self.transform = transform
         self.findings = findings
-
         self.gen_dir = os.path.join(self.data_dir, "oc:{}_msl:{}".
                                     format(self.min_occ, self.max_sequence_length))
 
@@ -322,16 +304,16 @@ class Mimic_testing(Dataset):
     def __getitem__(self, index):
         img_size = (self.flags.img_size, self.flags.img_size)
         try:
-            if self.flags.img_clf_type == 'cheXnet':
-                sample = {'PA': torch.from_numpy(np.random.rand(10, 3, 256, 256)).float(),
-                          'Lateral': torch.from_numpy(np.random.rand(10, 3, 256, 256)).float()}
+            if self.flags.img_clf_type == 'cheXnet' or self.flags.feature_extractor_img == 'densenet':
+                sample = {'PA': torch.rand(self.flags.n_crops, 3, *img_size).float(),
+                          'Lateral': torch.rand(self.flags.n_crops, 3, *img_size).float()}
             else:
-                sample = {'PA': torch.from_numpy(np.random.rand(1, *img_size)).float(),
-                          'Lateral': torch.from_numpy(np.random.rand(1, *img_size)).float()}
+                sample = {'PA': torch.rand(1, *img_size).float(),
+                          'Lateral': torch.rand(1, *img_size).float()}
             if self.flags.text_encoding == 'word':
-                sample['text'] = torch.from_numpy(np.random.rand(1024)).float()
+                sample['text'] = torch.rand(1024).float()
             elif self.flags.text_encoding == 'char':
-                sample['text'] = torch.from_numpy(np.random.rand(1024, 71)).float()
+                sample['text'] = torch.rand(1024, 71).float()
         except (IndexError, OSError):
             return None
         label = torch.tensor([random.randint(0, 1), random.randint(0, 1), random.randint(0, 1)]).float()
