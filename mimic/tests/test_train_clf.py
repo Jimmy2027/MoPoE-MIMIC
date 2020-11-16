@@ -12,10 +12,11 @@ from mimic.networks.classifiers.main_train_clf_mimic import training_procedure_c
 from mimic.utils.filehandling import create_dir_structure, expand_paths, get_config_path
 from mimic.utils.filehandling import get_str_experiments
 from mimic.utils.flags import parser
+import pytest
 
 
 class TestTraining(TestCase):
-    def _run_train_loop(self, tmpdirname: str, modality: str, img_clf_type: str):
+    def _run_train_loop(self, tmpdirname: str, modality: str, img_clf_type: str, n_crops=1):
         """
         General test to see if training loop works
         """
@@ -27,10 +28,12 @@ class TestTraining(TestCase):
             FLAGS = parser.parse_args([], namespace=t_args)
         FLAGS = expand_paths(t_args)
         FLAGS.img_size = 256
-        FLAGS.batch_size = 35
+        FLAGS.batch_size = 5
         FLAGS.img_clf_type = img_clf_type
         FLAGS.dir_clf = tmpdirname
         FLAGS.vocab_size = 3517
+        FLAGS.n_crops = n_crops
+        FLAGS.clf_loss = 'bce_with_logits'
         FLAGS.experiment_uid = 'test'
         FLAGS.dir_clf = os.path.expanduser(
             os.path.join(FLAGS.dir_clf, f'Mimic{FLAGS.img_size}_{FLAGS.img_clf_type}'))
@@ -65,6 +68,10 @@ class TestTraining(TestCase):
     def test_clf_train_loop_text(self):
         with tempfile.TemporaryDirectory() as tmpdirname:
             _ = self._run_train_loop(tmpdirname, modality='text', img_clf_type='')
+
+    def test_clf_train_loop_cheXnet_5ncrops(self):
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            _ = self._run_train_loop(tmpdirname, modality='PA', img_clf_type='cheXnet', n_crops=5)
 
 
 if __name__ == '__main__':

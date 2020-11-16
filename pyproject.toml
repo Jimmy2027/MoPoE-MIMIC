@@ -1,0 +1,6 @@
+[tool.pytest.ini_options]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "dataset: marks tests testing the dataio",
+    "distributed: indicates that torch.nn.parallel.DistributedDataParallel is used"
+]

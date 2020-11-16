@@ -9,7 +9,7 @@ from mimic.utils.filehandling import create_dir_structure
 class TestFilehandling(TestCase):
     def test_create_dir_structure(self):
         """
-        Checks if function create_dir_structure is runnig
+        Checks if function create_dir_structure is running.
         """
         with tempfile.TemporaryDirectory() as tmpdirname:
             parser = argparse.ArgumentParser()

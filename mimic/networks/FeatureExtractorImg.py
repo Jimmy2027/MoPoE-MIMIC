@@ -53,7 +53,7 @@ class FeatureExtractorImg(nn.Module):
             self.resblock_4 = make_res_block_feature_extractor(4 * args.DIM_img, 5 * args.DIM_img, kernelsize=4,
                                                                stride=4,
                                                                padding=1, dilation=1, a_val=self.a, b_val=self.b)
-            #question warum geht das nicht?
+            # question warum geht das nicht?
             # self.resblock_4 = make_res_block_feature_extractor(4 * args.DIM_img, 4 * args.DIM_img + args.DIM_img // 2,
             #                                                    kernelsize=4,
             #                                                    stride=2,
@@ -76,6 +76,7 @@ class FeatureExtractorImg(nn.Module):
             torch.Size([10, 256, 8, 8])
             torch.Size([10, 320, 4, 4])
             torch.Size([10, 320, 1, 1])
+            torch.Size([10, 320, 1])
         """
         out = self.conv1(x)
         out = self.resblock_1(out)
@@ -84,4 +85,5 @@ class FeatureExtractorImg(nn.Module):
         out = self.resblock_4(out)
         if not self.args.img_size == 64:
             out = self.resblock_5(out)
+        out = out.view(out.shape[0], out.shape[1], out.shape[2])
         return out

@@ -1,10 +1,16 @@
 import torch.nn as nn
 
 from mimic.networks.FeatureExtractorImg import make_res_block_feature_extractor
+from typing import Protocol
+
+
+class ClfImgProto(Protocol):
+    image_channels: int
+    img_size: int
 
 
 class ClfImg(nn.Module):
-    def __init__(self, flags, labels, a=2.0, b=0.3):
+    def __init__(self, flags: ClfImgProto, labels, a=2.0, b=0.3):
         super(ClfImg, self).__init__()
         self.flags = flags
         self.labels = labels
