@@ -138,8 +138,7 @@ class BaseMMVae(ABC, nn.Module):
         return True;
 
     def inference(self, input_batch, num_samples=None):
-        if num_samples is None:
-            num_samples = self.flags.batch_size;
+        num_samples = num_samples or self.flags.batch_size;
         latents = dict();
         enc_mods = self.encode(input_batch);
         latents['modalities'] = enc_mods;
