@@ -29,7 +29,7 @@ def calc_inception_features(exp, dims=2048, batch_size=128):
                                                        mod.file_suffix))
                     fn = os.path.join(exp.flags.dir_gen_eval_fid,
                                       key + '_' + mod.name + '_activations.npy');
-                    act_gen = get_activations(files_gen, model, batch_size, dims,
+                    act_gen = get_activations(files_gen, exp.flags, model, batch_size, dims,
                                               True, verbose=False);
                     np.save(fn, act_gen);
 

@@ -7,6 +7,8 @@ parser = argparse.ArgumentParser()
 # parser.add_argument('--dataset', type=str, default='SVHN_MNIST_text', help="name of the dataset")
 
 # TRAINING
+parser.add_argument('--distributed', type=bool, default=False,
+                    help="flag to indicate if torch.nn.DataParallel is used")
 parser.add_argument('--batch_size', type=int, default=256, help="batch size for training")
 parser.add_argument('--initial_learning_rate', type=float, default=0.001, help="starting learning rate")
 parser.add_argument('--beta_1', type=float, default=0.9, help="default beta_1 val for adam")
@@ -88,6 +90,10 @@ parser.add_argument('--joint_elbo', type=bool, default=False, help="modality_moe
 parser.add_argument('--poe_unimodal_elbos', type=bool, default=False, help="unimodal_klds")
 parser.add_argument('--factorized_representation', action='store_true', default=False,
                     help="factorized_representation")
+parser.add_argument('--feature_extractor_img', type=str, default='resnet', help='which feature extractor model to use',
+                    choices=['resnet', 'densenet'])
+parser.add_argument('--n_crops', type=int, default=1, choices=[10, 5, 1],
+                    help="number of crops each image gets split into.")
 
 # LOSS TERM WEIGHTS
 parser.add_argument('--beta', type=float, default=5.0, help="default weight of sum of weighted divergence terms")

@@ -1,13 +1,15 @@
-import os
 import random
+import time
 
 import numpy as np
 import torch
-from tensorboardX import SummaryWriter
+import torch.distributed as dist
 from torch.autograd import Variable
+from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
+from dataio.utils import get_data_loaders, samplers_set_epoch
 from mimic.evaluation.divergence_measures.kl_div import calc_kl_divergence
 from mimic.evaluation.eval_metrics.coherence import test_generation
 from mimic.evaluation.eval_metrics.likelihood import estimate_likelihoods
@@ -16,7 +18,7 @@ from mimic.evaluation.eval_metrics.representation import train_clf_lr_all_subset
 from mimic.evaluation.eval_metrics.sample_quality import calc_prd_score
 from mimic.utils import text
 from mimic.utils import utils
-from mimic.utils.TBLogger import TBLogger
+from mimic.utils.experiment import Callbacks, NaNInLatent, MimicExperiment
 from mimic.utils.plotting import generate_plots
 
 # global variables
@@ -85,7 +87,7 @@ def basic_routine_epoch(exp, batch) -> dict:
 
     mm_vae = exp.mm_vae
     batch_d = batch[0]
-    batch_l = batch[1]
+
     mods = exp.modalities
     for k, m_key in enumerate(batch_d.keys()):
         batch_d[m_key] = Variable(batch_d[m_key]).to(exp.flags.device)
@@ -97,7 +99,7 @@ def basic_routine_epoch(exp, batch) -> dict:
                                                    np.isnan(results['latents']['modalities'][key][1].mean().item())):
             print(key, results['latents']['modalities'][key][0].mean().item())
             print(key, results['latents']['modalities'][key][1].mean().item())
-            raise ValueError
+            raise NaNInLatent(f'The latent representations contain NaNs: {results["latents"]}')
 
         results['latents']['modalities'][key][1].mean().item()
 
@@ -153,20 +155,18 @@ def basic_routine_epoch(exp, batch) -> dict:
     return out_basic_routine
 
 
-def train(epoch, exp, tb_logger):
+def train(exp: MimicExperiment, train_loader: DataLoader):
+    tb_logger = exp.tb_logger
     mm_vae = exp.mm_vae
     mm_vae.train()
     exp.mm_vae = mm_vae
 
-    d_loader = DataLoader(exp.dataset_train, batch_size=exp.flags.batch_size,
-                          shuffle=True,
-                          num_workers=exp.flags.dataloader_workers, drop_last=True)
-    if 0 < exp.flags.steps_per_training_epoch < len(d_loader):
+    if 0 < exp.flags.steps_per_training_epoch < len(train_loader):
         training_steps = exp.flags.steps_per_training_epoch
     else:
-        training_steps = len(d_loader)
+        training_steps = len(train_loader)
 
-    for iteration, batch in tqdm(enumerate(d_loader), total=training_steps, postfix='train'):
+    for iteration, batch in tqdm(enumerate(train_loader), total=training_steps, postfix='train'):
         if iteration > training_steps:
             break
         basic_routine = basic_routine_epoch(exp, batch)
@@ -178,84 +178,100 @@ def train(epoch, exp, tb_logger):
         exp.optimizer.zero_grad()
         total_loss.backward()
         exp.optimizer.step()
-        tb_logger.write_training_logs(results, total_loss, log_probs, klds)
+        if tb_logger:
+            tb_logger.write_training_logs(results, total_loss, log_probs, klds)
 
 
-def test(epoch, exp, tb_logger):
+def test(epoch, exp, test_loader: DataLoader):
+    tb_logger = exp.tb_logger
+    print(tb_logger)
+    args = exp.flags
     with torch.no_grad():
         mm_vae = exp.mm_vae
         mm_vae.eval()
         exp.mm_vae = mm_vae
-        # set up weights
-        beta_style = exp.flags.beta_style
-        beta_content = exp.flags.beta_content
-        beta = exp.flags.beta
-        rec_weight = 1.0
 
-        d_loader = DataLoader(exp.dataset_test, batch_size=exp.flags.batch_size,
-                              shuffle=True,
-                              num_workers=exp.flags.dataloader_workers, drop_last=True)
         total_losses = []
-        for iteration, batch in tqdm(enumerate(d_loader), total=len(d_loader), postfix='test'):
+        for iteration, batch in tqdm(enumerate(test_loader), total=len(test_loader), postfix='test'):
             basic_routine = basic_routine_epoch(exp, batch)
             results = basic_routine['results']
             total_loss = basic_routine['total_loss']
             klds = basic_routine['klds']
             log_probs = basic_routine['log_probs']
-            tb_logger.write_testing_logs(results, total_loss, log_probs, klds)
+            if tb_logger:
+                tb_logger.write_testing_logs(results, total_loss, log_probs, klds)
             total_losses.append(total_loss.item())
 
         if epoch >= np.ceil(exp.flags.end_epoch * 0.8):
-            print('generating plots')
-            plots = generate_plots(exp, epoch)
-            tb_logger.write_plots(plots, epoch)
+            if tb_logger:
+                print('generating plots')
+                plots = generate_plots(exp, epoch)
+                tb_logger.write_plots(plots, epoch)
 
         if (epoch + 1) % exp.flags.eval_freq == 0 or (epoch + 1) == exp.flags.end_epoch:
             if exp.flags.eval_lr:
-                print('evaluation of latent representation')
-                clf_lr = train_clf_lr_all_subsets(exp)
-                lr_eval = test_clf_lr_all_subsets(epoch, clf_lr, exp)
-                tb_logger.write_lr_eval(lr_eval)
+                if tb_logger:
+                    print('evaluation of latent representation')
+                    clf_lr = train_clf_lr_all_subsets(exp)
+                    lr_eval = test_clf_lr_all_subsets(epoch, clf_lr, exp)
+                    tb_logger.write_lr_eval(lr_eval)
 
             if exp.flags.use_clf:
-                print('test generation')
-                gen_eval = test_generation(epoch, exp)
-                tb_logger.write_coherence_logs(gen_eval)
+                if tb_logger:
+                    print('test generation')
+                    gen_eval = test_generation(epoch, exp)
+                    tb_logger.write_coherence_logs(gen_eval)
 
             if exp.flags.calc_nll:
-                print('estimating likelihoods')
-                lhoods = estimate_likelihoods(exp)
-                tb_logger.write_lhood_logs(lhoods)
+                if tb_logger:
+                    print('estimating likelihoods')
+                    lhoods = estimate_likelihoods(exp)
+                    tb_logger.write_lhood_logs(lhoods)
 
             if exp.flags.calc_prd and ((epoch + 1) % exp.flags.eval_freq_fid == 0):
-                print('calculating prediction score')
-                prd_scores = calc_prd_score(exp)
-                tb_logger.write_prd_scores(prd_scores)
-        exp.update_experiments_dataframe({'total_test_loss': np.mean(total_losses), 'total_epochs': epoch})
+                if tb_logger:
+                    print('calculating prediction score')
+                    prd_scores = calc_prd_score(exp)
+                    tb_logger.write_prd_scores(prd_scores)
+        mean_loss = np.mean(total_losses)
+        if tb_logger:
+            exp.update_experiments_dataframe({'total_test_loss': np.mean(total_losses), 'total_epochs': epoch})
+        return mean_loss
 
 
-def run_epochs(exp):
-    # initialize summary writer
-    writer = SummaryWriter(exp.flags.dir_logs)
-    tb_logger = TBLogger(exp.flags.str_experiment, writer)
-    str_flags = utils.save_and_log_flags(exp.flags)
-    tb_logger.writer.add_text('FLAGS', str_flags, 0)
-    # todo find a way to store model graph
-    # tb_logger.write_model_graph(exp.mm_vae)
+def run_epochs(rank: any, exp: MimicExperiment) -> None:
+    """
+    rank: is int if multiprocessing and torch.device otherwise
+    """
+    print('running epochs')
+    exp.mm_vae = exp.mm_vae.to(rank)
+    args = exp.flags
+    args.device = rank
 
-    print('training epochs progress:')
+    if not exp.flags.distributed or rank % exp.flags.world_size == 0:
+        # set up logger only for one process
+        exp.tb_logger = exp.init_summary_writer()
+    if args.distributed:
+        utils.set_up_process_group(args.world_size, rank)
+        exp.mm_vae = DDP(exp.mm_vae, device_ids=[exp.flags.device])
+
+    train_sampler, train_loader = get_data_loaders(args, exp.dataset_train)
+    test_sampler, test_loader = get_data_loaders(args, exp.dataset_test)
+
+    callbacks = Callbacks(exp)
+
+    end = time.time()
     for epoch in tqdm(range(exp.flags.start_epoch, exp.flags.end_epoch), postfix='epochs'):
-        # utils.printProgressBar(epoch, exp.flags.end_epoch)
+        end = time.time()
+        samplers_set_epoch(args, train_sampler, test_sampler, epoch)
         # one epoch of training and testing
-        train(epoch, exp, tb_logger)
-        test(epoch, exp, tb_logger)
-        # save checkpoints every 5 epochs
-        if (epoch + 1) % 5 == 0 or (epoch + 1) == exp.flags.end_epoch:
-            dir_network_epoch = os.path.join(exp.flags.dir_checkpoints, str(epoch).zfill(4))
-            if not os.path.exists(dir_network_epoch):
-                os.makedirs(dir_network_epoch)
-            exp.mm_vae.save_networks()
-            torch.save(exp.mm_vae.state_dict(),
-                       os.path.join(dir_network_epoch, exp.flags.mm_vae_save))
+        train(exp, train_loader)
+        mean_eval_loss = test(epoch, exp, test_loader)
 
-    tb_logger.writer.close()
+        if callbacks.update_epoch(epoch, mean_eval_loss, time.time() - end):
+            break
+
+    if exp.tb_logger:
+        exp.tb_logger.writer.close()
+    if args.distributed:
+        dist.destroy_process_group()

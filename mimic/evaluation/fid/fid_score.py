@@ -72,7 +72,7 @@ parser.add_argument('-c', '--gpu', default='', type=str,
                     help='GPU to use (leave blank for CPU only)')
 
 
-def get_activations(files, model, batch_size=50, dims=2048,
+def get_activations(files, args, model, batch_size=50, dims=2048,
                     cuda=False, verbose=False):
     """Calculates the activations of the pool_3 layer for all images.
 
@@ -94,6 +94,7 @@ def get_activations(files, model, batch_size=50, dims=2048,
        query tensor.
     """
     model.eval()
+    model.to(args.device)
 
     if len(files) % batch_size != 0:
         print(('Warning: number of images is not a multiple of the '
@@ -122,10 +123,8 @@ def get_activations(files, model, batch_size=50, dims=2048,
         images = images.transpose((0, 3, 1, 2))
         images /= 255
 
-        batch = torch.from_numpy(images).type(torch.FloatTensor)
-        if cuda:
-            batch = batch.cuda()
-
+        batch = torch.from_numpy(images).type(torch.FloatTensor).cuda()
+        batch.to(args.device)
         pred = model(batch)[0]
 
         # If model output is not scalar, apply global spatial average pooling.

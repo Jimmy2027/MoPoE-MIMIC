@@ -48,10 +48,12 @@ def calculate_coherence(exp, samples) -> dict:
         pred_mods = np.zeros((len(mods.keys()), exp.flags.batch_size))
         for k, m_key in enumerate(mods.keys()):
             mod = mods[m_key];
-            clf_mod = clfs[mod.name];
+            clf_mod = clfs[mod.name].to(exp.flags.device)
             samples_mod = samples[mod.name]
             if m_key == 'text' and exp.flags.text_encoding == 'word':
                 samples_mod = torch.argmax(samples_mod, dim=-1)
+            samples_mod = samples_mod.to(exp.flags.device)
+
             attr_mod = clf_mod(samples_mod);
             output_prob_mod = attr_mod.cpu().data.numpy();
             pred_mod = np.argmax(output_prob_mod, axis=1).astype(int);
@@ -63,6 +65,7 @@ def calculate_coherence(exp, samples) -> dict:
 
 
 def test_generation(epoch, exp):
+    args = exp.flags
     mods = exp.modalities;
     mm_vae = exp.mm_vae;
     subsets = exp.subsets;
@@ -89,8 +92,10 @@ def test_generation(epoch, exp):
     for iteration, batch in tqdm(enumerate(d_loader), total=len(d_loader), postfix='test_generation'):
         batch_d = batch[0];
         batch_l = batch[1];
-        rand_gen = mm_vae.generate();
-        coherence_random = calculate_coherence(exp, rand_gen);
+        rand_gen = mm_vae.module.generate() if args.distributed else mm_vae.generate()
+        rand_gen = {k: v.to(args.device) for k, v in rand_gen.items()}
+
+        coherence_random = calculate_coherence(exp, rand_gen)
         for j, l_key in enumerate(exp.labels):
             gen_perf['random'][l_key].append(coherence_random[l_key]);
 
@@ -104,7 +109,6 @@ def test_generation(epoch, exp):
                 save_generated_samples_singlegroup(exp, iteration,
                                                    'real',
                                                    batch_d_temp);
-                batch_d_temp = 1
             else:
                 save_generated_samples_singlegroup(exp, iteration,
                                                    'real',
@@ -113,9 +117,10 @@ def test_generation(epoch, exp):
         for k, m_key in enumerate(batch_d.keys()):
             batch_d[m_key] = batch_d[m_key].to(exp.flags.device);
 
-        inferred = mm_vae.inference(batch_d);
+        inferred = mm_vae.module.inference(batch_d) if args.distributed else mm_vae.inference(batch_d)
         lr_subsets = inferred['subsets'];
-        cg = mm_vae.cond_generation(lr_subsets)
+        cg = mm_vae.module.cond_generation(lr_subsets) if args.distributed else mm_vae.cond_generation(lr_subsets)
+
         for k, s_key in enumerate(cg.keys()):
             clf_cg = classify_cond_gen_samples(exp,
                                                batch_l,

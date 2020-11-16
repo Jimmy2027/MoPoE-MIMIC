@@ -3,39 +3,43 @@ from sklearn.linear_model import LogisticRegression
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
+from mimic.networks.VAEtrimodalMimic import VAEtrimodalMimic
+from mimic.utils.experiment import MimicExperiment
 
-def train_clf_lr_all_subsets(exp):
+
+def train_clf_lr_all_subsets(exp: MimicExperiment):
+    args = exp.flags
     mm_vae = exp.mm_vae
     mm_vae.eval()
+    mm_vae: VAEtrimodalMimic
     subsets = exp.subsets
 
     d_loader = DataLoader(exp.dataset_train, batch_size=exp.flags.batch_size,
                           shuffle=True,
-                          num_workers=exp.flags.dataloader_workers, drop_last=True)
-
+                          num_workers=args.dataloader_workers // args.world_size if args.distributed else args.dataloader_workers,
+                          drop_last=True)
     if exp.flags.dataset == 'testing':
         training_steps = exp.flags.steps_per_training_epoch
     else:
         training_steps = len(d_loader)
 
-    bs = exp.flags.batch_size;
-    num_batches_epoch = int(exp.dataset_train.__len__() / float(bs));
-    class_dim = exp.flags.class_dim;
-    n_samples = int(exp.dataset_train.__len__());
-    data_train = dict();
+    bs = exp.flags.batch_size
+    num_batches_epoch = int(exp.dataset_train.__len__() / float(bs))
+    class_dim = exp.flags.class_dim
+    n_samples = int(exp.dataset_train.__len__())
+    data_train = dict()
     for k, s_key in enumerate(subsets.keys()):
         if s_key != '':
             data_train[s_key] = np.zeros((n_samples,
                                           class_dim))
     all_labels = np.zeros((n_samples, len(exp.labels)))
-    for it, batch in tqdm(enumerate(d_loader), total=training_steps, postfix='train_clf_lr'):
+    for it, (batch_d, batch_l) in tqdm(enumerate(d_loader), total=training_steps, postfix='train_clf_lr'):
         if it > training_steps:
             break
-        batch_d = batch[0]
-        batch_l = batch[1]
-        for k, m_key in enumerate(batch_d.keys()):
-            batch_d[m_key] = batch_d[m_key].to(exp.flags.device)
-        inferred = mm_vae.inference(batch_d)
+
+        batch_d = {k: v.to(exp.flags.device) for k, v in batch_d.items()}
+        inferred = mm_vae.module.inference(batch_d) if args.distributed else mm_vae.inference(batch_d)
+
         lr_subsets = inferred['subsets']
         all_labels[(it * bs):((it + 1) * bs), :] = np.reshape(batch_l, (bs,
                                                                         len(exp.labels)))
@@ -54,46 +58,46 @@ def train_clf_lr_all_subsets(exp):
 
 
 def test_clf_lr_all_subsets(epoch, clf_lr, exp):
-    mm_vae = exp.mm_vae;
-    mm_vae.eval();
-    subsets = exp.subsets;
+    args = exp.flags
+    mm_vae = exp.mm_vae
+    mm_vae.eval()
+    subsets = exp.subsets
 
-    lr_eval = dict();
+    lr_eval = dict()
     for l, label_str in enumerate(exp.labels):
-        lr_eval[label_str] = dict();
+        lr_eval[label_str] = dict()
         for k, s_key in enumerate(subsets.keys()):
             if s_key != '':
-                lr_eval[label_str][s_key] = [];
+                lr_eval[label_str][s_key] = []
 
     d_loader = DataLoader(exp.dataset_test, batch_size=exp.flags.batch_size,
                           shuffle=True,
-                          num_workers=exp.flags.dataloader_workers, drop_last=True);
+                          num_workers=exp.flags.dataloader_workers, drop_last=True)
 
-    num_batches_epoch = int(exp.dataset_test.__len__() / float(exp.flags.batch_size));
     for iteration, batch in enumerate(d_loader):
-        batch_d = batch[0];
-        batch_l = batch[1];
-        for k, m_key in enumerate(batch_d.keys()):
-            batch_d[m_key] = batch_d[m_key].to(exp.flags.device);
-        inferred = mm_vae.inference(batch_d);
-        lr_subsets = inferred['subsets'];
-        data_test = dict();
+        batch_d = batch[0]
+        batch_l = batch[1]
+        batch_d = {k: v.to(exp.flags.device) for k, v in batch_d.items()}
+
+        inferred = mm_vae.module.inference(batch_d) if args.distributed else mm_vae.inference(batch_d)
+        lr_subsets = inferred['subsets']
+        data_test = dict()
         for k, key in enumerate(lr_subsets.keys()):
-            data_test[key] = lr_subsets[key][0].cpu().data.numpy();
+            data_test[key] = lr_subsets[key][0].cpu().data.numpy()
         evals = classify_latent_representations(exp,
                                                 epoch,
                                                 clf_lr,
                                                 data_test,
-                                                batch_l);
+                                                batch_l)
         for l, label_str in enumerate(exp.labels):
-            eval_label = evals[label_str];
+            eval_label = evals[label_str]
             for k, s_key in enumerate(eval_label.keys()):
-                lr_eval[label_str][s_key].append(eval_label[s_key]);
+                lr_eval[label_str][s_key].append(eval_label[s_key])
     for l, l_key in enumerate(lr_eval.keys()):
-        lr_eval_label = lr_eval[l_key];
+        lr_eval_label = lr_eval[l_key]
         for k, s_key in enumerate(lr_eval_label.keys()):
-            lr_eval[l_key][s_key] = exp.mean_eval_metric(lr_eval_label[s_key]);
-    return lr_eval;
+            lr_eval[l_key][s_key] = exp.mean_eval_metric(lr_eval_label[s_key])
+    return lr_eval
 
 
 def classify_latent_representations(exp, epoch, clf_lr, data, labels):
@@ -119,19 +123,19 @@ def classify_latent_representations(exp, epoch, clf_lr, data, labels):
 
 
 def train_clf_lr(exp, data, labels):
-    labels = np.reshape(labels, (labels.shape[0], len(exp.labels)));
-    clf_lr_labels = dict();
+    labels = np.reshape(labels, (labels.shape[0], len(exp.labels)))
+    clf_lr_labels = dict()
     for l, label_str in enumerate(exp.labels):
-        gt = labels[:, l];
-        clf_lr_reps = dict();
+        gt = labels[:, l]
+        clf_lr_reps = dict()
         for s_key in data.keys():
-            data_rep = data[s_key];
-            clf_lr_s = LogisticRegression(random_state=0, solver='lbfgs', multi_class='auto', max_iter=1000);
+            data_rep = data[s_key]
+            clf_lr_s = LogisticRegression(random_state=0, solver='lbfgs', multi_class='auto', max_iter=1000)
             if exp.flags.dataset == 'testing':
                 # when using the testing dataset, the vae data_rep might contain nans. Replace them for testing purposes
                 clf_lr_s.fit(np.nan_to_num(data_rep), gt.ravel())
             else:
                 clf_lr_s.fit(data_rep, gt.ravel())
-            clf_lr_reps[s_key] = clf_lr_s;
-        clf_lr_labels[label_str] = clf_lr_reps;
-    return clf_lr_labels;
+            clf_lr_reps[s_key] = clf_lr_s
+        clf_lr_labels[label_str] = clf_lr_reps
+    return clf_lr_labels

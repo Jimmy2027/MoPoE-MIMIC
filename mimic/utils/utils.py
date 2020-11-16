@@ -1,9 +1,10 @@
 import os
 
 import torch
-import torch.distributions as dist
+import torch.distributed as dist
 from torch.autograd import Variable
 import json
+from pathlib import Path
 
 
 # Print iterations progress
@@ -26,21 +27,6 @@ def printProgressBar(iteration, total, prefix='', suffix='', decimals=1, length=
     # Print New Line on Complete
     if iteration == total:
         print()
-
-
-def get_likelihood(str):
-    if str == 'laplace':
-        pz = dist.Laplace;
-    elif str == 'bernoulli':
-        pz = dist.Bernoulli;
-    elif str == 'normal':
-        pz = dist.Normal;
-    elif str == 'categorical':
-        pz = dist.OneHotCategorical;
-    else:
-        print('likelihood not implemented')
-        pz = None;
-    return pz;
 
 
 def reparameterize(mu, logvar):
@@ -169,10 +155,24 @@ def get_clf_path(clf_dir: str, clf_name: str) -> str:
     if clf_name.startswith('clf_text_'):
         return None
     else:
-        FileNotFoundError, f'No {clf_name} classifier was found in {clf_dir}'
+        raise FileNotFoundError(f'No {clf_name} classifier was found in {clf_dir}')
 
 
-def get_alphabet(alphabet_path : str = os.path.join(os.getcwd(), 'alphabet.json')):
+def get_alphabet(alphabet_path=Path(__file__).parent.parent / 'alphabet.json'):
     with open(alphabet_path) as alphabet_file:
         alphabet = str(''.join(json.load(alphabet_file)))
     return alphabet
+
+
+def at_most_n(X, n):
+    """
+    Yields at most n elements from iterable X.
+    """
+    for (x, __) in zip(X, range(n)):
+        yield x
+
+
+def set_up_process_group(world_size: int, rank) -> None:
+    os.environ['MASTER_ADDR'] = 'localhost'
+    os.environ['MASTER_PORT'] = '12355'
+    dist.init_process_group(backend="gloo", world_size=world_size, rank=rank)

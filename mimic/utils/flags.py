@@ -3,6 +3,8 @@ import json
 
 from mimic.utils.BaseFlags import parser as parser
 from mimic.utils.filehandling import get_config_path
+from mimic.utils.filehandling import create_dir_structure, expand_paths, create_dir_structure_testing, get_config_path, \
+    get_method
 
 parser.add_argument('--dataset', type=str, default='Mimic', help="name of the dataset")
 
@@ -38,6 +40,17 @@ parser.add_argument('--img_clf_type', type=str, default='resnet',
 parser.add_argument('--clf_save_m1', type=str, default='clf_m1', help="model save for clf")
 parser.add_argument('--clf_save_m2', type=str, default='clf_m2', help="model save for clf")
 parser.add_argument('--clf_save_m3', type=str, default='clf_m3', help="model save for clf")
+parser.add_argument('--clf_loss', type=str, default='binary_crossentropy',
+                    choices=['binary_crossentropy', 'crossentropy', 'bce_with_logits'], help="model save for clf")
+
+# Callbacks
+parser.add_argument('--reduce_lr_on_plateau', type=bool, default=False,
+                    help="boolean indicating if ccallback 'reduce lr on plateau' is used")
+parser.add_argument('--max_early_stopping_index', type=int, default=5,
+                    help="patience of the early stopper. If the target metric did not improve "
+                         "for that amount of epochs, training is stopepd")
+parser.add_argument('--start_early_stopping_epoch', type=int, default=0,
+                    help="epoch on which to start the early stopping callback")
 
 # LOSS TERM WEIGHTS
 parser.add_argument('--beta_m1_style', type=float, default=1.0, help="default weight divergence term style modality 1")
@@ -53,10 +66,32 @@ parser.add_argument('--div_weight_uniform_content', type=float, default=0.25,
                     help="default weight divergence term prior")
 
 
-def update_flags_with_config(flags):
-    config_path = get_config_path()
+def update_flags_with_config(flags, config_path, additional_args={}, testing=False):
+
     with open(config_path, 'rt') as json_file:
         t_args = argparse.Namespace()
-        t_args.__dict__.update(json.load(json_file))
+        json_config = json.load(json_file)
+    t_args.__dict__.update({**json_config, **additional_args})
+    if testing:
+        flags = parser.parse_args([], namespace=t_args)
+    else:
         flags = parser.parse_args(namespace=t_args)
+
+    return flags
+
+
+def setup_flags(flags, config_path=None, testing=False):
+    import torch
+    if config_path:
+        flags = update_flags_with_config(flags, config_path, testing=testing)
+    flags = expand_paths(flags)
+    use_cuda = torch.cuda.is_available()
+    flags.device = torch.device('cuda' if use_cuda else 'cpu')
+    flags = flags_set_alpha_modalities(flags)
+    return flags
+
+
+def flags_set_alpha_modalities(flags):
+    flags.alpha_modalities = [flags.div_weight_uniform_content, flags.div_weight_m1_content,
+                              flags.div_weight_m2_content, flags.div_weight_m3_content]
     return flags
