@@ -2,6 +2,7 @@ import PIL.Image as Image
 import torch
 from torchvision import transforms
 
+import mimic.modalities.utils
 from mimic.modalities.Modality import Modality
 from mimic.utils import utils
 from mimic.utils.save_samples import write_samples_img_to_file
@@ -16,7 +17,7 @@ class MimicLateral(Modality):
         self.file_suffix = '.png';
         self.encoder = enc;
         self.decoder = dec;
-        self.likelihood = utils.get_likelihood(self.likelihood_name);
+        self.likelihood = mimic.modalities.utils.get_likelihood(self.likelihood_name);
 
     def save_data(self, exp, d, fn, args):
         img_per_row = args['img_per_row'];

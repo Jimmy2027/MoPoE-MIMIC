@@ -1,5 +1,6 @@
 import torch
 
+import mimic.modalities.utils
 from mimic.modalities.Modality import Modality
 from mimic.utils import plot
 from mimic.utils import utils
@@ -21,7 +22,7 @@ class Text(Modality):
         self.file_suffix = '.txt';
         self.encoder = enc;
         self.decoder = dec;
-        self.likelihood = utils.get_likelihood(self.likelihood_name);
+        self.likelihood = mimic.modalities.utils.get_likelihood(self.likelihood_name);
 
     def save_data(self, d, fn, args):
         write_samples_text_to_file(tensor_to_text(self.alphabet,
