@@ -47,8 +47,15 @@ def loss_text(input, target, norm_value=None):
     return reconstruct_error_text
 
 
-def clf_loss(estimate, gt):
-    loss = F.binary_cross_entropy(estimate, gt, reduction='mean')
+def clf_loss(args, estimate, gt):
+    if args.clf_loss == 'binary_crossentropy':
+        loss = F.binary_cross_entropy(estimate, gt, reduction='mean')
+    elif args.clf_loss == 'crossentropy':
+        loss = F.cross_entropy(estimate, gt.long())
+    elif args.clf_loss == 'bce_with_logits':
+        loss = torch.nn.BCEWithLogitsLoss()(estimate, gt)
+    else:
+        raise NotImplementedError(f'{args.clf_loss} is not implemented yet')
     return loss
 
 
