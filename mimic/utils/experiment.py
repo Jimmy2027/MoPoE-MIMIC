@@ -1,12 +1,13 @@
 import os
 import random
-
+from typing import Protocol, Optional
 import numpy as np
 import pandas as pd
 import torch
 import torch.optim as optim
 from PIL import ImageFont
 from sklearn.metrics import average_precision_score
+from tensorboardX import SummaryWriter
 
 from mimic.dataio.MimicDataset import Mimic, Mimic_testing
 from mimic.modalities.MimicLateral import MimicLateral
@@ -17,9 +18,12 @@ from mimic.networks.ConvNetworkTextClf import ClfText as ClfText
 from mimic.networks.ConvNetworksImgMimic import EncoderImg, DecoderImg
 from mimic.networks.ConvNetworksTextMimic import EncoderText, DecoderText
 from mimic.networks.VAEtrimodalMimic import VAEtrimodalMimic
-from mimic.networks.main_train_clf_text_mimic import training_procedure_clf
+from mimic.networks.classifiers.main_train_clf_mimic import training_procedure_clf
+from mimic.utils import utils
 from mimic.utils.BaseExperiment import BaseExperiment
+from mimic.utils.TBLogger import TBLogger
 from mimic.utils.utils import get_clf_path, get_alphabet
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 
 class MimicExperiment(BaseExperiment):
@@ -32,7 +36,6 @@ class MimicExperiment(BaseExperiment):
         self.plot_img_size = torch.Size((1, 128, 128))
 
         self.font = ImageFont.truetype('FreeSerif.ttf', 38)
-
         if self.flags.text_encoding == 'char':
             self.alphabet = get_alphabet()
             self.flags.num_features = len(self.alphabet)
@@ -57,6 +60,7 @@ class MimicExperiment(BaseExperiment):
 
         self.restart_experiment = False  # if the model returns nans, the workflow gets started again
         self.number_restarts = 0
+        self.tb_logger = None
 
     def set_model(self):
         # available_gpus = torch.cuda.device_count()
@@ -65,7 +69,6 @@ class MimicExperiment(BaseExperiment):
         # todo find way to train model on multiple GPUs
         # if torch.cuda.device_count() > 1:
         #     model = torch.nn.DataParallel(model)
-        model = model.to(self.flags.device)
         return model
 
     def set_modalities(self):
@@ -204,3 +207,77 @@ class MimicExperiment(BaseExperiment):
                 self.experiments_dataframe['experiment_uid'] == self.experiment_uid, key] = values_dict[key]
         if not self.flags.dataset == 'testing':
             self.experiments_dataframe.to_csv('experiments_dataframe.csv', index=False)
+
+    def init_summary_writer(self):
+        print(f'setting up summary writer for device {self.flags.device}')
+        # initialize summary writer
+        writer = SummaryWriter(self.flags.dir_logs)
+        tb_logger = TBLogger(self.flags.str_experiment, writer)
+        str_flags = utils.save_and_log_flags(self.flags)
+        tb_logger.writer.add_text('FLAGS', str_flags, 0)
+        # todo find a way to store model graph
+        # tb_logger.write_model_graph(exp.mm_vae)
+        return tb_logger
+
+
+class Callbacks:
+    def __init__(self, exp: MimicExperiment):
+        self.args = exp.flags
+        self.exp = exp
+        self.logger: TBLogger = exp.tb_logger
+        optimizer = exp.optimizer
+        self.experiment_df = exp.experiments_dataframe
+        self.start_early_stopping_epoch = self.args.start_early_stopping_epoch
+        self.max_early_stopping_index = self.args.max_early_stopping_index
+        # initialize with huge loss
+        self.losses = [1e10]
+        self.patience_idx = 1
+        self.scheduler = ReduceLROnPlateau(optimizer, 'min', patience=5, verbose=True)
+        self.elapsed_times = []
+
+    def update_epoch(self, epoch, loss, elapsed_time):
+        stop_early = False
+        self.elapsed_times.append(elapsed_time)
+        self.scheduler.step(loss)
+        if self.logger:
+            self.logger.writer.add_scalars(f'test/mean_loss', {'mean_loss': loss}, epoch)
+
+        print(f'current test loss: {loss}')
+        self.save_checkpoint(epoch)
+
+        if epoch > self.start_early_stopping_epoch and loss < min(self.losses):
+            print(f'current test loss {loss} improved from {min(self.losses)}'
+                  f' at epoch {np.argmin(self.losses)}')
+            if self.logger:
+                self.exp.update_experiments_dataframe({'total_test_loss': loss, 'total_epochs': epoch})
+            self.patience_idx = 1
+
+        elif self.patience_idx > self.max_early_stopping_index:
+            stop_early = True
+
+        else:
+            if epoch > self.start_early_stopping_epoch:
+                print(f'current test loss {loss} did not improve from {min(self.losses)} '
+                      f'at epoch {np.argmin(self.losses)}')
+                print(f'-- idx_early_stopping = {self.patience_idx} / {self.max_early_stopping_index}')
+                self.patience_idx += 1
+
+        self.losses.append(loss)
+        return stop_early
+
+    def save_checkpoint(self, epoch):
+        # save checkpoints every 5 epochs
+        if ((epoch + 1) % 5 == 0 or (epoch + 1) == self.exp.flags.end_epoch) and self.exp.tb_logger:
+            dir_network_epoch = os.path.join(self.exp.flags.dir_checkpoints, str(epoch).zfill(4))
+            if not os.path.exists(dir_network_epoch):
+                os.makedirs(dir_network_epoch)
+            if self.args.distributed:
+                self.exp.mm_vae.module.save_networks()
+            else:
+                self.exp.mm_vae.save_networks()
+            torch.save(self.exp.mm_vae.state_dict(),
+                       os.path.join(dir_network_epoch, self.exp.flags.mm_vae_save))
+
+
+class NaNInLatent(Exception):
+    pass
