@@ -43,8 +43,8 @@ class Mimic(Dataset):
         self._filter_labels()
         self.get_report_findings_dataset(dir_dataset)
         if self.args.text_encoding == 'char':
-            self.alphabet = get_alphabet()
-            args.num_features = len(self.alphabet)
+            self.args.alphabet = get_alphabet()
+            args.num_features = len(self.args.alphabet)
         self.transform_img = get_transform_img(args)
 
     def __getitem__(self, index):
@@ -57,7 +57,7 @@ class Mimic(Dataset):
                 text_str = self.report_findings[index]
                 if len(text_str) > self.args.len_sequence:
                     text_str = text_str[:self.args.len_sequence]
-                text_vec = text.one_hot_encode(self.args.len_sequence, self.alphabet, text_str)
+                text_vec = text.one_hot_encode(self.args.len_sequence, self.args.alphabet, text_str)
             elif self.args.text_encoding == 'word':
                 text_vec = self.report_findings_dataset.__getitem__(index)
             else:
@@ -300,13 +300,17 @@ class Mimic_testing(Dataset):
         self.vocab_size = 3517
         self.flags = flags
         self.report_findings_dataset = Report_findings_dataset_test(self.vocab_size)
+        if self.flags.text_encoding == 'char':
+            self.flags.alphabet = get_alphabet()
+            self.flags.num_features = len(self.flags.alphabet)
 
     def __getitem__(self, index):
         img_size = (self.flags.img_size, self.flags.img_size)
         try:
-            if self.flags.img_clf_type == 'cheXnet' or self.flags.feature_extractor_img == 'densenet':
+            if (self.flags.img_clf_type == 'cheXnet' or self.flags.feature_extractor_img == 'densenet'):
                 sample = {'PA': torch.rand(self.flags.n_crops, 3, *img_size).float(),
                           'Lateral': torch.rand(self.flags.n_crops, 3, *img_size).float()}
+
             else:
                 sample = {'PA': torch.rand(1, *img_size).float(),
                           'Lateral': torch.rand(1, *img_size).float()}
