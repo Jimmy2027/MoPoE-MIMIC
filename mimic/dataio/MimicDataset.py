@@ -40,7 +40,9 @@ class Mimic(Dataset):
         self.imgs_pa = torch.load(fn_img_pa)
         self.imgs_lat = torch.load(fn_img_lat)
         self.report_findings = pd.read_csv(fn_findings)['findings']
+        # need to filter out labels that contain the label "-1"
         self._filter_labels()
+        # if word_encoding == word, need dataset for report_findings that contains the encodings.
         self.get_report_findings_dataset(dir_dataset)
         if self.args.text_encoding == 'char':
             self.args.alphabet = get_alphabet()

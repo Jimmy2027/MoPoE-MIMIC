@@ -47,8 +47,11 @@ class Main:
 
     def run_epochs(self) -> Union[bool, str]:
         """
-        Wrapper of mimic.run_epochs.run_epochs that checks if the workflow was completed and starts it over otherwise
-        returns bool: true if run_epochs finishes, False if an error occurs
+        Wrapper of mimic.run_epochs.run_epochs that checks if the workflow was completed and starts it over otherwise.
+
+        returns
+            bool: true if run_epochs finishes, False if an error occurs
+            string: "cuda_out_of_memory" if GPU runs out of memory
         """
         print(colored(f'current GPU load: {get_gpu_memory()}', 'red'))
         self.start_time = timer()
@@ -91,6 +94,7 @@ class Main:
         """
         success = False
         while not success and self.current_tries < self.max_tries:
+
             success = self.run_epochs()
 
             if not success:
