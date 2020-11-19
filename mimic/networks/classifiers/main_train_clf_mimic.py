@@ -7,7 +7,6 @@ import numpy as np
 import torch
 import torch.optim as optim
 from sklearn.metrics import average_precision_score
-from sklearn.model_selection import ParameterGrid
 from tensorboardX import SummaryWriter
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
@@ -48,11 +47,10 @@ def train_clf(flags, epoch, model, data_loader: DataLoader, log_writer, modality
     name_logs = f"train_clf_{modality}"
     model.train()
 
-    num_batches_train = np.floor(num_samples_train / flags.batch_size)
-    print(f'total training epoch steps {num_batches_train}')
+    num_batches_train = int(np.floor(num_samples_train / flags.batch_size))
     step = epoch * num_batches_train
 
-    for idx, (batch_d, batch_l) in tqdm(enumerate(data_loader), total=num_batches_train, postfix='training epoch'):
+    for idx, (batch_d, batch_l) in tqdm(enumerate(data_loader), total=len(data_loader), postfix='training epoch'):
         imgs, bs, n_crops = get_input(flags, batch_d[modality], modality)
         labels = Variable(batch_l).to(flags.device)
         optimizer.zero_grad()
@@ -79,7 +77,7 @@ def train_clf(flags, epoch, model, data_loader: DataLoader, log_writer, modality
 def eval_clf(flags, epoch, model, data_loader: DataLoader, log_writer, modality: str):
     num_samples_test = data_loader.__len__()
     model.eval()
-    num_batches_eval = np.floor(num_samples_test / flags.batch_size)
+    num_batches_eval = int(np.floor(num_samples_test / flags.batch_size))
     step = epoch * num_batches_eval
 
     losses = []
@@ -87,7 +85,7 @@ def eval_clf(flags, epoch, model, data_loader: DataLoader, log_writer, modality:
     list_gt = []
     with torch.no_grad():
         name_logs = f"eval_clf_{modality}"
-        for idx, (batch_d, batch_l) in tqdm(enumerate(data_loader), total=num_batches_eval, postfix='eval epoch'):
+        for idx, (batch_d, batch_l) in tqdm(enumerate(data_loader), total=len(data_loader), postfix='eval epoch'):
             imgs, bs, n_crops = get_input(flags, batch_d[modality], modality)
             gt = Variable(batch_l).to(flags.device)
             attr_hat = model(imgs)

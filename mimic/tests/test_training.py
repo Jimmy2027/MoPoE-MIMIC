@@ -52,7 +52,7 @@ class TestTraining(TestCase):
         FLAGS.calc_prd = True
         FLAGS.save_figure = False
         FLAGS.end_epoch = 2
-        FLAGS.batch_size = 10
+        FLAGS.batch_size = 5
         FLAGS.eval_freq = 1
         FLAGS.vocab_size = 3517
         FLAGS.feature_extractor_img = feature_extractor_img

@@ -201,7 +201,7 @@ def get_imgs_from_crops(input: torch.Tensor, device):
 
 
 def get_input(args: any, input: torch.Tensor, modality):
-    if args.img_clf_type == 'cheXnet' and modality != 'text':
+    if args.img_clf_type == 'cheXnet' and modality != 'text' and args.n_crops in [5, 10]:
         imgs, bs, n_crops = get_imgs_from_crops(input, args.device)
     else:
         imgs = Variable(input).to(args.device)

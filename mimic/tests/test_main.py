@@ -7,15 +7,18 @@ import pytest
 from mimic.main_mimic import Main
 from mimic.utils.filehandling import get_config_path
 from mimic.utils.flags import parser
+import numpy as np
 
 
 @pytest.mark.slow
-@pytest.mark.parametrize("img_size,text_encoding", [(128, 'word'), (256, 'char')])
-def test_main(img_size, text_encoding):
+@pytest.mark.parametrize("img_size,text_encoding,feature_extractor_img",
+                         [(128, 'word', 'resnet'), (256, 'char', 'resnet'), (256, 'word', 'densenet')])
+def test_main(img_size, text_encoding, feature_extractor_img):
     with tempfile.TemporaryDirectory() as tmpdirname:
         config = {
             "img_size": img_size,
             "text_encoding": text_encoding,
+            "feature_extractor_img": feature_extractor_img,
             "reduce_lr_on_plateau": True,
             "steps_per_training_epoch": 5,
             "method": "joint_elbo",
@@ -42,4 +45,8 @@ def test_main(img_size, text_encoding):
             json.dump(json_config, outfile)
         assert os.path.exists(config_path)
         main = Main(flags, config_path, testing=True)
-        success = main.run_epochs()
+        main.main()
+
+
+# if __name__ == '__main__':
+    # test_main_densenet()

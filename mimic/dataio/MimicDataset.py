@@ -237,10 +237,7 @@ class MimicSentences(Dataset):
         Creates a list of all the findings
         """
         report_findings = self.findings
-        sentences = []
-        for sentence in report_findings:
-            sentences.append(sentence)
-        return sentences
+        return [sentence for sentence in report_findings]
 
     def _create_vocab(self):
 
@@ -249,8 +246,8 @@ class MimicSentences(Dataset):
         sentences = self._tokenize_raw_data()
 
         occ_register = OrderedCounter()
-        w2i = dict()
-        i2w = dict()
+        w2i = {}
+        i2w = {}
 
         special_tokens = ['<exc>', '<pad>', '<eos>']
         for st in special_tokens:
@@ -308,9 +305,12 @@ class Mimic_testing(Dataset):
         img_size = (self.flags.img_size, self.flags.img_size)
         try:
             if (self.flags.img_clf_type == 'cheXnet' or self.flags.feature_extractor_img == 'densenet'):
-                sample = {'PA': torch.rand(self.flags.n_crops, 3, *img_size).float(),
-                          'Lateral': torch.rand(self.flags.n_crops, 3, *img_size).float()}
-
+                if self.flags.n_crops in [5, 10]:
+                    sample = {'PA': torch.rand(self.flags.n_crops, 3, *img_size).float(),
+                              'Lateral': torch.rand(self.flags.n_crops, 3, *img_size).float()}
+                else:
+                    sample = {'PA': torch.rand(3, *img_size).float(),
+                              'Lateral': torch.rand(3, *img_size).float()}
             else:
                 sample = {'PA': torch.rand(1, *img_size).float(),
                           'Lateral': torch.rand(1, *img_size).float()}
@@ -332,6 +332,6 @@ class Mimic_testing(Dataset):
 
 class Report_findings_dataset_test(Dataset):
     def __init__(self, vocab_size: int):
-        self.i2w = dict()
+        self.i2w = {}
         for i in range(vocab_size + 1):
             self.i2w[str(i)] = 'w'  # arbitrary letter

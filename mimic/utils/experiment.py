@@ -1,6 +1,7 @@
 import os
 import random
-from typing import Protocol, Optional
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import torch
@@ -8,6 +9,7 @@ import torch.optim as optim
 from PIL import ImageFont
 from sklearn.metrics import average_precision_score
 from tensorboardX import SummaryWriter
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from mimic.dataio.MimicDataset import Mimic, Mimic_testing
 from mimic.modalities.MimicLateral import MimicLateral
@@ -18,12 +20,10 @@ from mimic.networks.ConvNetworkTextClf import ClfText as ClfText
 from mimic.networks.ConvNetworksImgMimic import EncoderImg, DecoderImg
 from mimic.networks.ConvNetworksTextMimic import EncoderText, DecoderText
 from mimic.networks.VAEtrimodalMimic import VAEtrimodalMimic
-from mimic.networks.classifiers.main_train_clf_mimic import training_procedure_clf
 from mimic.utils import utils
 from mimic.utils.BaseExperiment import BaseExperiment
 from mimic.utils.TBLogger import TBLogger
 from mimic.utils.utils import get_clf_path, get_alphabet
-from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 
 class MimicExperiment(BaseExperiment):
@@ -35,7 +35,8 @@ class MimicExperiment(BaseExperiment):
         self.dataset = flags.dataset
         self.plot_img_size = torch.Size((1, 128, 128))
 
-        self.font = ImageFont.truetype('FreeSerif.ttf', 38)
+        self.font = ImageFont.truetype(str(Path(__file__).parent.parent / 'FreeSerif.ttf'),
+                                       38) if not flags.distributed else None
         if self.flags.text_encoding == 'char':
             self.alphabet = get_alphabet()
             self.flags.num_features = len(self.alphabet)
@@ -80,8 +81,7 @@ class MimicExperiment(BaseExperiment):
         mod3 = MimicText(EncoderText(self.flags, self.flags.style_text_dim),
                          DecoderText(self.flags, self.flags.style_text_dim), self.flags.len_sequence,
                          self.plot_img_size, self.font, self.flags)
-        mods = {mod1.name: mod1, mod2.name: mod2, mod3.name: mod3}
-        return mods;
+        return {mod1.name: mod1, mod2.name: mod2, mod3.name: mod3}
 
     def set_dataset(self):
         print('setting dataset')
@@ -118,17 +118,12 @@ class MimicExperiment(BaseExperiment):
             model_clf_m3 = ClfText(self.flags, self.labels)
             clf_m3_path = get_clf_path(self.flags.dir_clf, f'clf_text_{self.flags.text_encoding}_encoding')
 
-            if not clf_m3_path:
-                print(f'training classifier for text modality with {self.flags.text_encoding} encoding, '
-                      f'this may take some time...')
-                training_procedure_clf(self.flags)
             model_clf_m3.load_state_dict(torch.load(clf_m3_path))
             model_clf_m3 = model_clf_m3.to(self.flags.device)
 
-        clfs = {'PA': model_clf_m1,
+        return {'PA': model_clf_m1,
                 'Lateral': model_clf_m2,
                 'text': model_clf_m3}
-        return clfs;
 
     def set_optimizer(self):
         print('setting optimizer')
@@ -141,7 +136,7 @@ class MimicExperiment(BaseExperiment):
 
     def set_rec_weights(self):
         print('setting rec_weights')
-        rec_weights = dict()
+        rec_weights = {}
         ref_mod_d_size = self.modalities['PA'].data_size.numel()
         for k, m_key in enumerate(self.modalities.keys()):
             mod = self.modalities[m_key]
@@ -150,11 +145,11 @@ class MimicExperiment(BaseExperiment):
         return rec_weights
 
     def set_style_weights(self):
-        weights = dict()
-        weights['PA'] = self.flags.beta_m1_style
-        weights['Lateral'] = self.flags.beta_m2_style
-        weights['text'] = self.flags.beta_m3_style
-        return weights
+        return {
+            'PA': self.flags.beta_m1_style,
+            'Lateral': self.flags.beta_m2_style,
+            'text': self.flags.beta_m3_style,
+        }
 
     def get_prediction_from_attr(self, values):
         return values.ravel()
@@ -162,7 +157,7 @@ class MimicExperiment(BaseExperiment):
     def get_test_samples(self, num_images=10):
         n_test = self.dataset_test.__len__()
         samples = []
-        for i in range(num_images):
+        for _ in range(num_images):
             sample, target = self.dataset_test.__getitem__(random.randint(0, n_test - 1))
             for k, key in enumerate(sample):
                 sample[key] = sample[key].to(self.flags.device)
@@ -188,13 +183,11 @@ class MimicExperiment(BaseExperiment):
             flags_dict['experiment_uid'] = self.experiment_uid
             flags_dict['total_epochs'] = 0
             flags_dict['experiment_duration'] = -1
-            experiments_dataframe = experiments_dataframe.append(flags_dict, ignore_index=True)
         else:
             experiments_dataframe = pd.DataFrame()
             flags_dict = vars(self.flags)
             flags_dict['experiment_uid'] = self.experiment_uid
-            experiments_dataframe = experiments_dataframe.append(flags_dict, ignore_index=True)
-
+        experiments_dataframe = experiments_dataframe.append(flags_dict, ignore_index=True)
         return experiments_dataframe
 
     def update_experiments_dataframe(self, values_dict: dict):
@@ -205,7 +198,7 @@ class MimicExperiment(BaseExperiment):
         for key in values_dict:
             self.experiments_dataframe.loc[
                 self.experiments_dataframe['experiment_uid'] == self.experiment_uid, key] = values_dict[key]
-        if not self.flags.dataset == 'testing':
+        if self.flags.dataset != 'testing':
             self.experiments_dataframe.to_csv('experiments_dataframe.csv', index=False)
 
     def init_summary_writer(self):
@@ -253,6 +246,10 @@ class Callbacks:
             self.patience_idx = 1
 
         elif self.patience_idx > self.max_early_stopping_index:
+            print(
+                f'stopping early at epoch {epoch} because current test loss {loss} '
+                f'did not improve from {min(self.losses)} '
+                f'at epoch {np.argmin(self.losses)}')
             stop_early = True
 
         else:
@@ -278,6 +275,5 @@ class Callbacks:
             torch.save(self.exp.mm_vae.state_dict(),
                        os.path.join(dir_network_epoch, self.exp.flags.mm_vae_save))
 
-
-class NaNInLatent(Exception):
-    pass
+    def write_mean_epoch_time_to_expdf(self):
+        self.exp.update_experiments_dataframe({'mean_epoch_time': np.mean(self.elapsed_times)})

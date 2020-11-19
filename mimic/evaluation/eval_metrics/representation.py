@@ -38,9 +38,9 @@ def train_clf_lr_all_subsets(exp: MimicExperiment):
         """
         Constructs the training set (labels and inferred subsets) for the classifier training.
         """
-        if it > training_steps and len(np.unique(all_labels)) > 1:
-            # labels need at least 2 classes to train the clf
-            break
+        # if it > training_steps and len(np.unique(all_labels)) > 1:
+        #     # labels need at least 2 classes to train the clf
+        #     break
 
         batch_d = {k: v.to(exp.flags.device) for k, v in batch_d.items()}
         inferred = mm_vae.module.inference(batch_d) if args.distributed else mm_vae.inference(batch_d)

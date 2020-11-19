@@ -1,16 +1,17 @@
-from unittest import TestCase
-from mimic.networks.classifiers.utils import set_clf_paths, ExperimentDf, get_models, LABELS, Callbacks
-from collections import namedtuple
-import tempfile
-from tensorboardX import SummaryWriter
-import torch.optim as optim
-from dataclasses import dataclass
-import torch
 import os
+import tempfile
+from dataclasses import dataclass
+from unittest import TestCase
+
+import torch
+import torch.optim as optim
+from tensorboardX import SummaryWriter
+
+from mimic.networks.classifiers.utils import ExperimentDf, get_models, Callbacks, CallbacksProto
 
 
 @dataclass
-class Args:
+class Args(CallbacksProto):
     img_clf_type = 'resnet'
     img_size = 128
     image_channels = 10
@@ -19,6 +20,7 @@ class Args:
     experiment_uid: str = 'temp'
     use_cuda = torch.cuda.is_available()
     device = torch.device('cuda' if use_cuda else 'cpu')
+    distributed: bool = False
 
     def __init__(self, tmpdirname: str):
         self.tempdirname = tmpdirname

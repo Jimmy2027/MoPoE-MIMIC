@@ -33,6 +33,7 @@ class TestTraining(TestCase):
         FLAGS.dir_clf = tmpdirname
         FLAGS.vocab_size = 3517
         FLAGS.n_crops = n_crops
+        FLAGS.distributed = False
         FLAGS.clf_loss = 'bce_with_logits'
         FLAGS.experiment_uid = 'test'
         FLAGS.dir_clf = os.path.expanduser(

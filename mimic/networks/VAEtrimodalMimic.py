@@ -28,8 +28,7 @@ class VAEtrimodalMimic(BaseMMVae, nn.Module):
 
     def forward(self, input_batch):
         latents = self.inference(input_batch)
-        results = dict()
-        results['latents'] = latents
+        results = {'latents': latents}
         div = self.calc_joint_divergence(latents['mus'],
                                          latents['logvars'],
                                          latents['weights'])
@@ -40,28 +39,28 @@ class VAEtrimodalMimic(BaseMMVae, nn.Module):
         for k, key in enumerate(div.keys()):
             results[key] = div[key]
 
-        results_rec = dict()
+        results_rec = {}
         for k, m_key in enumerate(self.modalities.keys()):
-            mod = self.modalities[m_key]
-            input_mod = input_batch[m_key]
-            if input_mod is not None:
-                if self.flags.factorized_representation:
-                    s_mu, s_logvar = latents[m_key + '_style']
-                    s_emb = utils.reparameterize(mu=s_mu, logvar=s_logvar)
-                else:
-                    s_emb = None
-                if m_key == 'PA':
-                    rec = self.lhood_pa(*self.decoder_pa(s_emb, class_embeddings))
-                elif m_key == 'Lateral':
-                    rec = self.lhood_lat(*self.decoder_lat(s_emb, class_embeddings))
-                elif m_key == 'text':
-                    rec = self.lhood_text(*self.decoder_text(s_emb, class_embeddings))
-                results_rec[m_key] = rec
+                input_mod = input_batch[m_key]
+                if input_mod is not None:
+                        mod = self.modalities[m_key]
+                        if self.flags.factorized_representation:
+                            s_mu, s_logvar = latents[m_key + '_style']
+                            s_emb = utils.reparameterize(mu=s_mu, logvar=s_logvar)
+                        else:
+                            s_emb = None
+                        if m_key == 'Lateral':
+                                rec = self.lhood_lat(*self.decoder_lat(s_emb, class_embeddings))
+                        elif m_key == 'PA':
+                                rec = self.lhood_pa(*self.decoder_pa(s_emb, class_embeddings))
+                        elif m_key == 'text':
+                                rec = self.lhood_text(*self.decoder_text(s_emb, class_embeddings))
+                        results_rec[m_key] = rec
         results['rec'] = results_rec
         return results
 
     def encode(self, input_batch):
-        latents = dict();
+        latents = {}
         if 'PA' in input_batch.keys():
             i_m1 = input_batch['PA'];
             latents['PA'] = self.encoder_pa(i_m1)
@@ -103,8 +102,7 @@ class VAEtrimodalMimic(BaseMMVae, nn.Module):
             z_style_1 = None;
             z_style_2 = None;
             z_style_3 = None;
-        styles = {'PA': z_style_1, 'Lateral': z_style_2, 'text': z_style_3};
-        return styles;
+        return {'PA': z_style_1, 'Lateral': z_style_2, 'text': z_style_3};
 
     def get_random_style_dists(self, num_samples):
         s1_mu = torch.zeros(num_samples,
@@ -122,8 +120,7 @@ class VAEtrimodalMimic(BaseMMVae, nn.Module):
         m1_dist = [s1_mu, s1_logvar];
         m2_dist = [s2_mu, s2_logvar];
         m3_dist = [s3_mu, s3_logvar];
-        styles = {'PA': m1_dist, 'Lateral': m2_dist, 'text': m3_dist};
-        return styles;
+        return {'PA': m1_dist, 'Lateral': m2_dist, 'text': m3_dist};
 
     def generate(self, num_samples=None) -> dict:
         if num_samples is None:
