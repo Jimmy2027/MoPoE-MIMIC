@@ -41,7 +41,7 @@ class PretrainedDenseNet(nn.Module):
                 param.requires_grad = False
 
     def forward(self, x):
-        if self.n_crops in [1, 5, 10]:
+        if self.n_crops in [5, 10]:
             bs, n_crops, c, h, w = x.size()
         else:
             bs, c, h, w = x.size()
