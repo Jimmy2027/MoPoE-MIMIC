@@ -39,14 +39,12 @@ class ExperimentDf:
             flags_dict['experiment_uid'] = experiment_uid
             flags_dict['total_epochs'] = 0
             flags_dict['experiment_duration'] = -1
-            self.experiments_dataframe = experiments_dataframe.append(flags_dict, ignore_index=True)
-            self.experiments_dataframe.to_csv('clf_experiments_dataframe.csv', index=False)
         else:
             experiments_dataframe = pd.DataFrame()
             flags_dict = vars(flags)
             flags_dict['clf_experiment_uid'] = experiment_uid
-            self.experiments_dataframe = experiments_dataframe.append(flags_dict, ignore_index=True)
-            self.experiments_dataframe.to_csv('clf_experiments_dataframe.csv', index=False)
+        self.experiments_dataframe = experiments_dataframe.append(flags_dict, ignore_index=True)
+        self.experiments_dataframe.to_csv('clf_experiments_dataframe.csv', index=False)
         self.experiment_uid = experiment_uid
         self.start_time = timer()
 
@@ -102,15 +100,13 @@ class Callbacks:
                   f' at epoch {np.argmax(self.val_metric_values)}')
             self.experiment_df.update_experiments_dataframe(
                 {'mean_AP': mean_AP, 'mean_eval_loss': loss, 'total_epochs': epoch})
-            if self.modality == 'PA':
-                filename = self.flags.clf_save_m1
-            elif self.modality == 'Lateral':
-                filename = self.flags.clf_save_m2
-            else:
-                filename = self.flags.clf_save_m3
-            self._save_and_overwrite_model(model.state_dict(), self.flags.dir_clf, filename, epoch)
+
+            self._save_and_overwrite_model(model.state_dict(), epoch)
             self.patience_idx = 1
         elif self.patience_idx > self.max_early_stopping_index:
+            print(
+                f'stopping early at epoch {epoch} because current mean_AP {mean_AP} did not improve from {max(self.val_metric_values)} '
+                f'at epoch {np.argmax(self.val_metric_values)}')
             stop_early = True
         else:
             if epoch > self.start_early_stopping_epoch:
@@ -122,27 +118,37 @@ class Callbacks:
         self.val_metric_values.append(mean_AP)
         return stop_early
 
-    def _save_and_overwrite_model(self, state_dict, dir_path: str, checkpoint_name: str, epoch: int):
+    def _save_and_overwrite_model(self, state_dict, epoch: int):
         """
-        saves the model and deletes old one
+        saves the model to flags.dir_clf/flags.clf_save_m[1,2,3] and deletes old one
         """
-        for file in os.listdir(dir_path):
-            if file.startswith(checkpoint_name):
-                print(f'deleting old checkpoint: {os.path.join(dir_path, file)}')
-                os.remove(os.path.join(dir_path, file))
-        print('saving model to {}'.format(os.path.join(dir_path, checkpoint_name + f'_{epoch}')))
-        torch.save(state_dict, os.path.join(dir_path, checkpoint_name + f'_{epoch}'))
+        if self.modality == 'PA':
+            filename = self.flags.clf_save_m1
+        elif self.modality == 'Lateral':
+            filename = self.flags.clf_save_m2
+        else:
+            filename = self.flags.clf_save_m3
+
+        for file in os.listdir(self.flags.dir_clf):
+            if file.startswith(filename):
+                print(f'deleting old checkpoint: {os.path.join(self.flags.dir_clf, file)}')
+                os.remove(os.path.join(self.flags.dir_clf, file))
+        print('saving model to {}'.format(os.path.join(self.flags.dir_clf, filename + f'_{epoch}')))
+        torch.save(state_dict, os.path.join(self.flags.dir_clf, filename + f'_{epoch}'))
 
 
 class GetModelsProto(Protocol):
     device: any
     img_clf_type: str
+    distributed: bool
 
 
 def get_models(flags: GetModelsProto, modality: str):
     """
     Get the wanted classifier for specific modality
     """
+    assert modality in ['PA', 'Lateral', 'text']
+    assert flags.img_clf_type in ['cheXnet', 'resnet', '']
     if modality in ['PA', 'Lateral']:
         if flags.img_clf_type == 'cheXnet':
             model = CheXNet(len(LABELS)).cuda()
@@ -152,7 +158,7 @@ def get_models(flags: GetModelsProto, modality: str):
             raise NotImplementedError(f'{flags.img_clf_type} is not implemented, chose between "cheXnet" and "resnet"')
     elif modality == 'text':
         model = ClfText(flags, LABELS).to(flags.device)
-    if torch.cuda.device_count() > 1:
+    if flags.distributed and torch.cuda.device_count() > 1:
         print(f'Training with {torch.cuda.device_count()} GPUs')
         model = torch.nn.DataParallel(model)
         # todo pytorch recommends to use DistributedDataParallel instead of DataParallel
@@ -195,7 +201,7 @@ def get_imgs_from_crops(input: torch.Tensor, device):
 
 
 def get_input(args: any, input: torch.Tensor, modality):
-    if args.img_clf_type == 'cheXnet' and not modality == 'text':
+    if args.img_clf_type == 'cheXnet' and modality != 'text':
         imgs, bs, n_crops = get_imgs_from_crops(input, args.device)
     else:
         imgs = Variable(input).to(args.device)
