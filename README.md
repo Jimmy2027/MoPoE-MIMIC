@@ -20,7 +20,11 @@ Run main training workflow with:
 cd mimic
 python main_mimic.py
 ```
-You can use a json config in `configs` to give arguments to `main.py`  
+A json config in `configs` can be used to give arguments to `main.py` with `--config_path`
+```
+cd mimic
+python main_mimic.py --config_path path_to_my_json_config
+```  
 ## Testing
 run unittests with:
 ```
