@@ -1,10 +1,18 @@
+import itertools
+import json
 import os
+import subprocess as sp
+from contextlib import contextmanager
+from pathlib import Path
+from typing import Optional
 
+import numpy as np
 import torch
 import torch.distributed as dist
 from torch.autograd import Variable
-import json
-from pathlib import Path
+
+from mimic.utils.exceptions import CudaOutOfMemory
+from mimic.utils.exceptions import NaNInLatent
 
 
 # Print iterations progress
@@ -36,8 +44,7 @@ def reparameterize(mu, logvar):
 
 
 def reweight_weights(w):
-    w = w / w.sum();
-    return w;
+    return w / w.sum();
 
 
 def mixture_component_selection(flags, mus, logvars, w_modalities=None, num_samples=None):
@@ -48,11 +55,8 @@ def mixture_component_selection(flags, mus, logvars, w_modalities=None, num_samp
         w_modalities = torch.Tensor(flags.alpha_modalities).to(flags.device);
     idx_start = [];
     idx_end = []
-    for k in range(0, num_components):
-        if k == 0:
-            i_start = 0;
-        else:
-            i_start = int(idx_end[k - 1]);
+    for k in range(num_components):
+        i_start = 0 if k == 0 else int(idx_end[k - 1])
         if k == w_modalities.shape[0] - 1:
             i_end = num_samples;
         else:
@@ -93,14 +97,14 @@ def flow_mixture_component_selection(flags, reps, w_modalities=None, num_samples
 
 def calc_elbo(exp, modality, recs, klds):
     flags = exp.flags;
-    mods = exp.modalities;
     s_weights = exp.style_weights;
-    r_weights = exp.rec_weights;
     kld_content = klds['content'];
     if modality == 'joint':
         w_style_kld = 0.0;
         w_rec = 0.0;
         klds_style = klds['style']
+        mods = exp.modalities;
+        r_weights = exp.rec_weights;
         for k, m_key in enumerate(mods.keys()):
             w_style_kld += s_weights[m_key] * klds_style[m_key];
             w_rec += r_weights[m_key] * recs[m_key];
@@ -113,8 +117,7 @@ def calc_elbo(exp, modality, recs, klds):
         kld_style = beta_style_mod * klds['style'][modality];
         rec_error = rec_weight_mod * recs[modality];
     div = flags.beta_content * kld_content + flags.beta_style * kld_style;
-    elbo = rec_error + flags.beta * div;
-    return elbo;
+    return rec_error + flags.beta * div;
 
 
 def save_and_log_flags(flags):
@@ -144,7 +147,7 @@ class Unflatten(torch.nn.Module):
         return x.view(x.size(0), *self.ndims)
 
 
-def get_clf_path(clf_dir: str, clf_name: str) -> str:
+def get_clf_path(clf_dir: str, clf_name: str) -> Optional[str]:
     """
     Since the total training epochs of the classifier is not known but is in its filename, the filename needs to be
     found by scanning the directory.
@@ -166,13 +169,67 @@ def get_alphabet(alphabet_path=Path(__file__).parent.parent / 'alphabet.json'):
 
 def at_most_n(X, n):
     """
-    Yields at most n elements from iterable X.
+    Yields at most n elements from iterable X. If n is None, iterates until the end of iterator.
     """
-    for (x, __) in zip(X, range(n)):
-        yield x
+    yield from itertools.islice(iter(X), n)
 
 
 def set_up_process_group(world_size: int, rank) -> None:
+    """
+    sets up a process group for distributed training.
+    """
     os.environ['MASTER_ADDR'] = 'localhost'
     os.environ['MASTER_PORT'] = '12355'
     dist.init_process_group(backend="gloo", world_size=world_size, rank=rank)
+
+
+def get_gpu_memory():
+    """
+    Taken from:
+    https://stackoverflow.com/questions/59567226/how-to-programmatically-determine-available-gpu-memory-with-tensorflow
+    """
+
+    _output_to_list = lambda x: x.decode('ascii').split('\n')[:-1]
+
+    COMMAND = "nvidia-smi --query-gpu=memory.free --format=csv"
+    memory_free_info = _output_to_list(sp.check_output(COMMAND.split()))[1:]
+    return [int(x.split()[0]) for i, x in enumerate(memory_free_info)]
+
+
+def check_latents(args, latents):
+    """
+    checks if the latents contain NaNs. If they do raise NaNInLatent error and the experiment is started again
+    """
+    if args.dataset != 'testing' and (np.isnan(latents[0].mean().item())
+                                      or
+                                      np.isnan(latents[1].mean().item())):
+        raise NaNInLatent(f'The latent representations contain NaNs: {latents}')
+
+
+@contextmanager
+def catching_cuda_out_of_memory(batch_size):
+    """
+    Context that throws CudaOutOfMemory error if GPU is out of memory.
+    """
+    try:
+        yield
+    # if the GPU runs out of memory, start the experiment again with a smaller batch size
+    except RuntimeError as e:
+        if str(e).startswith('CUDA out of memory.') and batch_size > 10:
+            raise CudaOutOfMemory(e)
+        else:
+            raise e
+
+
+@contextmanager
+def catching_cuda_out_of_memory_():
+    """
+    Context that throws CudaOutOfMemory error if GPU is out of memory.
+    """
+    try:
+        yield
+    except RuntimeError as e:
+        if str(e).startswith('CUDA out of memory.'):
+            raise CudaOutOfMemory(e)
+        else:
+            raise e
