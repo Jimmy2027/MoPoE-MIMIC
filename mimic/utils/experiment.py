@@ -64,13 +64,7 @@ class MimicExperiment(BaseExperiment):
         self.tb_logger = None
 
     def set_model(self):
-        # available_gpus = torch.cuda.device_count()
-        # print(f'setting model with {available_gpus} GPUs')
-        model = VAEtrimodalMimic(self.flags, self.modalities, self.subsets)
-        # todo find way to train model on multiple GPUs
-        # if torch.cuda.device_count() > 1:
-        #     model = torch.nn.DataParallel(model)
-        return model
+        return VAEtrimodalMimic(self.flags, self.modalities, self.subsets)
 
     def set_modalities(self):
         print('setting modalities')

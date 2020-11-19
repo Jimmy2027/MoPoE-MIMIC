@@ -53,15 +53,7 @@ class FeatureExtractorImg(nn.Module):
             self.resblock_4 = make_res_block_feature_extractor(4 * args.DIM_img, 5 * args.DIM_img, kernelsize=4,
                                                                stride=4,
                                                                padding=1, dilation=1, a_val=self.a, b_val=self.b)
-            # question warum geht das nicht?
-            # self.resblock_4 = make_res_block_feature_extractor(4 * args.DIM_img, 4 * args.DIM_img + args.DIM_img // 2,
-            #                                                    kernelsize=4,
-            #                                                    stride=2,
-            #                                                    padding=1, dilation=1, a_val=self.a, b_val=self.b)
-            # self.resblock_4 = make_res_block_feature_extractor(4 * args.DIM_img + args.DIM_img // 2, 5 * args.DIM_img,
-            #                                                    kernelsize=4,
-            #                                                    stride=2,
-            #                                                    padding=1, dilation=1, a_val=self.a, b_val=self.b)
+
             self.resblock_5 = make_res_block_feature_extractor(5 * args.DIM_img, 5 * args.DIM_img, kernelsize=4,
                                                                stride=2,
                                                                padding=0, dilation=1, a_val=self.a, b_val=self.b)
@@ -83,7 +75,7 @@ class FeatureExtractorImg(nn.Module):
         out = self.resblock_2(out)
         out = self.resblock_3(out)
         out = self.resblock_4(out)
-        if not self.args.img_size == 64:
-            out = self.resblock_5(out)
+        if self.args.img_size != 64:
+                out = self.resblock_5(out)
         out = out.view(out.shape[0], out.shape[1], out.shape[2])
         return out
