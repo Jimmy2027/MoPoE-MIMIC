@@ -31,17 +31,20 @@ class CheXNet(nn.Module):
 
 
 class PretrainedDenseNet(nn.Module):
-    def __init__(self, fixed_extractor=True):
+    def __init__(self, args, fixed_extractor=True):
         super(PretrainedDenseNet, self).__init__()
         original_model = torchvision.models.densenet121(pretrained=True)
         self.features = nn.Sequential(*list(original_model.children())[:-1])
-
+        self.n_crops = args.n_crops
         if fixed_extractor:
             for param in self.parameters():
                 param.requires_grad = False
 
     def forward(self, x):
-        bs, n_crops, c, h, w = x.size()
+        if self.n_crops in [1, 5, 10]:
+            bs, n_crops, c, h, w = x.size()
+        else:
+            bs, c, h, w = x.size()
         imgs = torch.autograd.Variable(x.view(-1, c, h, w).cuda())
         x = self.features(imgs)
         # x.shape = [bs*n_crop, 1024, 8, 8]
@@ -79,7 +82,7 @@ class DenseLayers(nn.Module):
 class DenseNetFeatureExtractor(nn.Module):
     def __init__(self, args):
         super().__init__()
-        self.pretrained_dense = PretrainedDenseNet()
+        self.pretrained_dense = PretrainedDenseNet(args)
         self.dense_layers = DenseLayers(args)
 
     def forward(self, x):
