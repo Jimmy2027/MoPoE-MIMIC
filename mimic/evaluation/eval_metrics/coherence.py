@@ -10,9 +10,7 @@ from mimic.utils.text import one_hot_encode_word
 def classify_cond_gen_samples(exp, labels, cond_samples):
     labels = np.reshape(labels, (labels.shape[0], len(exp.labels)));
     clfs = exp.clfs;
-    eval_labels = dict();
-    for l, l_key in enumerate(exp.labels):
-        eval_labels[l_key] = dict();
+    eval_labels = {l_key: {} for l, l_key in enumerate(exp.labels)};
     for key in clfs.keys():
         if key in cond_samples.keys():
             mod_cond_gen = cond_samples[key];
@@ -43,7 +41,7 @@ def calculate_coherence(exp, samples) -> dict:
     clfs = exp.clfs;
     mods = exp.modalities;
     # TODO: make work for num samples NOT EQUAL to batch_size
-    c_labels = dict();
+    c_labels = {};
     for j, l_key in enumerate(exp.labels):
         pred_mods = np.zeros((len(mods.keys()), exp.flags.batch_size))
         for k, m_key in enumerate(mods.keys()):
@@ -70,14 +68,14 @@ def test_generation(epoch, exp):
     mm_vae = exp.mm_vae;
     subsets = exp.subsets;
 
-    gen_perf = dict();
+    gen_perf = {};
     gen_perf = {'cond': dict(),
                 'random': dict()}
     for j, l_key in enumerate(exp.labels):
-        gen_perf['cond'][l_key] = dict();
+        gen_perf['cond'][l_key] = {};
         for k, s_key in enumerate(subsets.keys()):
             if s_key != '':
-                gen_perf['cond'][l_key][s_key] = dict();
+                gen_perf['cond'][l_key][s_key] = {};
                 for m, m_key in enumerate(mods.keys()):
                     gen_perf['cond'][l_key][s_key][m_key] = [];
         gen_perf['random'][l_key] = [];
