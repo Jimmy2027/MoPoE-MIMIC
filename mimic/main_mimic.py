@@ -20,11 +20,11 @@ from mimic.utils.utils import get_gpu_memory
 
 
 class Main:
-    def __init__(self, flags: argparse.ArgumentParser, config_path: str = None, testing=False):
+    def __init__(self, flags: argparse.ArgumentParser, testing=False):
         """
         config_path: (optional) path to the json config file
         """
-        flags = setup_flags(flags, config_path, testing)
+        flags = setup_flags(flags, testing)
 
         flags = get_method(flags)
         print(colored(f"running on {flags.device} with text {flags.text_encoding} encoding "
@@ -37,7 +37,6 @@ class Main:
         self.max_tries = 10  # maximum restarts of the experiment due to nan values
         self.current_tries = 0
         self.start_time = 0
-        self.mimic_experiment = MimicExperiment(flags)
 
     def setup_distributed(self):
         self.flags.world_size = torch.cuda.device_count()
@@ -53,9 +52,9 @@ class Main:
             bool: true if run_epochs finishes, False if an error occurs
             string: "cuda_out_of_memory" if GPU runs out of memory
         """
-        print(colored(f'current GPU load: {get_gpu_memory()}', 'red'))
+        print(colored(f'current free GPU memory: {get_gpu_memory()}', 'red'))
         self.start_time = timer()
-        mimic = self.mimic_experiment
+        mimic = MimicExperiment(self.flags)
         create_dir_structure_testing(mimic)
         mimic.set_optimizer()
         mimic.number_restarts = self.current_tries
@@ -114,6 +113,6 @@ class Main:
 
 if __name__ == '__main__':
     FLAGS = parser.parse_args()
-    CONFIG_PATH = get_config_path()
-    main = Main(FLAGS, CONFIG_PATH)
+    FLAGS.config_path = get_config_path(FLAGS)
+    main = Main(FLAGS)
     main.main()
