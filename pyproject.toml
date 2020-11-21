@@ -4,5 +4,5 @@ markers = [
     "dataset: marks tests testing the dataio",
     "distributed: indicates that torch.nn.parallel.DistributedDataParallel is used"
 ]
-addopts = "--full-trace -ra --durations=0 -v"
+addopts = "--full-trace -ra --durations=0 -v --ff"
 testpaths = ["tests"]
