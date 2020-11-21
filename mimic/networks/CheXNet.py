@@ -26,8 +26,7 @@ class CheXNet(nn.Module):
         )
 
     def forward(self, x):
-        x = self.densenet121(x)
-        return x
+        return self.densenet121(x)
 
 
 class PretrainedDenseNet(nn.Module):
@@ -67,7 +66,7 @@ class DenseLayers(nn.Module):
         self.dens3 = nn.Linear(in_features=512, out_features=nb_out)
 
     def forward(self, x):
-        if self.n_crops:
+        if self.n_crops in [5, 10]:
             x = x.view(self.batch_size, 1024 * self.n_crops)
         x = self.dens1(x)
         x = nn.functional.selu(x)
