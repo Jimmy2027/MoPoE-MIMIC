@@ -8,21 +8,18 @@ import mimic
 
 
 def create_dir(dir_name):
-    if not os.path.exists(dir_name):
-        os.makedirs(dir_name)
-    else:
+    if os.path.exists(dir_name):
         shutil.rmtree(dir_name, ignore_errors=True)
-        os.makedirs(dir_name)
+    os.makedirs(dir_name)
 
 
 def get_str_experiments(flags, prefix: str = ''):
     dateTimeObj = datetime.now()
     dateStr = dateTimeObj.strftime("%Y_%m_%d_%H_%M_%S_%f")
     if prefix:
-        str_experiments = prefix + '_' + dateStr;
+        return prefix + '_' + dateStr
     else:
-        str_experiments = flags.dataset + '_' + dateStr;
-    return str_experiments
+        return flags.dataset + '_' + dateStr
 
 
 def create_dir_structure_testing(exp):
