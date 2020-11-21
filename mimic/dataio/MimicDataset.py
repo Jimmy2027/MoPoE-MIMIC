@@ -47,6 +47,7 @@ class Mimic(Dataset):
         if self.args.text_encoding == 'char':
             self.args.alphabet = get_alphabet()
             args.num_features = len(self.args.alphabet)
+
         self.transform_img = get_transform_img(args)
 
     def __getitem__(self, index):
@@ -306,7 +307,7 @@ class Mimic_testing(Dataset):
     def __getitem__(self, index):
         img_size = (self.flags.img_size, self.flags.img_size)
         try:
-            if (self.flags.img_clf_type == 'cheXnet' or self.flags.feature_extractor_img == 'densenet'):
+            if (self.flags.img_clf_type == 'densenet' or self.flags.feature_extractor_img == 'densenet'):
                 if self.flags.n_crops in [5, 10]:
                     sample = {'PA': torch.rand(self.flags.n_crops, 3, *img_size).float(),
                               'Lateral': torch.rand(self.flags.n_crops, 3, *img_size).float()}

@@ -21,6 +21,7 @@ from mimic.utils.filehandling import get_config_path
 from mimic.utils.flags import parser
 from mimic.utils.flags import update_flags_with_config
 from mimic.utils.loss import clf_loss
+from mimic.utils.utils import at_most_n
 
 START_EARLY_STOPPING_EPOCH = 0
 MAX_EARLY_STOPPING_IDX = 5
@@ -35,8 +36,10 @@ def catching_cuda_out_of_memory(batch_size):
         yield
     # if the GPU runs out of memory, start the experiment again with a smaller batch size
     except RuntimeError as e:
-        if (str(e).startswith('CUDA out of memory.') or str(e).startswith(
-                'Caught RuntimeError in replica')) and batch_size > 10:
+        if (str(e).startswith('CUDA out of memory.')
+            or str(e).startswith('Caught RuntimeError in replica')
+            or str(e).startswith('DataLoader worker')) \
+                and batch_size > 10:
             raise CudaOutOfMemory(e)
         else:
             raise e
@@ -50,7 +53,8 @@ def train_clf(flags, epoch, model, data_loader: DataLoader, log_writer, modality
     num_batches_train = int(np.floor(num_samples_train / flags.batch_size))
     step = epoch * num_batches_train
 
-    for idx, (batch_d, batch_l) in tqdm(enumerate(data_loader), total=len(data_loader), postfix='training epoch'):
+    for idx, (batch_d, batch_l) in tqdm(enumerate(at_most_n(data_loader, None)), total=len(data_loader),
+                                        postfix='training epoch'):
         imgs, bs, n_crops = get_input(flags, batch_d[modality], modality)
         labels = Variable(batch_l).to(flags.device)
         optimizer.zero_grad()
@@ -60,7 +64,7 @@ def train_clf(flags, epoch, model, data_loader: DataLoader, log_writer, modality
 
         if (
                 flags.n_crops > 1
-                and flags.img_clf_type == 'cheXnet'
+                and flags.img_clf_type == 'densenet'
                 and modality != 'text'
         ):
             attr_hat = attr_hat.view(bs, n_crops, -1).mean(1)
@@ -92,7 +96,7 @@ def eval_clf(flags, epoch, model, data_loader: DataLoader, log_writer, modality:
 
             if (
                     flags.n_crops > 1
-                    and flags.img_clf_type == 'cheXnet'
+                    and flags.img_clf_type == 'densenet'
                     and modality != 'text'
             ):
                 attr_hat = attr_hat.view(bs, n_crops, -1).mean(1)
@@ -120,7 +124,7 @@ def training_procedure_clf(flags, train_set: Union[Mimic, Mimic_testing], eval_s
         list(model.parameters()),
         lr=flags.initial_learning_rate)
 
-    callbacks = Callbacks(flags, START_EARLY_STOPPING_EPOCH, MAX_EARLY_STOPPING_IDX, modality,
+    callbacks = Callbacks(flags, flags.start_early_stopping_epoch, flags.max_early_stopping_index, modality,
                           experiment_df, logger, optimizer)
 
     _, train_loader = get_data_loaders(flags, train_set)
@@ -159,7 +163,8 @@ def run_training_procedure_clf(flags):
     success = False
     while not success:
         try:
-            success = training_procedure_clf(flags, mimic_train, mimic_eval, flags.modality, total_epochs=600)
+            success = training_procedure_clf(flags, train_set=mimic_train, eval_set=mimic_eval, modality=flags.modality,
+                                             total_epochs=600)
 
         except CudaOutOfMemory as e:
             print(e)
@@ -178,7 +183,7 @@ if __name__ == '__main__':
                         help="modality on which to train the image classifier, chose between PA and Lateral")
 
     FLAGS = parser.parse_args()
-    config_path = get_config_path()
+    config_path = get_config_path(FLAGS)
 
     FLAGS = update_flags_with_config(FLAGS, config_path)
 

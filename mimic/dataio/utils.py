@@ -5,9 +5,15 @@ import PIL.Image as Image
 
 
 def get_transform_img(args: any):
+    """
+    Both densenet and densenet need RGB images and normalization.
+    """
+
+    # When running the classifier training, need to make sure that feature_extractor_img is not set.
+    # need to make sure that img_clf and feature_extractor_img need the same transformations
     if (
-        args.img_clf_type != 'cheXnet'
-        and args.feature_extractor_img != 'densenet'
+            args.img_clf_type != 'densenet'
+            and args.feature_extractor_img != 'densenet'
     ):
         return transforms.Compose([
             transforms.ToPILImage(),
@@ -26,6 +32,7 @@ def get_transform_img(args: any):
     if args.n_crops not in [10, 5]:
         transformation_list.extend([transforms.ToTensor(), normalize])
     else:
+        # image is split in n_crops number of crops, stacked and every crop is then normalized
         if args.n_crops == 10:
             transformation_list.append(transforms.TenCrop(224))
         elif args.n_crops == 5:
@@ -57,8 +64,10 @@ def get_data_loaders(args, dataset):
         num_workers = args.dataloader_workers
     d_loader = DataLoader(dataset, batch_size=args.batch_size,
                           shuffle=(sampler is None),
-                          num_workers=num_workers, drop_last=True,
+                          num_workers=num_workers,
                           sampler=sampler, pin_memory=True)
+
+    assert len(d_loader), f'length of the dataloader needs to be at least 1, it is {len(d_loader)}'
 
     return sampler, d_loader
 

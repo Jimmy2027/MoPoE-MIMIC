@@ -62,17 +62,17 @@ class TestTraining(TestCase):
         with tempfile.TemporaryDirectory() as tmpdirname:
             _ = self._run_train_loop(tmpdirname, modality='PA', img_clf_type='resnet')
 
-    def test_clf_train_loop_cheXnet(self):
+    def test_clf_train_loop_densenet(self):
         with tempfile.TemporaryDirectory() as tmpdirname:
-            _ = self._run_train_loop(tmpdirname, modality='PA', img_clf_type='cheXnet')
+            _ = self._run_train_loop(tmpdirname, modality='PA', img_clf_type='densenet')
 
     def test_clf_train_loop_text(self):
         with tempfile.TemporaryDirectory() as tmpdirname:
             _ = self._run_train_loop(tmpdirname, modality='text', img_clf_type='')
 
-    def test_clf_train_loop_cheXnet_5ncrops(self):
+    def test_clf_train_loop_densenet_5ncrops(self):
         with tempfile.TemporaryDirectory() as tmpdirname:
-            _ = self._run_train_loop(tmpdirname, modality='PA', img_clf_type='cheXnet', n_crops=5)
+            _ = self._run_train_loop(tmpdirname, modality='PA', img_clf_type='densenet', n_crops=5)
 
 
 if __name__ == '__main__':

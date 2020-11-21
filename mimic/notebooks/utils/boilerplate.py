@@ -122,7 +122,7 @@ def test_model(flags, model, clf_type: str, test_set, modality, labels):
     list_predictions = []
     list_labels = []
     for idx, (batch_d, batch_l) in enumerate(dataloader):
-        if clf_type == 'cheXnet' and not modality == 'text':
+        if clf_type == 'densenet' and not modality == 'text':
             bs, n_crops, c, h, w = batch_d[modality].size()
             imgs = Variable(batch_d[modality].view(-1, c, h, w)).to(flags.device)
         else:
@@ -130,7 +130,7 @@ def test_model(flags, model, clf_type: str, test_set, modality, labels):
         gt = np.array(np.reshape(batch_l, (batch_l.shape[0], len(labels)))).ravel()
 
         prediction = model(imgs)
-        if flags.img_clf_type == 'cheXnet' and not modality == 'text':
+        if flags.img_clf_type == 'densenet' and not modality == 'text':
             prediction = prediction.view(bs, n_crops, -1).mean(1)
 
         list_predicted_labels = translate(prediction.cpu(), list_predicted_labels)

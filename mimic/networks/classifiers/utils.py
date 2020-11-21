@@ -147,15 +147,18 @@ def get_models(flags: GetModelsProto, modality: str):
     """
     Get the wanted classifier for specific modality
     """
+    # argument feature_extractor_img is only used for mimic_main.
+    # Need to make sure it is unset when training classifiers
+    flags.feature_extractor_img = ''
     assert modality in ['PA', 'Lateral', 'text']
-    assert flags.img_clf_type in ['cheXnet', 'resnet', '']
+    assert flags.img_clf_type in ['densenet', 'resnet', '']
     if modality in ['PA', 'Lateral']:
-        if flags.img_clf_type == 'cheXnet':
+        if flags.img_clf_type == 'densenet':
             model = CheXNet(len(LABELS)).cuda()
         elif flags.img_clf_type == 'resnet':
             model = ClfImg(flags, LABELS).to(flags.device)
         else:
-            raise NotImplementedError(f'{flags.img_clf_type} is not implemented, chose between "cheXnet" and "resnet"')
+            raise NotImplementedError(f'{flags.img_clf_type} is not implemented, chose between "densenet" and "resnet"')
     elif modality == 'text':
         model = ClfText(flags, LABELS).to(flags.device)
     if flags.distributed and torch.cuda.device_count() > 1:
@@ -201,7 +204,7 @@ def get_imgs_from_crops(input: torch.Tensor, device):
 
 
 def get_input(args: any, input: torch.Tensor, modality):
-    if args.img_clf_type == 'cheXnet' and modality != 'text' and args.n_crops in [5, 10]:
+    if args.img_clf_type == 'densenet' and modality != 'text' and args.n_crops in [5, 10]:
         imgs, bs, n_crops = get_imgs_from_crops(input, args.device)
     else:
         imgs = Variable(input).to(args.device)

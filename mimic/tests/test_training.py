@@ -46,7 +46,8 @@ class TestTraining(TestCase):
             FLAGS.dir_experiment = tmpdirname
         FLAGS.distributed = distributed
         FLAGS.dataset = 'testing'
-        FLAGS.use_clf = True
+        FLAGS.feature_extractor_img = feature_extractor_img
+        FLAGS.use_clf = feature_extractor_img != 'densenet'
         FLAGS.calc_nll = False
         FLAGS.eval_lr = True
         FLAGS.calc_prd = True
@@ -55,7 +56,6 @@ class TestTraining(TestCase):
         FLAGS.batch_size = 5
         FLAGS.eval_freq = 1
         FLAGS.vocab_size = 3517
-        FLAGS.feature_extractor_img = feature_extractor_img
         FLAGS.text_encoding = text_encoding
         FLAGS.img_size = img_size
         FLAGS.steps_per_training_epoch = 2

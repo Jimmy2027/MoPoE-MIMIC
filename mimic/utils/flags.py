@@ -7,6 +7,7 @@ from mimic.utils.filehandling import create_dir_structure, expand_paths, create_
     get_method
 
 parser.add_argument('--dataset', type=str, default='Mimic', help="name of the dataset")
+parser.add_argument('--config_path', type=str, default=None, help="path to the json config")
 
 # DATA DEPENDENT
 # Text Dependent
@@ -36,7 +37,7 @@ parser.add_argument('--decoder_save_m3', type=str, default='decoderM3', help="mo
 
 # classifiers
 parser.add_argument('--img_clf_type', type=str, default='resnet',
-                    help="image classifier type, implemented are 'resnet' and 'cheXnet'")
+                    help="image classifier type, implemented are 'resnet' and 'densenet'")
 parser.add_argument('--clf_save_m1', type=str, default='clf_m1', help="model save for clf")
 parser.add_argument('--clf_save_m2', type=str, default='clf_m2', help="model save for clf")
 parser.add_argument('--clf_save_m3', type=str, default='clf_m3', help="model save for clf")
@@ -66,24 +67,21 @@ parser.add_argument('--div_weight_uniform_content', type=float, default=0.25,
                     help="default weight divergence term prior")
 
 
-def update_flags_with_config(flags, config_path, additional_args={}, testing=False):
-
+def update_flags_with_config(config_path: str, additional_args={}, testing=False):
     with open(config_path, 'rt') as json_file:
         t_args = argparse.Namespace()
         json_config = json.load(json_file)
     t_args.__dict__.update({**json_config, **additional_args})
     if testing:
-        flags = parser.parse_args([], namespace=t_args)
+        return parser.parse_args([], namespace=t_args)
     else:
-        flags = parser.parse_args(namespace=t_args)
-
-    return flags
+        return parser.parse_args(namespace=t_args)
 
 
-def setup_flags(flags, config_path=None, testing=False):
+def setup_flags(flags, testing=False):
     import torch
-    if config_path:
-        flags = update_flags_with_config(flags, config_path, testing=testing)
+    if flags.config_path:
+        flags = update_flags_with_config(config_path=flags.config_path, testing=testing)
     flags = expand_paths(flags)
     use_cuda = torch.cuda.is_available()
     flags.device = torch.device('cuda' if use_cuda else 'cpu')
