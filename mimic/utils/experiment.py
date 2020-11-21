@@ -92,13 +92,17 @@ class MimicExperiment(BaseExperiment):
 
     def set_clfs(self):
         print('setting clfs')
+        # img_clf_type and feature_extractor_img need to be the same. (for the image transformations of the dataset)
+        self.flags.img_clf_type = self.flags.feature_extractor_img
+
         model_clf_m1 = None
         model_clf_m2 = None
         model_clf_m3 = None
         if self.flags.use_clf:
+            # finding the directory of the classifier
             dir_img_clf = os.path.join(self.flags.dir_clf, f'Mimic{self.flags.img_size}_{self.flags.img_clf_type}')
             dir_img_clf = os.path.expanduser(dir_img_clf)
-
+            # finding and loading state dict
             model_clf_m1 = ClfImg(self.flags, self.labels)
             clf_m1_path = get_clf_path(dir_img_clf, self.flags.clf_save_m1)
             model_clf_m1.load_state_dict(torch.load(clf_m1_path))

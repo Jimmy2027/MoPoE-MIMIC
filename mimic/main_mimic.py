@@ -1,6 +1,6 @@
-import argparse
 import gc
 import os
+from argparse import Namespace
 from timeit import default_timer as timer
 from typing import Union
 
@@ -20,12 +20,11 @@ from mimic.utils.utils import get_gpu_memory
 
 
 class Main:
-    def __init__(self, flags: argparse.ArgumentParser, testing=False):
+    def __init__(self, flags: Namespace, testing=False):
         """
         config_path: (optional) path to the json config file
         """
         flags = setup_flags(flags, testing)
-
         flags = get_method(flags)
         print(colored(f"running on {flags.device} with text {flags.text_encoding} encoding "
                       f'with method {flags.method}, batch size: {flags.batch_size} and img size {flags.img_size}',
@@ -54,6 +53,7 @@ class Main:
         """
         print(colored(f'current free GPU memory: {get_gpu_memory()}', 'red'))
         self.start_time = timer()
+        # need to reinitialize MimicExperiment after each retry
         mimic = MimicExperiment(self.flags)
         create_dir_structure_testing(mimic)
         mimic.set_optimizer()
@@ -102,7 +102,7 @@ class Main:
 
             if success == 'cuda_out_of_memory':
                 old_bs = self.flags.batch_size
-                self.flags.batch_size = int(np.floor(self.flags.batch_size * 0.7))
+                self.flags.batch_size = int(np.floor(self.flags.batch_size * 0.8))
                 print(f'********  GPU ran out of memory with batch size {old_bs}, '
                       f'trying again with batch size: {self.flags.batch_size}  ********')
                 success = False
@@ -112,7 +112,7 @@ class Main:
 
 
 if __name__ == '__main__':
-    FLAGS = parser.parse_args()
+    FLAGS: Namespace = parser.parse_args()
     FLAGS.config_path = get_config_path(FLAGS)
     main = Main(FLAGS)
     main.main()
