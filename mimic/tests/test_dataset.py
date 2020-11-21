@@ -27,8 +27,8 @@ class TestDataset(TestCase):
         Test to see if datasets have the same shape
         """
         FLAGS = parser.parse_args([])
-        config_path = get_config_path()
-        FLAGS = update_flags_with_config(FLAGS, config_path, testing=True)
+        FLAGS.config_path = get_config_path()
+        FLAGS = update_flags_with_config(FLAGS.config_path, testing=True)
 
         FLAGS = expand_paths(FLAGS)
         dir_dataset = os.path.join(FLAGS.dir_data, f'files_small_{img_shape}')
@@ -94,8 +94,8 @@ class TestDataset(TestCase):
         The dataset should remain the same. This test tests if it was somehow changed.
         """
         FLAGS = parser.parse_args([])
-        config_path = get_config_path()
-        FLAGS = setup_flags(FLAGS, config_path, testing=True)
+        FLAGS.config_path = get_config_path()
+        FLAGS = setup_flags(FLAGS, testing=True)
 
         FLAGS.str_experiment = 'temp'
         FLAGS.dir_gen_eval_fid = ''

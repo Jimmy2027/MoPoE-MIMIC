@@ -49,7 +49,7 @@ def create_dir_structure(flags: argparse.ArgumentParser(), train: bool = True) -
     flags.dir_checkpoints = os.path.join(os.path.expanduser(flags.dir_experiment_run), 'checkpoints')
     if train:
         create_dir(os.path.expanduser(flags.dir_checkpoints))
-        copyfile(get_config_path(), os.path.join(flags.dir_experiment_run, 'config.json'), follow_symlinks=True)
+        copyfile(get_config_path(flags), os.path.join(flags.dir_experiment_run, 'config.json'), follow_symlinks=True)
 
     flags.dir_logs = os.path.join(os.path.expanduser(flags.dir_experiment_run), 'logs')
     if train:
@@ -117,18 +117,21 @@ def get_method(flags: argparse.ArgumentParser()) -> argparse.ArgumentParser():
     return flags
 
 
-def get_config_path():
-    if os.path.exists('/cluster/home/klugh/'):
-        return os.path.join(os.path.dirname(mimic.__file__), "configs/leomed_mimic_config.json")
-    elif os.path.exists('/mnt/data/hendrik'):
-        return os.path.join(os.path.dirname(mimic.__file__), "configs/bartholin_mimic_config.json")
+def get_config_path(flags=None):
+    if not flags or not flags.config_path:
+        if os.path.exists('/cluster/home/klugh/'):
+            return os.path.join(os.path.dirname(mimic.__file__), "configs/leomed_mimic_config.json")
+        elif os.path.exists('/mnt/data/hendrik'):
+            return os.path.join(os.path.dirname(mimic.__file__), "configs/bartholin_mimic_config.json")
+        else:
+            return os.path.join(os.path.dirname(mimic.__file__), "configs/local_mimic_config.json")
     else:
-        return os.path.join(os.path.dirname(mimic.__file__), "configs/local_mimic_config.json")
+        return flags.config_path
 
 
 def set_paths(flags):
     """
-    set paths in flags, such as data_dir and dir_clf
+    expands user in paths, such as data_dir and dir_clf
     """
     if os.path.exists('/cluster/home/klugh/'):
         flags.dir_data = os.path.expanduser('~/scratch')
