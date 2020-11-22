@@ -8,7 +8,7 @@ import torch
 import torch.optim as optim
 from PIL import ImageFont
 from sklearn.metrics import average_precision_score
-from tensorboardX import SummaryWriter
+from torch.utils.tensorboard import SummaryWriter
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from mimic.dataio.MimicDataset import Mimic, Mimic_testing
