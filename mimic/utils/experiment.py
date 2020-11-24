@@ -230,8 +230,7 @@ class Callbacks:
         stop_early = False
         self.elapsed_times.append(elapsed_time)
         self.scheduler.step(loss)
-        if self.logger:
-            self.logger.writer.add_scalars(f'test/mean_loss', {'mean_loss': loss}, epoch)
+        self.logger.writer.add_scalars(f'test/mean_loss', {'mean_loss': loss}, epoch)
 
         print(f'current test loss: {loss}')
         self.save_checkpoint(epoch)
@@ -239,8 +238,8 @@ class Callbacks:
         if epoch > self.start_early_stopping_epoch and loss < min(self.losses):
             print(f'current test loss {loss} improved from {min(self.losses)}'
                   f' at epoch {np.argmin(self.losses)}')
-            if self.logger:
-                self.exp.update_experiments_dataframe({'total_test_loss': loss, 'total_epochs': epoch})
+            self.exp.update_experiments_dataframe(
+                {'total_test_loss': loss, 'total_epochs': epoch, 'mean_epoch_time': np.mean(self.elapsed_times)})
             self.patience_idx = 1
 
         elif self.patience_idx > self.max_early_stopping_index:
@@ -262,7 +261,10 @@ class Callbacks:
 
     def save_checkpoint(self, epoch):
         # save checkpoints every 5 epochs
-        if ((epoch + 1) % 5 == 0 or (epoch + 1) == self.exp.flags.end_epoch) and self.exp.tb_logger:
+        # when using DDP, the model is the same over all devices, only need to save it for one process
+        if ((epoch + 1) % 5 == 0 or (
+                epoch + 1) == self.exp.flags.end_epoch) and (
+                not self.args.distributed or self.exp.flags.device % self.exp.flags.world_size == 0):
             dir_network_epoch = os.path.join(self.exp.flags.dir_checkpoints, str(epoch).zfill(4))
             if not os.path.exists(dir_network_epoch):
                 os.makedirs(dir_network_epoch)
@@ -273,5 +275,3 @@ class Callbacks:
             torch.save(self.exp.mm_vae.state_dict(),
                        os.path.join(dir_network_epoch, self.exp.flags.mm_vae_save))
 
-    def write_mean_epoch_time_to_expdf(self):
-        self.exp.update_experiments_dataframe({'mean_epoch_time': np.mean(self.elapsed_times)})

@@ -298,7 +298,6 @@ def run_epochs(rank: any, exp: MimicExperiment) -> None:
 
         if callbacks.update_epoch(epoch, mean_eval_loss, time.time() - end):
             break
-    callbacks.write_mean_epoch_time_to_expdf()
 
     if exp.tb_logger:
         exp.tb_logger.writer.close()
