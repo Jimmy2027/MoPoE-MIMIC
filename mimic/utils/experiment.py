@@ -197,6 +197,7 @@ class MimicExperiment(BaseExperiment):
             flags_dict = vars(self.flags)
             flags_dict['experiment_uid'] = self.experiment_uid
         experiments_dataframe = experiments_dataframe.append(flags_dict, ignore_index=True)
+        experiments_dataframe.to_csv('experiments_dataframe.csv', index=False)
         return experiments_dataframe
 
     def update_experiments_dataframe(self, values_dict: dict):
@@ -204,10 +205,15 @@ class MimicExperiment(BaseExperiment):
         Updates the values in experiments dataframe with the new values from the values_dict and saves it if the
         experiment is not a test run
         """
+        # load dataframe every time in order not to overwrite other writers
+        if os.path.exists('experiments_dataframe.csv'):
+            self.experiments_dataframe = pd.read_csv('experiments_dataframe.csv')
         for key in values_dict:
             self.experiments_dataframe.loc[
                 self.experiments_dataframe['experiment_uid'] == self.experiment_uid, key] = values_dict[key]
+
         if self.flags.dataset != 'testing':
+            print('yooo writing this to df: ', values_dict)
             self.experiments_dataframe.to_csv('experiments_dataframe.csv', index=False)
 
     def init_summary_writer(self):
