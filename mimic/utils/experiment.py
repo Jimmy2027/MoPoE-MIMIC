@@ -1,5 +1,6 @@
 import os
 import random
+import typing
 from pathlib import Path
 
 import numpy as np
@@ -8,18 +9,19 @@ import torch
 import torch.optim as optim
 from PIL import ImageFont
 from sklearn.metrics import average_precision_score
-from torch.utils.tensorboard import SummaryWriter
 from torch.optim.lr_scheduler import ReduceLROnPlateau
+from torch.utils.tensorboard import SummaryWriter
 
 from mimic.dataio.MimicDataset import Mimic, Mimic_testing
 from mimic.modalities.MimicLateral import MimicLateral
 from mimic.modalities.MimicPA import MimicPA
 from mimic.modalities.MimicText import MimicText
+from mimic.modalities.Modality import Modality
 from mimic.networks.ConvNetworkImgClf import ClfImg as ClfImg
 from mimic.networks.ConvNetworkTextClf import ClfText as ClfText
 from mimic.networks.ConvNetworksImgMimic import EncoderImg, DecoderImg
 from mimic.networks.ConvNetworksTextMimic import EncoderText, DecoderText
-from mimic.networks.VAEtrimodalMimic import VAEtrimodalMimic
+from mimic.networks.VAEtrimodalMimic import VAEtrimodalMimic, VAETextMimic
 from mimic.utils import utils
 from mimic.utils.BaseExperiment import BaseExperiment
 from mimic.utils.TBLogger import TBLogger
@@ -34,9 +36,8 @@ class MimicExperiment(BaseExperiment):
         self.experiment_uid = flags.str_experiment
         self.dataset = flags.dataset
         self.plot_img_size = torch.Size((1, 128, 128))
-
-        self.font = ImageFont.truetype(str(Path(__file__).parent.parent / 'FreeSerif.ttf'),
-                                       38) if not flags.distributed else None
+        # font will be set with "self.set_dataset()"
+        self.font = None
         if self.flags.text_encoding == 'char':
             self.alphabet = get_alphabet()
             self.flags.num_features = len(self.alphabet)
@@ -44,7 +45,7 @@ class MimicExperiment(BaseExperiment):
         self.dataset_train = None
         self.dataset_test = None
         self.set_dataset()
-        self.modalities = self.set_modalities()
+        self.modalities: typing.Mapping[str, Modality] = self.set_modalities()
         self.num_modalities = len(self.modalities.keys())
         self.subsets = self.set_subsets()
 
@@ -64,9 +65,12 @@ class MimicExperiment(BaseExperiment):
         self.tb_logger = None
 
     def set_model(self):
-        return VAEtrimodalMimic(self.flags, self.modalities, self.subsets)
+        if self.flags.only_text_modality:
+            return VAETextMimic(self.flags, self.modalities, self.subsets)
+        else:
+            return VAEtrimodalMimic(self.flags, self.modalities, self.subsets)
 
-    def set_modalities(self):
+    def set_modalities(self) -> typing.Mapping[str, Modality]:
         print('setting modalities')
         mod1 = MimicPA(EncoderImg(self.flags, self.flags.style_pa_dim),
                        DecoderImg(self.flags, self.flags.style_pa_dim))
@@ -75,10 +79,16 @@ class MimicExperiment(BaseExperiment):
         mod3 = MimicText(EncoderText(self.flags, self.flags.style_text_dim),
                          DecoderText(self.flags, self.flags.style_text_dim), self.flags.len_sequence,
                          self.plot_img_size, self.font, self.flags)
-        return {mod1.name: mod1, mod2.name: mod2, mod3.name: mod3}
+        if self.flags.only_text_modality:
+            return {mod3.name: mod3}
+        else:
+            return {mod1.name: mod1, mod2.name: mod2, mod3.name: mod3}
 
     def set_dataset(self):
+        self.font = ImageFont.truetype(str(Path(__file__).parent.parent / 'FreeSerif.ttf'),
+                                       38) if not self.flags.distributed else None
         print('setting dataset')
+        # used for faster unittests i.e. a dummy dataset
         if self.dataset == 'testing':
             print('using testing dataset')
             self.flags.vocab_size = 3517
@@ -90,38 +100,39 @@ class MimicExperiment(BaseExperiment):
         self.dataset_train = d_train
         self.dataset_test = d_eval
 
-    def set_clfs(self):
+    def set_clfs(self) -> typing.Mapping[str, torch.nn.Module]:
         print('setting clfs')
         # img_clf_type and feature_extractor_img need to be the same. (for the image transformations of the dataset)
         self.flags.img_clf_type = self.flags.feature_extractor_img
-
-        model_clf_m1 = None
-        model_clf_m2 = None
-        model_clf_m3 = None
+        # mapping clf type to clf_save_m*
+        clf_save_names = {
+            'PA': self.flags.clf_save_m1,
+            'Lateral': self.flags.clf_save_m2,
+            'text': self.flags.clf_save_m3
+        }
+        clfs = {f'{mod}': None for mod in self.modalities}
         if self.flags.use_clf:
-            # finding the directory of the classifier
-            dir_img_clf = os.path.join(self.flags.dir_clf, f'Mimic{self.flags.img_size}_{self.flags.img_clf_type}')
-            dir_img_clf = os.path.expanduser(dir_img_clf)
-            # finding and loading state dict
-            model_clf_m1 = ClfImg(self.flags, self.labels)
-            clf_m1_path = get_clf_path(dir_img_clf, self.flags.clf_save_m1)
-            model_clf_m1.load_state_dict(torch.load(clf_m1_path))
-            model_clf_m1 = model_clf_m1.to(self.flags.device)
+            for mod in self.modalities:
+                if mod in ['PA', 'Lateral']:
+                    # finding the directory of the classifier
+                    dir_img_clf = os.path.join(self.flags.dir_clf,
+                                               f'Mimic{self.flags.img_size}_{self.flags.img_clf_type}')
+                    dir_img_clf = os.path.expanduser(dir_img_clf)
+                    # finding and loading state dict
+                    clf = ClfImg(self.flags, self.labels)
+                    clf_path = get_clf_path(dir_img_clf, clf_save_names[mod])
+                    clf.load_state_dict(torch.load(clf_path))
+                    clfs[mod] = clf.to(self.flags.device)
+                elif mod == 'text':
+                    clf = ClfText(self.flags, self.labels)
+                    clf_path = get_clf_path(self.flags.dir_clf, f'clf_text_{self.flags.text_encoding}_encoding')
 
-            model_clf_m2 = ClfImg(self.flags, self.labels)
-            clf_m2_path = get_clf_path(dir_img_clf, self.flags.clf_save_m2)
-            model_clf_m2.load_state_dict(torch.load(clf_m2_path))
-            model_clf_m2 = model_clf_m2.to(self.flags.device)
+                    clf.load_state_dict(torch.load(clf_path))
+                    clfs[mod] = clf.to(self.flags.device)
+                else:
+                    raise NotImplementedError
 
-            model_clf_m3 = ClfText(self.flags, self.labels)
-            clf_m3_path = get_clf_path(self.flags.dir_clf, f'clf_text_{self.flags.text_encoding}_encoding')
-
-            model_clf_m3.load_state_dict(torch.load(clf_m3_path))
-            model_clf_m3 = model_clf_m3.to(self.flags.device)
-
-        return {'PA': model_clf_m1,
-                'Lateral': model_clf_m2,
-                'text': model_clf_m3}
+        return clfs
 
     def set_optimizer(self):
         print('setting optimizer')
@@ -135,7 +146,7 @@ class MimicExperiment(BaseExperiment):
     def set_rec_weights(self):
         print('setting rec_weights')
         rec_weights = {}
-        ref_mod_d_size = self.modalities['PA'].data_size.numel()
+        ref_mod_d_size = self.modalities['text'].data_size.numel()
         for k, m_key in enumerate(self.modalities.keys()):
             mod = self.modalities[m_key]
             numel_mod = mod.data_size.numel()
@@ -274,4 +285,3 @@ class Callbacks:
                 self.exp.mm_vae.save_networks()
             torch.save(self.exp.mm_vae.state_dict(),
                        os.path.join(dir_network_epoch, self.exp.flags.mm_vae_save))
-
