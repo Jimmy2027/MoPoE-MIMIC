@@ -4,7 +4,6 @@ from torchvision import transforms
 
 import mimic.modalities.utils
 from mimic.modalities.Modality import Modality
-from mimic.utils import utils
 from mimic.utils.save_samples import write_samples_img_to_file
 
 
@@ -24,11 +23,10 @@ class MimicPA(Modality):
         write_samples_img_to_file(d, fn, img_per_row);
 
     def plot_data(self, exp, d):
-        if not d.shape == self.data_size:
+        if d.shape != self.data_size:
             transform = transforms.Compose([transforms.ToPILImage(),
                                             transforms.Resize(size=self.data_size[1:],
                                                               interpolation=Image.BICUBIC),
                                             transforms.ToTensor()])
             d = transform(d.cpu())
-        p = d.repeat(1, 1, 1, 1)
-        return p;
+        return d.repeat(1, 1, 1, 1);
