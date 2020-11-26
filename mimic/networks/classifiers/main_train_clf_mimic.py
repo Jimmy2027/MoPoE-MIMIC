@@ -1,12 +1,12 @@
 import os
 import time
+import typing
 from contextlib import contextmanager
 from typing import Union
 
 import numpy as np
 import torch
 import torch.optim as optim
-from sklearn.metrics import average_precision_score
 from tensorboardX import SummaryWriter
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
@@ -78,15 +78,16 @@ def train_clf(flags, epoch, model, data_loader: DataLoader, log_writer, modality
     return model
 
 
-def eval_clf(flags, epoch, model, data_loader: DataLoader, log_writer, modality: str):
+def eval_clf(flags, epoch, model, data_loader: DataLoader, log_writer, modality: str) -> typing.Tuple[
+    np.ndarray, typing.Dict[str, torch.Tensor]]:
     num_samples_test = data_loader.__len__()
     model.eval()
     num_batches_eval = int(np.floor(num_samples_test / flags.batch_size))
     step = epoch * num_batches_eval
 
     losses = []
-    list_predictions = []
-    list_gt = []
+    predictions = torch.Tensor()
+    gts = torch.Tensor()
     with torch.no_grad():
         name_logs = f"eval_clf_{modality}"
         for idx, (batch_d, batch_l) in tqdm(enumerate(data_loader), total=len(data_loader), postfix='eval epoch'):
@@ -101,14 +102,15 @@ def eval_clf(flags, epoch, model, data_loader: DataLoader, log_writer, modality:
             ):
                 attr_hat = attr_hat.view(bs, n_crops, -1).mean(1)
             loss = clf_loss(flags, attr_hat, gt)
-            list_predictions.extend(attr_hat.cpu().data.numpy().ravel())
-            list_gt.extend(gt.cpu().data.numpy().ravel())
+            predictions = torch.cat((predictions, attr_hat.cpu()), 0)
+            gts = torch.cat((gts, gt.cpu()), 0)
+
             losses.append(loss.item())
             log_writer.add_scalars('%s/Loss' % name_logs, {modality: loss.item()}, step)
 
             step += 1
-    mean_AP = average_precision_score(list_gt, list_predictions)
-    return np.mean(losses), mean_AP
+    val_results = {'predictions': predictions, 'ground_truths': gts}
+    return np.mean(losses), val_results
 
 
 def training_procedure_clf(flags, train_set: Union[Mimic, Mimic_testing], eval_set: Union[Mimic, Mimic_testing],
@@ -135,8 +137,8 @@ def training_procedure_clf(flags, train_set: Union[Mimic, Mimic_testing], eval_s
         end = time.time()
         with catching_cuda_out_of_memory(flags.batch_size):
             model = train_clf(flags, epoch, model, train_loader, logger, modality, optimizer)
-        loss, mean_AP = eval_clf(flags, epoch, model, eval_loader, logger, modality)
-        if callbacks.update_epoch(epoch, loss, mean_AP, model, time.time() - end):
+        loss, val_results = eval_clf(flags, epoch, model, eval_loader, logger, modality)
+        if callbacks.update_epoch(epoch, loss, val_results, model, time.time() - end):
             break
 
     torch.save(flags, os.path.join(flags.dir_clf, f'flags_clf_{modality}_{epoch}.rar'))
@@ -181,6 +183,8 @@ if __name__ == '__main__':
     """
     parser.add_argument('--modality', type=str, default='PA', choices=['PA', 'Lateral', 'text'],
                         help="modality on which to train the image classifier, chose between PA and Lateral")
+    parser.add_argument('--fixed_extractor', type=bool, default=True,
+                        help="if the layers of the encoder part of the pretrained classifier are frozen.")
 
     FLAGS = parser.parse_args()
     config_path = get_config_path(FLAGS)
