@@ -105,6 +105,80 @@ class Mimic(Dataset):
                                    f' len(report_findings): {len(self.report_findings)}'
 
 
+class MimicText(Dataset):
+    """
+    Custom Dataset for loading the uni-modal mimic text data
+    """
+
+    def __init__(self, args, str_labels, split: str):
+        """
+        split: string, either train, eval or test
+        """
+        self.args = args
+        self.split = split
+        dir_dataset = os.path.join(args.dir_data, f'files_small_{args.img_size}')
+        fn_findings = os.path.join(dir_dataset, split + '_findings.csv')
+        fn_labels = os.path.join(dir_dataset, split + '_labels.csv')
+
+        self.labels = pd.read_csv(fn_labels)[str_labels].fillna(0)
+
+        self.report_findings = pd.read_csv(fn_findings)['findings']
+        # need to filter out labels that contain the label "-1"
+        self._filter_labels()
+
+        if self.args.text_encoding == 'char':
+            self.args.alphabet = get_alphabet()
+            args.num_features = len(self.args.alphabet)
+        else:
+            # if word_encoding == word, need dataset for report_findings that contains the encodings.
+            self.get_report_findings_dataset(dir_dataset)
+
+    def __getitem__(self, index):
+        try:
+            if self.args.text_encoding == 'char':
+                text_str = self.report_findings[index]
+                if len(text_str) > self.args.len_sequence:
+                    text_str = text_str[:self.args.len_sequence]
+                text_vec = text.one_hot_encode(self.args.len_sequence, self.args.alphabet, text_str)
+            elif self.args.text_encoding == 'word':
+                text_vec = self.report_findings_dataset.__getitem__(index)
+            else:
+                raise NotImplementedError(f'{self.args.text_encoding} has to be either char or word')
+            label = torch.from_numpy((self.labels[index, :]).astype(int)).float()
+            sample = {'text': text_vec}
+        except (IndexError, OSError):
+            return None
+        return sample, label
+
+    def __len__(self):
+        return self.labels.shape[0]
+
+    def get_text_str(self, index):
+        return self.y[index]
+
+    def get_report_findings_dataset(self, dir_dataset):
+
+        self.report_findings_dataset = MimicSentences(args=self.args, data_dir=dir_dataset,
+                                                      findings=self.report_findings, split=self.split,
+                                                      transform=True)
+        assert len(self.report_findings_dataset) == len(self.report_findings), \
+            'report findings dataset must have the same length than the report findings dataframe'
+        self.args.vocab_size = self.report_findings_dataset.vocab_size
+
+    def _filter_labels(self):
+        # need to remove all cases where the labels have 3 classes
+        indices = []
+        indices += self.labels.index[(self.labels['Lung Opacity'] == -1)].tolist()
+        indices += self.labels.index[(self.labels['Pleural Effusion'] == -1)].tolist()
+        indices += self.labels.index[(self.labels['Support Devices'] == -1)].tolist()
+        indices = list(set(indices))
+        self.labels = self.labels.drop(indices).values
+        self.report_findings = self.report_findings.drop(indices).values
+
+        assert len(np.unique(self.labels)) == 2, \
+            'labels should contain 2 classes, might need to remove -1 labels'
+
+
 class OrderedCounter(Counter, OrderedDict):
     """
     Counter that remembers the order elements are first encountered.
@@ -136,7 +210,7 @@ class MimicSentences(Dataset):
         self.args = args
         self.max_sequence_length = args.len_sequence
         self.min_occ = kwargs.get('min_occ', 3)
-        self.transform = transform
+        self.transform = to_tensor if transform else None
         self.findings = findings
         self.gen_dir = os.path.join(self.data_dir, "oc:{}_msl:{}".
                                     format(self.min_occ, self.max_sequence_length))
@@ -308,6 +382,20 @@ class Mimic_testing(Dataset):
             self.flags.num_features = len(self.flags.alphabet)
 
     def __getitem__(self, index):
+        if not self.flags.only_text_modality:
+            sample = self.get_images()
+        else:
+            sample = {}
+        if self.flags.text_encoding == 'word':
+            sample['text'] = torch.rand(1024).float()
+        elif self.flags.text_encoding == 'char':
+            sample['text'] = torch.rand(1024, 71).float()
+
+        label = torch.tensor([random.randint(0, 1), random.randint(0, 1), random.randint(0, 1)]).float()
+
+        return sample, label
+
+    def get_images(self) -> dict:
         img_size = (self.flags.img_size, self.flags.img_size)
 
         if (self.flags.img_clf_type == 'densenet' or self.flags.feature_extractor_img == 'densenet'):
