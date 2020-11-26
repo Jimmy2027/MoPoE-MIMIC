@@ -16,9 +16,12 @@ class CheXNet(nn.Module):
     except the classifier layer which has an additional sigmoid function.
     """
 
-    def __init__(self, out_size):
+    def __init__(self, out_size, fixed_extractor=True):
         super(CheXNet, self).__init__()
         self.densenet121 = torchvision.models.densenet121(pretrained=True)
+        if fixed_extractor:
+            for param in self.densenet121.parameters():
+                param.requires_grad = False
         num_ftrs = self.densenet121.classifier.in_features
         self.densenet121.classifier = nn.Sequential(
             nn.Linear(num_ftrs, out_size),
