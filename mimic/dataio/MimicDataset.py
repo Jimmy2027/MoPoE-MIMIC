@@ -77,13 +77,13 @@ class Mimic(Dataset):
         return self.y[index]
 
     def get_report_findings_dataset(self, dir_dataset):
-        if self.args.text_encoding == 'word':
-            tx = lambda data: torch.Tensor(data)
-            self.report_findings_dataset = MimicSentences(args=self.args, data_dir=dir_dataset,
-                                                          findings=self.report_findings, split=self.split, transform=tx)
-            assert len(self.report_findings_dataset) == len(self.report_findings), \
-                'report findings dataset must have the same length than the report findings dataframe'
-            self.args.vocab_size = self.report_findings_dataset.vocab_size
+
+        self.report_findings_dataset = MimicSentences(args=self.args, data_dir=dir_dataset,
+                                                      findings=self.report_findings, split=self.split,
+                                                      transform=True)
+        assert len(self.report_findings_dataset) == len(self.report_findings), \
+            'report findings dataset must have the same length than the report findings dataframe'
+        self.args.vocab_size = self.report_findings_dataset.vocab_size
 
     def _filter_labels(self):
         # need to remove all cases where the labels have 3 classes
@@ -115,6 +115,10 @@ class OrderedCounter(Counter, OrderedDict):
 
     def __reduce__(self):
         return self.__class__, (OrderedDict(self),)
+
+
+def to_tensor(data):
+    return torch.Tensor(data)
 
 
 class MimicSentences(Dataset):
