@@ -97,7 +97,7 @@ def test_clf_lr_all_subsets(epoch, clf_lr, exp):
 
     d_loader = DataLoader(exp.dataset_test, batch_size=exp.flags.batch_size,
                           shuffle=True,
-                          num_workers=exp.flags.dataloader_workers, drop_last=True)
+                          num_workers=exp.flags.dataloader_workers, drop_last=False)
 
     if exp.flags.steps_per_training_epoch > 0:
         training_steps = exp.flags.steps_per_training_epoch
