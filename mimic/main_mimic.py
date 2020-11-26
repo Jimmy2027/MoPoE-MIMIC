@@ -17,6 +17,7 @@ from mimic.utils.filehandling import create_dir_structure, create_dir_structure_
 from mimic.utils.flags import parser
 from mimic.utils.flags import setup_flags
 from mimic.utils.utils import get_gpu_memory
+import pandas as pd
 
 
 class Main:
@@ -56,7 +57,6 @@ class Main:
         # need to reinitialize MimicExperiment after each retry
         mimic = MimicExperiment(self.flags)
         create_dir_structure_testing(mimic)
-        mimic.set_optimizer()
         mimic.number_restarts = self.current_tries
         try:
             if self.flags.distributed:
@@ -75,8 +75,12 @@ class Main:
 
     def restart(self) -> None:
         """
-        Clears old dir_structure and creates new one
+        Clears old dir_structure and creates new one, deletes corresponding row in the experiment dataframe.
         """
+        exp_df = pd.read_csv('experiments_dataframe.csv')
+        exp_df.drop(exp_df.index[exp_df['str_experiment'] == self.flags.str_experiment])
+        exp_df.to_csv('experiments_dataframe.csv', index=False)
+
         torch.cuda.empty_cache()
         gc.collect()
         command = f'rm -r {self.flags.dir_experiment_run}'
