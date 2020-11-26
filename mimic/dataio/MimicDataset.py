@@ -21,13 +21,10 @@ from mimic.utils.utils import get_alphabet
 class Mimic(Dataset):
     """Custom Dataset for loading mimic images"""
 
-    def __init__(self, args, str_labels, split: str, **kwargs):
+    def __init__(self, args, str_labels, split: str):
         """
         split: string, either train, eval or test
         """
-        if args.use_toy_dataset:
-            # todo toy dataset is deprecated
-            raise DeprecationWarning
         self.args = args
         self.split = split
         dir_dataset = os.path.join(args.dir_data, f'files_small_{args.img_size}')
@@ -42,11 +39,13 @@ class Mimic(Dataset):
         self.report_findings = pd.read_csv(fn_findings)['findings']
         # need to filter out labels that contain the label "-1"
         self._filter_labels()
-        # if word_encoding == word, need dataset for report_findings that contains the encodings.
-        self.get_report_findings_dataset(dir_dataset)
+
         if self.args.text_encoding == 'char':
             self.args.alphabet = get_alphabet()
             args.num_features = len(self.args.alphabet)
+        else:
+            # if word_encoding == word, need dataset for report_findings that contains the encodings.
+            self.get_report_findings_dataset(dir_dataset)
 
         self.transform_img = get_transform_img(args)
 
@@ -124,7 +123,7 @@ class MimicSentences(Dataset):
     Word encoding for mimic report findings
     """
 
-    def __init__(self, args, data_dir: str, findings: pd.DataFrame, split: str, transform=None, **kwargs):
+    def __init__(self, args, data_dir: str, findings: pd.DataFrame, split: str, transform=False, **kwargs):
         """split: 'train', 'val' or 'test' """
 
         super().__init__()
@@ -306,25 +305,19 @@ class Mimic_testing(Dataset):
 
     def __getitem__(self, index):
         img_size = (self.flags.img_size, self.flags.img_size)
-        try:
-            if (self.flags.img_clf_type == 'densenet' or self.flags.feature_extractor_img == 'densenet'):
-                if self.flags.n_crops in [5, 10]:
-                    sample = {'PA': torch.rand(self.flags.n_crops, 3, *img_size).float(),
-                              'Lateral': torch.rand(self.flags.n_crops, 3, *img_size).float()}
-                else:
-                    sample = {'PA': torch.rand(3, *img_size).float(),
-                              'Lateral': torch.rand(3, *img_size).float()}
+
+        if (self.flags.img_clf_type == 'densenet' or self.flags.feature_extractor_img == 'densenet'):
+            if self.flags.n_crops in [5, 10]:
+                sample = {'PA': torch.rand(self.flags.n_crops, 3, *img_size).float(),
+                          'Lateral': torch.rand(self.flags.n_crops, 3, *img_size).float()}
             else:
-                sample = {'PA': torch.rand(1, *img_size).float(),
-                          'Lateral': torch.rand(1, *img_size).float()}
-            if self.flags.text_encoding == 'word':
-                sample['text'] = torch.rand(1024).float()
-            elif self.flags.text_encoding == 'char':
-                sample['text'] = torch.rand(1024, 71).float()
-        except (IndexError, OSError):
-            return None
-        label = torch.tensor([random.randint(0, 1), random.randint(0, 1), random.randint(0, 1)]).float()
-        return sample, label
+                sample = {'PA': torch.rand(3, *img_size).float(),
+                          'Lateral': torch.rand(3, *img_size).float()}
+        else:
+            sample = {'PA': torch.rand(1, *img_size).float(),
+                      'Lateral': torch.rand(1, *img_size).float()}
+
+        return sample
 
     def __len__(self) -> int:
         return 2 * self.flags.batch_size
