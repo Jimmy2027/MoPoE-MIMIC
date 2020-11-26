@@ -59,8 +59,7 @@ def calc_log_probs(exp, result, batch):
     for m, m_key in enumerate(mods.keys()):
         mod = mods[m_key]
         ba = batch[0][mod.name]
-        if m_key == 'text' and exp.flags.text_encoding == 'word':
-            ba = text.one_hot_encode_word(exp.flags, ba)
+
         log_probs[mod.name] = -mod.calc_log_prob(out_dist=result['rec'][mod.name], target=ba,
                                                  norm_value=exp.flags.batch_size)
         weighted_log_prob += exp.rec_weights[mod.name] * log_probs[mod.name]
@@ -194,9 +193,8 @@ def train(exp: MimicExperiment, train_loader: DataLoader):
     else:
         training_steps = None
 
-    for iteration, batch in tqdm(enumerate(at_most_n(train_loader, training_steps or None)), total=len(train_loader),
-                                 postfix='train'):
-
+    for iteration, batch in tqdm(enumerate(at_most_n(train_loader, training_steps or None)),
+                                 total=training_steps or len(train_loader), postfix='train'):
         basic_routine = basic_routine_epoch(exp, batch)
         results = basic_routine['results']
         total_loss = basic_routine['total_loss']
@@ -207,8 +205,7 @@ def train(exp: MimicExperiment, train_loader: DataLoader):
         with catching_cuda_out_of_memory(exp.flags.batch_size):
             total_loss.backward()
         exp.optimizer.step()
-        if tb_logger:
-            tb_logger.write_training_logs(results, total_loss, log_probs, klds)
+        tb_logger.write_training_logs(results, total_loss, log_probs, klds)
 
 
 def test(epoch, exp, test_loader: DataLoader):
@@ -220,50 +217,55 @@ def test(epoch, exp, test_loader: DataLoader):
         exp.mm_vae = mm_vae
 
         total_losses = []
-        args = exp.flags
+        # dict storing all test results that will be read into the experiments dataframe
+        test_results = {}
         for iteration, batch in tqdm(enumerate(test_loader), total=len(test_loader), postfix='test'):
             basic_routine = basic_routine_epoch(exp, batch)
             results = basic_routine['results']
             total_loss = basic_routine['total_loss']
             klds = basic_routine['klds']
             log_probs = basic_routine['log_probs']
-            if tb_logger:
-                tb_logger.write_testing_logs(results, total_loss, log_probs, klds)
+            tb_logger.write_testing_logs(results, total_loss, log_probs, klds)
             total_losses.append(total_loss.item())
 
-        if epoch >= np.ceil(exp.flags.end_epoch * 0.8) and tb_logger:
+        if epoch >= np.ceil(exp.flags.end_epoch * 0.8):
             print('generating plots')
             plots = generate_plots(exp, epoch)
             tb_logger.write_plots(plots, epoch)
 
         if (epoch + 1) % exp.flags.eval_freq == 0 or (epoch + 1) == exp.flags.end_epoch:
-            if exp.flags.eval_lr and tb_logger:
+            if exp.flags.eval_lr:
                 print('evaluation of latent representation')
                 clf_lr = train_clf_lr_all_subsets(exp)
                 lr_eval = test_clf_lr_all_subsets(epoch, clf_lr, exp)
                 tb_logger.write_lr_eval(lr_eval)
+                test_results['lr_eval'] = lr_eval
 
-            if exp.flags.use_clf and tb_logger:
+            if exp.flags.use_clf:
                 print('test generation')
                 gen_eval = test_generation(epoch, exp)
                 tb_logger.write_coherence_logs(gen_eval)
+                test_results['gen_eval'] = gen_eval
 
-            if exp.flags.calc_nll and tb_logger:
+            if exp.flags.calc_nll:
                 print('estimating likelihoods')
                 lhoods = estimate_likelihoods(exp)
                 tb_logger.write_lhood_logs(lhoods)
+                test_results['lhoods'] = lhoods
 
             if (
                     exp.flags.calc_prd
                     and ((epoch + 1) % exp.flags.eval_freq_fid == 0)
-                    and tb_logger
+
             ):
                 print('calculating prediction score')
                 prd_scores = calc_prd_score(exp)
                 tb_logger.write_prd_scores(prd_scores)
+                test_results['prd_scores'] = prd_scores
+
         mean_loss = np.mean(total_losses)
-        if tb_logger:
-            exp.update_experiments_dataframe({'total_test_loss': np.mean(total_losses), 'total_epochs': epoch})
+        exp.update_experiments_dataframe(
+            {'total_test_loss': np.mean(total_losses), 'total_epochs': epoch, **utils.flatten(test_results)})
         return mean_loss
 
 
@@ -272,13 +274,12 @@ def run_epochs(rank: any, exp: MimicExperiment) -> None:
     rank: is int if multiprocessing and torch.device otherwise
     """
     print('running epochs')
+    exp.set_optimizer()
     exp.mm_vae = exp.mm_vae.to(rank)
     args = exp.flags
     args.device = rank
+    exp.tb_logger = exp.init_summary_writer()
 
-    if not exp.flags.distributed or rank % exp.flags.world_size == 0:
-        # set up logger only for one process
-        exp.tb_logger = exp.init_summary_writer()
     if args.distributed:
         utils.set_up_process_group(args.world_size, rank)
         exp.mm_vae = DDP(exp.mm_vae, device_ids=[exp.flags.device])
