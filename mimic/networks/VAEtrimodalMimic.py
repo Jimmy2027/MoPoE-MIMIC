@@ -41,21 +41,21 @@ class VAEtrimodalMimic(BaseMMVae, nn.Module):
 
         results_rec = {}
         for k, m_key in enumerate(self.modalities.keys()):
-                input_mod = input_batch[m_key]
-                if input_mod is not None:
-                        mod = self.modalities[m_key]
-                        if self.flags.factorized_representation:
-                            s_mu, s_logvar = latents[m_key + '_style']
-                            s_emb = utils.reparameterize(mu=s_mu, logvar=s_logvar)
-                        else:
-                            s_emb = None
-                        if m_key == 'Lateral':
-                                rec = self.lhood_lat(*self.decoder_lat(s_emb, class_embeddings))
-                        elif m_key == 'PA':
-                                rec = self.lhood_pa(*self.decoder_pa(s_emb, class_embeddings))
-                        elif m_key == 'text':
-                                rec = self.lhood_text(*self.decoder_text(s_emb, class_embeddings))
-                        results_rec[m_key] = rec
+            input_mod = input_batch[m_key]
+            if input_mod is not None:
+                mod = self.modalities[m_key]
+                if self.flags.factorized_representation:
+                    s_mu, s_logvar = latents[m_key + '_style']
+                    s_emb = utils.reparameterize(mu=s_mu, logvar=s_logvar)
+                else:
+                    s_emb = None
+                if m_key == 'Lateral':
+                    rec = self.lhood_lat(*self.decoder_lat(s_emb, class_embeddings))
+                elif m_key == 'PA':
+                    rec = self.lhood_pa(*self.decoder_pa(s_emb, class_embeddings))
+                elif m_key == 'text':
+                    rec = self.lhood_text(*self.decoder_text(s_emb, class_embeddings))
+                results_rec[m_key] = rec
         results['rec'] = results_rec
         return results
 
@@ -158,5 +158,100 @@ class VAEtrimodalMimic(BaseMMVae, nn.Module):
         torch.save(self.decoder_pa.state_dict(), os.path.join(self.flags.dir_checkpoints, self.flags.decoder_save_m1))
         torch.save(self.encoder_lat.state_dict(), os.path.join(self.flags.dir_checkpoints, self.flags.encoder_save_m2))
         torch.save(self.decoder_lat.state_dict(), os.path.join(self.flags.dir_checkpoints, self.flags.decoder_save_m2))
+        torch.save(self.encoder_text.state_dict(), os.path.join(self.flags.dir_checkpoints, self.flags.encoder_save_m3))
+        torch.save(self.decoder_text.state_dict(), os.path.join(self.flags.dir_checkpoints, self.flags.decoder_save_m3))
+
+
+class VAETextMimic(BaseMMVae, nn.Module):
+    def __init__(self, flags, modalities, subsets):
+        super(VAETextMimic, self).__init__(flags, modalities, subsets)
+        self.encoder_text = modalities['text'].encoder
+        self.decoder_text = modalities['text'].decoder
+        self.encoder_text = self.encoder_text.to(flags.device)
+        self.decoder_text = self.decoder_text.to(flags.device)
+        self.lhood_text = modalities['text'].likelihood
+
+    def forward(self, input_batch):
+        latents = self.inference(input_batch)
+        results = {'latents': latents}
+        div = self.calc_joint_divergence(latents['mus'],
+                                         latents['logvars'],
+                                         latents['weights'])
+        results['group_distr'] = latents['joint']
+        class_embeddings = utils.reparameterize(latents['joint'][0],
+                                                latents['joint'][1])
+
+        for k, key in enumerate(div.keys()):
+            results[key] = div[key]
+
+        results_rec = {}
+        for k, m_key in enumerate(self.modalities.keys()):
+            input_mod = input_batch[m_key]
+            if input_mod is not None:
+                mod = self.modalities[m_key]
+                if self.flags.factorized_representation:
+                    s_mu, s_logvar = latents[m_key + '_style']
+                    s_emb = utils.reparameterize(mu=s_mu, logvar=s_logvar)
+                else:
+                    s_emb = None
+                if m_key == 'text':
+                    rec = self.lhood_text(*self.decoder_text(s_emb, class_embeddings))
+                results_rec[m_key] = rec
+        results['rec'] = results_rec
+        return results
+
+    def encode(self, input_batch):
+        latents = {}
+        if 'text' in input_batch.keys():
+            i_m3 = input_batch['text'];
+            latents['text'] = self.encoder_text(i_m3)
+            if self.encoder_text.feature_compressor.style_mu and self.encoder_text.feature_compressor.style_logvar:
+                latents['text_style'] = latents['text'][2:]
+            latents['text'] = latents['text'][:2]
+        else:
+            latents['text_style'] = [None, None]
+            latents['text'] = [None, None]
+        return latents;
+
+    def get_random_styles(self, num_samples):
+        if self.flags.factorized_representation:
+            z_style_3 = torch.randn(num_samples, self.flags.style_text_dim);
+            z_style_3 = z_style_3.to(self.flags.device);
+        else:
+            z_style_3 = None;
+        return {'text': z_style_3}
+
+    def get_random_style_dists(self, num_samples):
+        s3_mu = torch.zeros(num_samples,
+                            self.flags.style_text_dim).to(self.flags.device)
+        s3_logvar = torch.zeros(num_samples,
+                                self.flags.style_text_dim).to(self.flags.device);
+        m3_dist = [s3_mu, s3_logvar];
+        return {'text': m3_dist};
+
+    def generate(self, num_samples=None) -> dict:
+        if num_samples is None:
+            num_samples = self.flags.batch_size
+        z_class = torch.randn(num_samples, self.flags.class_dim)
+        z_class = z_class.to(self.flags.device)
+
+        style_latents = self.get_random_styles(num_samples)
+        random_latents = {'content': z_class, 'style': style_latents}
+        random_samples = self.generate_from_latents(random_latents)
+        return random_samples
+
+    def generate_from_latents(self, latents: dict) -> dict:
+        suff_stats = self.generate_sufficient_statistics_from_latents(latents)
+        cond_gen_text = suff_stats['text'].mean
+        cond_gen = {'text': cond_gen_text}
+        return cond_gen
+
+    def generate_sufficient_statistics_from_latents(self, latents: dict) -> dict:
+        style_text = latents['style']['text']
+        content = latents['content']
+        cond_gen_m3 = self.lhood_text(*self.decoder_text(style_text, content))
+        return {'text': cond_gen_m3}
+
+    def save_networks(self):
         torch.save(self.encoder_text.state_dict(), os.path.join(self.flags.dir_checkpoints, self.flags.encoder_save_m3))
         torch.save(self.decoder_text.state_dict(), os.path.join(self.flags.dir_checkpoints, self.flags.decoder_save_m3))
