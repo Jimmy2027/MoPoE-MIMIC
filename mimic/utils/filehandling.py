@@ -23,7 +23,7 @@ def get_str_experiments(flags, prefix: str = ''):
 
 
 def create_dir_structure_testing(exp):
-    flags = exp.flags;
+    flags = exp.flags
     for k, label_str in enumerate(exp.labels):
         dir_gen_eval_label = os.path.join(flags.dir_gen_eval, label_str)
         create_dir(dir_gen_eval_label)

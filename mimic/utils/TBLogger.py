@@ -1,10 +1,10 @@
 class TBLogger():
     def __init__(self, name, writer):
-        self.name = name;
-        self.writer = writer;
-        self.training_prefix = 'train';
-        self.testing_prefix = 'test';
-        self.step = 0;
+        self.name = name
+        self.writer = writer
+        self.training_prefix = 'train'
+        self.testing_prefix = 'test'
+        self.step = 0
 
     def write_log_probs(self, name, log_probs):
         self.writer.add_scalars('%s/LogProb' % name,
@@ -33,7 +33,7 @@ class TBLogger():
 
     def write_lr_eval(self, lr_eval):
         for s, l_key in enumerate(sorted(lr_eval.keys())):
-            self.writer.add_scalars('Latent Representation/%s' % (l_key),
+            self.writer.add_scalars(f'Latent Representation/{l_key}',
                                     lr_eval[l_key],
                                     self.step)
 

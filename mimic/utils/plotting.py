@@ -72,10 +72,10 @@ def generate_swapping_plot(exp, epoch):
                                               num_samples=1)
                     l_content = model.inference(i_batch_c,
                                                 num_samples=1)
-                    l_s_mod = l_style['modalities'][mod_out.name + '_style'];
-                    l_c_mod = l_content['modalities'][mod_in.name];
-                    s_emb = utils.reparameterize(l_s_mod[0], l_s_mod[1]);
-                    c_emb = utils.reparameterize(l_c_mod[0], l_c_mod[1]);
+                    l_s_mod = l_style['modalities'][mod_out.name + '_style']
+                    l_c_mod = l_content['modalities'][mod_in.name]
+                    s_emb = utils.reparameterize(l_s_mod[0], l_s_mod[1])
+                    c_emb = utils.reparameterize(l_c_mod[0], l_c_mod[1])
                     style_emb = {mod_out.name: s_emb}
                     emb_swap = {'content': c_emb, 'style': style_emb};
                     swap_sample = model.generate_from_latents(emb_swap);
@@ -111,10 +111,7 @@ def generate_conditional_fig_M(exp, epoch, M):
                                   dtype=torch.float32).repeat(100 + M * 10, 1, 1, 1);
                 for m, sample in enumerate(samples):
                     for n, mod_in in enumerate(s_in):
-                        if mod_in.name == 'text' and exp.flags.text_encoding == 'word':
-                            c_in = mod_in.plot_data(exp, text.one_hot_encode_word(exp.flags, sample[mod_in.name]));
-                        else:
-                            c_in = mod_in.plot_data(exp, sample[mod_in.name]);
+                        c_in = mod_in.plot_data(exp, sample[mod_in.name]);
                         rec[m + n * 10, :, :, :] = c_in;
                 cond_plots[s_key + '__' + mod_out.name] = rec;
 
