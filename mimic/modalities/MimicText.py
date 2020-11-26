@@ -3,14 +3,14 @@ import torch
 import mimic.modalities.utils
 from mimic.modalities.Modality import Modality
 from mimic.utils import plot
-from mimic.utils import utils
 from mimic.utils.save_samples import write_samples_text_to_file
-from mimic.utils.text import tensor_to_text
+from mimic.utils.text import tensor_to_text, one_hot_encode_word
 
 
 class MimicText(Modality):
     def __init__(self, enc, dec, len_sequence, plotImgSize, font, args):
         self.name = 'text'
+        self.args = args
         self.likelihood_name = 'categorical'
         self.len_sequence = len_sequence
         if args.text_encoding == 'char':
@@ -27,10 +27,15 @@ class MimicText(Modality):
         self.likelihood = mimic.modalities.utils.get_likelihood(self.likelihood_name)
 
     def save_data(self, exp, d, fn, args):
-        write_samples_text_to_file(tensor_to_text(exp,
-                                                  d.unsqueeze(0)),
-                                   fn)
+        write_samples_text_to_file(tensor_to_text(exp, d.unsqueeze(0)), fn)
 
     def plot_data(self, exp, d):
-        out = plot.text_to_pil(exp, d.unsqueeze(0), self.plot_img_size, self.font)
-        return out
+        if exp.flags.text_encoding == 'word':
+            d = one_hot_encode_word(self.args, d)
+
+        return plot.text_to_pil(exp, d.unsqueeze(0), self.plot_img_size, self.font)
+
+    def calc_log_prob(self, out_dist, target: torch.Tensor, norm_value: int):
+        if self.args.text_encoding == 'word':
+            target = one_hot_encode_word(self.args, target)
+        return Modality.calc_log_prob(self, out_dist, target, norm_value)
