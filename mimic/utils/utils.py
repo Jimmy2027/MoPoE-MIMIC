@@ -13,6 +13,7 @@ from torch.autograd import Variable
 
 from mimic.utils.exceptions import CudaOutOfMemory
 from mimic.utils.exceptions import NaNInLatent
+from collections.abc import MutableMapping
 
 
 # Print iterations progress
@@ -233,3 +234,14 @@ def catching_cuda_out_of_memory_():
             raise CudaOutOfMemory(e)
         else:
             raise e
+
+
+def flatten(d: dict, parent_key='', sep='_') -> dict:
+    items = []
+    for k, v in d.items():
+        new_key = parent_key + sep + k if parent_key else k
+        if isinstance(v, MutableMapping):
+            items.extend(flatten(v, new_key, sep=sep).items())
+        else:
+            items.append((new_key, v))
+    return dict(items)
