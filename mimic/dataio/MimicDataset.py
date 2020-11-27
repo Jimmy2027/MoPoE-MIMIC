@@ -382,12 +382,9 @@ class Mimic_testing(Dataset):
             self.flags.num_features = len(self.flags.alphabet)
 
     def __getitem__(self, index):
-        if not self.flags.only_text_modality:
-            sample = self.get_images()
-        else:
-            sample = {}
+        sample = self.get_images() if not self.flags.only_text_modality else {}
         if self.flags.text_encoding == 'word':
-            sample['text'] = torch.rand(1024).float()
+            sample['text'] = torch.randint(0, 3517, (1, 1024)).view(1024).float()
         elif self.flags.text_encoding == 'char':
             sample['text'] = torch.rand(1024, 71).float()
 
