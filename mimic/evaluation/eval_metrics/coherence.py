@@ -4,7 +4,6 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from mimic.utils.save_samples import save_generated_samples_singlegroup
-from mimic.utils.text import one_hot_encode_word
 
 
 def classify_cond_gen_samples(exp, labels, cond_samples):
@@ -103,7 +102,9 @@ def test_generation(epoch, exp):
                                                rand_gen);
             if exp.flags.text_encoding == 'word':
                 batch_d_temp = batch_d.copy()
-                batch_d_temp['text'] = one_hot_encode_word(exp.flags, batch_d_temp['text'])
+                batch_d_temp['text'] = torch.nn.functional.one_hot(batch_d_temp['text'].to(torch.int64),
+                                                                   num_classes=args.vocab_size)
+
                 save_generated_samples_singlegroup(exp, iteration,
                                                    'real',
                                                    batch_d_temp);

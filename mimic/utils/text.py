@@ -24,25 +24,6 @@ def one_hot_encode(len_seq: int, alphabet: str, seq: str) -> torch.tensor:
     return X
 
 
-def one_hot_encode_word(args, seq: torch.tensor) -> torch.tensor:
-    """
-    One hot encodes word encodings.
-    Example: for tensor of shape (bs, 1024)
-    returns tensor of shape (bs, 1024, vocab_size)
-    """
-    if len(seq.shape) > 1:
-        # need to iterate over batches
-        X = torch.zeros(seq.shape[0], args.len_sequence, args.vocab_size)
-        for sentence in range(seq.shape[0]):
-            for index_char, char in enumerate(seq[sentence]):
-                X[sentence, index_char, int(char.item())] = 1.0
-    else:
-        X = torch.zeros(args.len_sequence, args.vocab_size)
-        for index_char, char in enumerate(seq):
-            X[index_char, int(char.item())] = 1.0
-    return X.to(args.device)
-
-
 def seq2text(exp, seq) -> typing.List[str]:
     decoded = []
     for j in range(len(seq)):
