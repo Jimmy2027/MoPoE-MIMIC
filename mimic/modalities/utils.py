@@ -1,16 +1,15 @@
 from torch import distributions as dist
 
 
-def get_likelihood(str):
-    if str == 'laplace':
-        pz = dist.Laplace;
-    elif str == 'bernoulli':
-        pz = dist.Bernoulli;
-    elif str == 'normal':
-        pz = dist.Normal;
+def get_likelihood(str) -> dist:
+    if str == 'bernoulli':
+        return dist.Bernoulli
     elif str == 'categorical':
-        pz = dist.OneHotCategorical;
+        return dist.OneHotCategorical
+    elif str == 'laplace':
+        return dist.Laplace
+    elif str == 'normal':
+        return dist.Normal
     else:
         print('likelihood not implemented')
-        pz = None;
-    return pz;
+        return None

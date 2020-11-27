@@ -5,7 +5,8 @@ import torch.nn as nn
 
 from mimic.utils import utils
 from mimic.utils.BaseMMVae import BaseMMVae
-
+from torch.distributions.distribution import Distribution
+import typing
 
 class VAEtrimodalMimic(BaseMMVae, nn.Module):
     def __init__(self, flags, modalities, subsets):
@@ -39,7 +40,7 @@ class VAEtrimodalMimic(BaseMMVae, nn.Module):
         for k, key in enumerate(div.keys()):
             results[key] = div[key]
 
-        results_rec = {}
+        results_rec: typing.Mapping[str, Distribution] = {}
         for k, m_key in enumerate(self.modalities.keys()):
             input_mod = input_batch[m_key]
             if input_mod is not None:

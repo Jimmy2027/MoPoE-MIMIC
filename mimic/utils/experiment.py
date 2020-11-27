@@ -105,7 +105,7 @@ class MimicExperiment(BaseExperiment):
         # img_clf_type and feature_extractor_img need to be the same. (for the image transformations of the dataset)
         self.flags.img_clf_type = self.flags.feature_extractor_img
         # mapping clf type to clf_save_m*
-        clf_save_names = {
+        clf_save_names: typing.Mapping[str, str] = {
             'PA': self.flags.clf_save_m1,
             'Lateral': self.flags.clf_save_m2,
             'text': self.flags.clf_save_m3

@@ -33,12 +33,12 @@ class CheXNet(nn.Module):
 
 
 class PretrainedDenseNet(nn.Module):
-    def __init__(self, args, fixed_extractor=True):
+    def __init__(self, args):
         super(PretrainedDenseNet, self).__init__()
         original_model = torchvision.models.densenet121(pretrained=True)
         self.features = nn.Sequential(*list(original_model.children())[:-1])
         self.n_crops = args.n_crops
-        if fixed_extractor:
+        if args.fixed_image_extractor:
             for param in self.parameters():
                 param.requires_grad = False
 

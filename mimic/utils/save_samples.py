@@ -1,5 +1,5 @@
 import os
-from mimic.utils.text import one_hot_encode_word
+
 from torchvision.utils import save_image
 
 
