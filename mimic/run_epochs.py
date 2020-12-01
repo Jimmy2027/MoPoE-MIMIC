@@ -1,5 +1,6 @@
 import random
 import time
+from contextlib import contextmanager
 
 import numpy as np
 import torch
@@ -16,13 +17,11 @@ from mimic.evaluation.eval_metrics.likelihood import estimate_likelihoods
 from mimic.evaluation.eval_metrics.representation import test_clf_lr_all_subsets
 from mimic.evaluation.eval_metrics.representation import train_clf_lr_all_subsets
 from mimic.evaluation.eval_metrics.sample_quality import calc_prd_score
-from mimic.utils import text
 from mimic.utils import utils
+from mimic.utils.exceptions import CudaOutOfMemory
 from mimic.utils.experiment import Callbacks, MimicExperiment
 from mimic.utils.plotting import generate_plots
 from mimic.utils.utils import check_latents, at_most_n
-from contextlib import contextmanager
-from mimic.utils.exceptions import CudaOutOfMemory
 
 # global variables
 
@@ -209,8 +208,10 @@ def train(exp: MimicExperiment, train_loader: DataLoader):
 
 
 def test(epoch, exp, test_loader: DataLoader):
-    tb_logger = exp.tb_logger
-    print(tb_logger)
+    # set a lower batch_size for testing to spare GPU memory
+    training_batch_size = exp.flags.batch_size
+    exp.flags.batch_size = 30
+
     with torch.no_grad():
         mm_vae = exp.mm_vae
         mm_vae.eval()
@@ -219,6 +220,7 @@ def test(epoch, exp, test_loader: DataLoader):
         total_losses = []
         # dict storing all test results that will be read into the experiments dataframe
         test_results = {}
+        tb_logger = exp.tb_logger
         for iteration, batch in tqdm(enumerate(test_loader), total=len(test_loader), postfix='test'):
             basic_routine = basic_routine_epoch(exp, batch)
             results = basic_routine['results']
@@ -243,7 +245,8 @@ def test(epoch, exp, test_loader: DataLoader):
 
             if exp.flags.use_clf:
                 print('test generation')
-                gen_eval = test_generation(epoch, exp)
+                with catching_cuda_out_of_memory(exp.flags.batch_size):
+                    gen_eval = test_generation(epoch, exp)
                 tb_logger.write_coherence_logs(gen_eval)
                 test_results['gen_eval'] = gen_eval
 
@@ -266,6 +269,8 @@ def test(epoch, exp, test_loader: DataLoader):
         mean_loss = np.mean(total_losses)
         exp.update_experiments_dataframe(
             {'total_test_loss': np.mean(total_losses), 'total_epochs': epoch, **utils.flatten(test_results)})
+
+        exp.flags.batch_size = training_batch_size
         return mean_loss
 
 
