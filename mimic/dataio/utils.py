@@ -18,16 +18,13 @@ class CustomTransforms:
         return x
 
 
-def get_transform_img(args: any):
+def get_transform_img(args: any, img_clf_type: str):
     """
     densenet needs RGB images and normalization.
     """
 
-    # When running the classifier training, need to make sure that feature_extractor_img is not set.
-    # need to make sure that img_clf and feature_extractor_img need the same transformations
     if (
-            args.img_clf_type != 'densenet'
-            and args.feature_extractor_img != 'densenet'
+            img_clf_type != 'densenet'
     ):
         return transforms.Compose([
             transforms.ToPILImage(),

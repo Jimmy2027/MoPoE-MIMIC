@@ -47,7 +47,7 @@ class Mimic(Dataset):
             # if word_encoding == word, need dataset for report_findings that contains the encodings.
             self.get_report_findings_dataset(dir_dataset)
 
-        self.transform_img = get_transform_img(args)
+        self.transform_img = get_transform_img(args, args.feature_extractor_img)
 
     def __getitem__(self, index):
         try:
@@ -55,11 +55,13 @@ class Mimic(Dataset):
             img_lat = self.imgs_lat[index, :, :]
             img_pa = self.transform_img(img_pa)
             img_lat = self.transform_img(img_lat)
+
             if self.args.text_encoding == 'char':
                 text_str = self.report_findings[index]
                 if len(text_str) > self.args.len_sequence:
                     text_str = text_str[:self.args.len_sequence]
                 text_vec = text.one_hot_encode(self.args.len_sequence, self.args.alphabet, text_str)
+
             elif self.args.text_encoding == 'word':
                 text_vec = self.report_findings_dataset.__getitem__(index)
             else:
@@ -373,7 +375,9 @@ class Mimic_testing(Dataset):
     Custom Dataset for the testsuite of the training workflow
     """
 
-    def __init__(self, flags):
+    def __init__(self, flags, classifier_training=False):
+        # used to indicate
+        self.classifier_training = classifier_training
         self.vocab_size = 3517
         self.flags = flags
         self.report_findings_dataset = Report_findings_dataset_test(self.vocab_size)
@@ -395,7 +399,8 @@ class Mimic_testing(Dataset):
     def get_images(self) -> dict:
         img_size = (self.flags.img_size, self.flags.img_size)
 
-        if (self.flags.img_clf_type == 'densenet' or self.flags.feature_extractor_img == 'densenet'):
+        if (self.flags.feature_extractor_img == 'densenet' or (
+                self.classifier_training and self.flags.img_clf_type == 'densenet')):
             if self.flags.n_crops in [5, 10]:
                 sample = {'PA': torch.rand(self.flags.n_crops, 3, *img_size).float(),
                           'Lateral': torch.rand(self.flags.n_crops, 3, *img_size).float()}
