@@ -2,21 +2,39 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 from tqdm import tqdm
+from mimic.utils.exceptions import CudaOutOfMemory
+from contextlib import contextmanager
 
 from mimic.utils.save_samples import save_generated_samples_singlegroup
+from mimic.utils.utils import at_most_n
+
+
+@contextmanager
+def catching_cuda_out_of_memory(batch_size):
+    """
+    Context that throws CudaOutOfMemory error if GPU is out of memory.
+    """
+    try:
+        yield
+    # if the GPU runs out of memory, start the experiment again with a smaller batch size
+    except RuntimeError as e:
+        if str(e).startswith('CUDA out of memory.') and batch_size > 10:
+            raise CudaOutOfMemory(e)
+        else:
+            raise e
 
 
 def classify_cond_gen_samples(exp, labels, cond_samples):
-    labels = np.reshape(labels, (labels.shape[0], len(exp.labels)));
-    clfs = exp.clfs;
-    eval_labels = {l_key: {} for l, l_key in enumerate(exp.labels)};
+    labels = np.reshape(labels, (labels.shape[0], len(exp.labels)))
+    clfs = exp.clfs
+    eval_labels = {l_key: {} for l, l_key in enumerate(exp.labels)}
     for key in clfs.keys():
         if key in cond_samples.keys():
-            mod_cond_gen = cond_samples[key];
-            mod_clf = clfs[key];
-            if key == 'text' and exp.flags.text_encoding == 'word':
-                mod_cond_gen = torch.argmax(mod_cond_gen, dim=-1)
-            attr_hat = mod_clf(mod_cond_gen);
+            mod_cond_gen = cond_samples[key]
+            mod_clf = clfs[key]
+            mod_cond_gen = transform_gen_samples(mod_cond_gen, exp.clf_transforms[key]).to(exp.flags.device)
+
+            attr_hat = mod_clf(mod_cond_gen)
             for l, label_str in enumerate(exp.labels):
                 if exp.flags.dataset == 'testing':
                     # when using the testing dataset, the vae attr_hat might contain nans.
@@ -25,11 +43,11 @@ def classify_cond_gen_samples(exp, labels, cond_samples):
                                            index=l)
                 else:
                     score = exp.eval_label(attr_hat.cpu().data.numpy(), labels,
-                                           index=l);
-                eval_labels[label_str][key] = score;
+                                           index=l)
+                eval_labels[label_str][key] = score
         else:
-            print(str(key) + 'not existing in cond_gen_samples');
-    return eval_labels;
+            print(str(key) + 'not existing in cond_gen_samples')
+    return eval_labels
 
 
 def calculate_coherence(exp, samples) -> dict:
@@ -37,69 +55,84 @@ def calculate_coherence(exp, samples) -> dict:
     Classifies generated modalities. The generated samples are coherent if all modalities
     are classified as belonging to the same class.
     """
-    clfs = exp.clfs;
-    mods = exp.modalities;
+    clfs = exp.clfs
+    mods = exp.modalities
     # TODO: make work for num samples NOT EQUAL to batch_size
-    c_labels = {};
+    c_labels = {}
     for j, l_key in enumerate(exp.labels):
         pred_mods = np.zeros((len(mods.keys()), exp.flags.batch_size))
         for k, m_key in enumerate(mods.keys()):
-            mod = mods[m_key];
+            mod = mods[m_key]
             clf_mod = clfs[mod.name].to(exp.flags.device)
             samples_mod = samples[mod.name]
-            if m_key == 'text' and exp.flags.text_encoding == 'word':
-                samples_mod = torch.argmax(samples_mod, dim=-1)
+            samples_mod = transform_gen_samples(samples_mod, exp.clf_transforms[m_key])
             samples_mod = samples_mod.to(exp.flags.device)
 
-            attr_mod = clf_mod(samples_mod);
-            output_prob_mod = attr_mod.cpu().data.numpy();
-            pred_mod = np.argmax(output_prob_mod, axis=1).astype(int);
-            pred_mods[k, :] = pred_mod;
+            attr_mod = clf_mod(samples_mod)
+            output_prob_mod = attr_mod.cpu().data.numpy()
+            pred_mod = np.argmax(output_prob_mod, axis=1).astype(int)
+            pred_mods[k, :] = pred_mod
         coh_mods = np.all(pred_mods == pred_mods[0, :], axis=0)
-        coherence = np.sum(coh_mods.astype(int)) / float(exp.flags.batch_size);
-        c_labels[l_key] = coherence;
-    return c_labels;
+        coherence = np.sum(coh_mods.astype(int)) / float(exp.flags.batch_size)
+        c_labels[l_key] = coherence
+    return c_labels
+
+
+def transform_gen_samples(gen_samples, transform):
+    """
+    transforms the generated samples as needed for the classifier
+    """
+
+    transformed_samples = [
+        transform(gen_samples[idx].cpu())
+        for idx in range(gen_samples.shape[0])
+    ]
+
+    return torch.stack(transformed_samples)
 
 
 def test_generation(epoch, exp):
     args = exp.flags
-    mods = exp.modalities;
-    mm_vae = exp.mm_vae;
-    subsets = exp.subsets;
+    # set lower batchsize for testing
 
-    gen_perf = {};
+    mods = exp.modalities
+    mm_vae = exp.mm_vae
+    subsets = exp.subsets
+
     gen_perf = {'cond': dict(),
                 'random': dict()}
     for j, l_key in enumerate(exp.labels):
-        gen_perf['cond'][l_key] = {};
+        gen_perf['cond'][l_key] = {}
         for k, s_key in enumerate(subsets.keys()):
             if s_key != '':
-                gen_perf['cond'][l_key][s_key] = {};
+                gen_perf['cond'][l_key][s_key] = {}
                 for m, m_key in enumerate(mods.keys()):
-                    gen_perf['cond'][l_key][s_key][m_key] = [];
-        gen_perf['random'][l_key] = [];
+                    gen_perf['cond'][l_key][s_key][m_key] = []
+        gen_perf['random'][l_key] = []
 
     d_loader = DataLoader(exp.dataset_test,
                           batch_size=exp.flags.batch_size,
                           shuffle=True,
-                          num_workers=exp.flags.dataloader_workers, drop_last=True);
+                          num_workers=exp.flags.dataloader_workers, drop_last=True)
 
-    num_batches_epoch = int(exp.dataset_test.__len__() / float(exp.flags.batch_size));
-    cnt_s = 0;
-    for iteration, batch in tqdm(enumerate(d_loader), total=len(d_loader), postfix='test_generation'):
-        batch_d = batch[0];
-        batch_l = batch[1];
-        rand_gen = mm_vae.module.generate() if args.distributed else mm_vae.generate()
+    total_steps = None if args.steps_per_training_epoch < 0 else args.steps_per_training_epoch
+    for iteration, batch in tqdm(enumerate(
+            at_most_n(d_loader, total_steps)),
+            total=len(d_loader), postfix='test_generation'):
+        batch_d = batch[0]
+        batch_l = batch[1]
+        with catching_cuda_out_of_memory(batch_size=args.batch_size):
+            rand_gen = mm_vae.module.generate() if args.distributed else mm_vae.generate()
         rand_gen = {k: v.to(args.device) for k, v in rand_gen.items()}
 
         coherence_random = calculate_coherence(exp, rand_gen)
         for j, l_key in enumerate(exp.labels):
-            gen_perf['random'][l_key].append(coherence_random[l_key]);
+            gen_perf['random'][l_key].append(coherence_random[l_key])
 
         if (exp.flags.batch_size * iteration) < exp.flags.num_samples_fid:
             save_generated_samples_singlegroup(exp, iteration,
                                                'random',
-                                               rand_gen);
+                                               rand_gen)
             if exp.flags.text_encoding == 'word':
                 batch_d_temp = batch_d.copy()
                 batch_d_temp['text'] = torch.nn.functional.one_hot(batch_d_temp['text'].to(torch.int64),
@@ -107,35 +140,35 @@ def test_generation(epoch, exp):
 
                 save_generated_samples_singlegroup(exp, iteration,
                                                    'real',
-                                                   batch_d_temp);
+                                                   batch_d_temp)
             else:
                 save_generated_samples_singlegroup(exp, iteration,
                                                    'real',
-                                                   batch_d);
+                                                   batch_d)
 
         for k, m_key in enumerate(batch_d.keys()):
-            batch_d[m_key] = batch_d[m_key].to(exp.flags.device);
+            batch_d[m_key] = batch_d[m_key].to(exp.flags.device)
 
         inferred = mm_vae.module.inference(batch_d) if args.distributed else mm_vae.inference(batch_d)
-        lr_subsets = inferred['subsets'];
+        lr_subsets = inferred['subsets']
         cg = mm_vae.module.cond_generation(lr_subsets) if args.distributed else mm_vae.cond_generation(lr_subsets)
 
         for k, s_key in enumerate(cg.keys()):
             clf_cg = classify_cond_gen_samples(exp,
                                                batch_l,
-                                               cg[s_key]);
+                                               cg[s_key])
             for j, l_key in enumerate(exp.labels):
                 for m, m_key in enumerate(mods.keys()):
-                    gen_perf['cond'][l_key][s_key][m_key].append(clf_cg[l_key][m_key]);
+                    gen_perf['cond'][l_key][s_key][m_key].append(clf_cg[l_key][m_key])
             if (exp.flags.batch_size * iteration) < exp.flags.num_samples_fid:
                 save_generated_samples_singlegroup(exp, iteration,
                                                    s_key,
-                                                   cg[s_key]);
+                                                   cg[s_key])
     for j, l_key in enumerate(exp.labels):
         for k, s_key in enumerate(subsets.keys()):
             if s_key != '':
                 for l, m_key in enumerate(mods.keys()):
                     perf = exp.mean_eval_metric(gen_perf['cond'][l_key][s_key][m_key])
-                    gen_perf['cond'][l_key][s_key][m_key] = perf;
-        gen_perf['random'][l_key] = exp.mean_eval_metric(gen_perf['random'][l_key]);
-    return gen_perf;
+                    gen_perf['cond'][l_key][s_key][m_key] = perf
+        gen_perf['random'][l_key] = exp.mean_eval_metric(gen_perf['random'][l_key])
+    return gen_perf
