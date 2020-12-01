@@ -2,15 +2,34 @@ import argparse
 import json
 
 from mimic.utils.BaseFlags import parser as parser
-from mimic.utils.filehandling import get_config_path
-from mimic.utils.filehandling import create_dir_structure, expand_paths, create_dir_structure_testing, get_config_path, \
-    get_method
+from mimic.utils.filehandling import expand_paths
+
+
+def str2bool(v):
+    if isinstance(v, bool):
+        return v
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
+
 
 parser.add_argument('--dataset', type=str, default='Mimic', help="name of the dataset")
 parser.add_argument('--config_path', type=str, default=None, help="path to the json config")
 
+# Image dependent
+parser.add_argument('--fixed_image_extractor', type=str2bool, default=True,
+                    help="If the feature extraction layers of the "
+                         "pretrained densenet are frozen. "
+                         "Only works when img_clf_type classifier "
+                         "is densenet.")
 # DATA DEPENDENT
+parser.add_argument('--only_text_modality', type=str, default=None,
+                    help="flag to indicat if only the text modality is to be used")
 # Text Dependent
+
 parser.add_argument('--text_encoding', type=str, default='char',
                     help="encoding of the text, either character or wordwise")
 parser.add_argument('--len_sequence', type=int, default=1024, help="length of sequence")
@@ -36,6 +55,8 @@ parser.add_argument('--decoder_save_m2', type=str, default='decoderM2', help="mo
 parser.add_argument('--decoder_save_m3', type=str, default='decoderM3', help="model save for decoder")
 
 # classifiers
+parser.add_argument('--text_clf_type', type=str, default='word',
+                    help="text classifier type, implemented are 'word' and 'char'")
 parser.add_argument('--img_clf_type', type=str, default='resnet',
                     help="image classifier type, implemented are 'resnet' and 'densenet'")
 parser.add_argument('--clf_save_m1', type=str, default='clf_m1', help="model save for clf")
