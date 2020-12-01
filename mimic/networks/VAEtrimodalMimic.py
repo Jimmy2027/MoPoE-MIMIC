@@ -8,6 +8,7 @@ from mimic.utils.BaseMMVae import BaseMMVae
 from torch.distributions.distribution import Distribution
 import typing
 
+
 class VAEtrimodalMimic(BaseMMVae, nn.Module):
     def __init__(self, flags, modalities, subsets):
         super(VAEtrimodalMimic, self).__init__(flags, modalities, subsets)
@@ -139,10 +140,9 @@ class VAEtrimodalMimic(BaseMMVae, nn.Module):
         cond_gen_pa = suff_stats['PA'].mean
         cond_gen_lat = suff_stats['Lateral'].mean
         cond_gen_text = suff_stats['text'].mean
-        cond_gen = {'PA': cond_gen_pa,
-                    'Lateral': cond_gen_lat,
-                    'text': cond_gen_text}
-        return cond_gen
+        return {'PA': cond_gen_pa,
+                'Lateral': cond_gen_lat,
+                'text': cond_gen_text}
 
     def generate_sufficient_statistics_from_latents(self, latents: dict) -> dict:
         style_pa = latents['style']['PA']
@@ -238,14 +238,12 @@ class VAETextMimic(BaseMMVae, nn.Module):
 
         style_latents = self.get_random_styles(num_samples)
         random_latents = {'content': z_class, 'style': style_latents}
-        random_samples = self.generate_from_latents(random_latents)
-        return random_samples
+        return self.generate_from_latents(random_latents)
 
     def generate_from_latents(self, latents: dict) -> dict:
         suff_stats = self.generate_sufficient_statistics_from_latents(latents)
         cond_gen_text = suff_stats['text'].mean
-        cond_gen = {'text': cond_gen_text}
-        return cond_gen
+        return {'text': cond_gen_text}
 
     def generate_sufficient_statistics_from_latents(self, latents: dict) -> dict:
         style_text = latents['style']['text']

@@ -106,7 +106,7 @@ class Callbacks:
 
         # update logger
         for k, v in metrics_dict.items():
-            self.logger.add_scalars(f'eval_clf_{self.modality}/k', {self.modality: v}, epoch)
+            self.logger.add_scalars(f'eval_clf_{self.modality}/{k}', {self.modality: v}, epoch)
         self.logger.add_scalars(f'eval_clf_{self.modality}/mean_loss', {self.modality: loss}, epoch)
 
         # evaluate progress

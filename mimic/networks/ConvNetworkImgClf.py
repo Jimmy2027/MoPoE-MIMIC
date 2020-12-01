@@ -85,5 +85,4 @@ class ClfImg(nn.Module):
         return out
 
     def get_activations(self, x_img):
-        h = self.feature_extractor(x_img)
-        return h
+        return self.feature_extractor(x_img)

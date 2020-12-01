@@ -50,8 +50,7 @@ def train_clf(flags, epoch, model, data_loader: DataLoader, log_writer, modality
     name_logs = f"train_clf_{modality}"
     model.train()
 
-    num_batches_train = int(np.floor(num_samples_train / flags.batch_size))
-    step = epoch * num_batches_train
+    step = epoch * num_samples_train
 
     for idx, (batch_d, batch_l) in tqdm(enumerate(at_most_n(data_loader, None)), total=len(data_loader),
                                         postfix='training epoch'):
@@ -80,10 +79,10 @@ def train_clf(flags, epoch, model, data_loader: DataLoader, log_writer, modality
 
 def eval_clf(flags, epoch, model, data_loader: DataLoader, log_writer, modality: str) -> typing.Tuple[
     np.ndarray, typing.Dict[str, torch.Tensor]]:
-    num_samples_test = data_loader.__len__()
+    num_samples_eval = data_loader.__len__()
     model.eval()
-    num_batches_eval = int(np.floor(num_samples_test / flags.batch_size))
-    step = epoch * num_batches_eval
+
+    step = epoch * num_samples_eval
 
     losses = []
     predictions = torch.Tensor()

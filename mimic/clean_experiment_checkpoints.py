@@ -34,7 +34,7 @@ for idx, row in df.iterrows():
         print(f'dropping row of {row.dir_logs_clf} in dataframe')
         df = df.drop(idx)
         print(f'deleting {row.dir_logs_clf}')
-        if os.path.exists(row.dir_logs_clf):
+        if not pd.isna(row.dir_logs_clf) and os.path.exists(row.dir_logs_clf):
             shutil.rmtree(row.dir_logs_clf)
 # removing empty columns
 df = df.dropna(how='all', axis=1)

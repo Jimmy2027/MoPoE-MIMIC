@@ -28,7 +28,7 @@ class Main:
         flags = setup_flags(flags, testing)
         flags = get_method(flags)
         print(colored(f"running on {flags.device} with text {flags.text_encoding} encoding "
-                      f'with method {flags.method}, batch size: {flags.batch_size} and img size {flags.img_size}',
+                      f'with method {flags.method}, batch size: {flags.batch_size} and img size {flags.img_size}, fixed_image_extractor: {flags.fixed_image_extractor}',
                       'blue'))
 
         self.flags = create_dir_structure(flags)
