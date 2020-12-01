@@ -10,7 +10,7 @@ from mimic.networks.word_encoding.mmvae_text_enc import FeatureExtractorText as 
 
 class EncoderText(nn.Module):
     def __init__(self, flags, style_dim):
-        super(EncoderText, self).__init__();
+        super(EncoderText, self).__init__()
         if flags.text_encoding == 'char':
             self.feature_extractor = FeatureExtractorText_CharEnc(flags)
         elif flags.text_encoding == 'word':
@@ -46,7 +46,6 @@ class DecoderText(nn.Module):
             self.text_generator = DataGeneratorText_WordEnc(flags)
             # self.text_generator = Dec(flags)
 
-
     def forward(self, z_style, z_content):
         if self.flags.factorized_representation:
             z = torch.cat((z_style, z_content), dim=1).squeeze(-1)
@@ -54,6 +53,13 @@ class DecoderText(nn.Module):
             z = z_content
         text_feat_hat = self.feature_generator(z)
         text_feat_hat = text_feat_hat.unsqueeze(-1)
-        text_hat = self.text_generator(text_feat_hat)
+        # # predict in batches to spare GPU memory
+        if text_feat_hat.shape[0] > self.flags.batch_size:
+            dl = torch.utils.data.DataLoader(text_feat_hat, batch_size=self.flags.batch_size)
+            text_hat = torch.Tensor().to(self.flags.device)
+            for batch in dl:
+                text_hat = torch.cat(tensors=(text_hat, self.text_generator(batch)))
+        else:
+            text_hat = self.text_generator(text_feat_hat)
         text_hat = text_hat.transpose(-2, -1)
         return [text_hat]
