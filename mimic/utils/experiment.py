@@ -13,6 +13,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.tensorboard import SummaryWriter
 
 from mimic.dataio.MimicDataset import Mimic, Mimic_testing
+from mimic.dataio.MimicDataset import MimicText as MimicTextDataset
 from mimic.modalities.MimicLateral import MimicLateral
 from mimic.modalities.MimicPA import MimicPA
 from mimic.modalities.MimicText import MimicText
@@ -26,12 +27,16 @@ from mimic.utils import utils
 from mimic.utils.BaseExperiment import BaseExperiment
 from mimic.utils.TBLogger import TBLogger
 from mimic.utils.utils import get_clf_path, get_alphabet
+from mimic.dataio.utils import get_transform_img
+from mimic.networks.CheXNet import CheXNet
+from argparse import Namespace
 
 
 class MimicExperiment(BaseExperiment):
     def __init__(self, flags):
         super().__init__(flags)
         self.labels = ['Lung Opacity', 'Pleural Effusion', 'Support Devices']
+        self.flags.vocab_size = 3517
         self.flags = flags
         self.experiment_uid = flags.str_experiment
         self.dataset = flags.dataset
@@ -51,6 +56,7 @@ class MimicExperiment(BaseExperiment):
 
         self.mm_vae = self.set_model()
         self.clfs = self.set_clfs()
+        self.clf_transforms: dict = self.set_clf_transforms()
         self.optimizer = None
         self.rec_weights = self.set_rec_weights()
         self.style_weights = self.set_style_weights()
@@ -95,15 +101,38 @@ class MimicExperiment(BaseExperiment):
             d_train = Mimic_testing(self.flags)
             d_eval = Mimic_testing(self.flags)
         else:
-            d_train = Mimic(self.flags, self.labels, split='train')
-            d_eval = Mimic(self.flags, self.labels, split='eval')
+            if self.flags.only_text_modality:
+                d_train = MimicTextDataset(args=self.flags, str_labels=self.labels, split='train')
+                d_eval = MimicTextDataset(self.flags, self.labels, split='eval')
+            else:
+                d_train = Mimic(self.flags, self.labels, split='train')
+                d_eval = Mimic(self.flags, self.labels, split='eval')
         self.dataset_train = d_train
         self.dataset_test = d_eval
 
+    def set_clf_transforms(self) -> dict:
+        if self.flags.text_clf_type == 'word':
+            def text_transform(x):
+                # converts one hot encoding to indices vector
+                return torch.argmax(x, dim=-1)
+        else:
+            def text_transform(x):
+                return x
+
+        # create temporary args to set the number of crops to 1
+        temp_args = Namespace(**vars(self.flags))
+        temp_args.n_crops = 1
+        return {
+            'PA': get_transform_img(temp_args, self.flags.img_clf_type),
+            'Lateral': get_transform_img(temp_args, self.flags.img_clf_type),
+            'text': text_transform
+        }
+
     def set_clfs(self) -> typing.Mapping[str, torch.nn.Module]:
         print('setting clfs')
-        # img_clf_type and feature_extractor_img need to be the same. (for the image transformations of the dataset)
-        self.flags.img_clf_type = self.flags.feature_extractor_img
+        # temp not true anymore
+        # # img_clf_type and feature_extractor_img need to be the same. (for the image transformations of the dataset)
+        # self.flags.img_clf_type = self.flags.feature_extractor_img
         # mapping clf type to clf_save_m*
         clf_save_names: typing.Mapping[str, str] = {
             'PA': self.flags.clf_save_m1,
@@ -119,13 +148,17 @@ class MimicExperiment(BaseExperiment):
                                                f'Mimic{self.flags.img_size}_{self.flags.img_clf_type}')
                     dir_img_clf = os.path.expanduser(dir_img_clf)
                     # finding and loading state dict
-                    clf = ClfImg(self.flags, self.labels)
+                    clf = ClfImg(self.flags, self.labels) if self.flags.img_clf_type == 'resnet' else CheXNet(
+                        len(self.labels))
                     clf_path = get_clf_path(dir_img_clf, clf_save_names[mod])
                     clf.load_state_dict(torch.load(clf_path))
                     clfs[mod] = clf.to(self.flags.device)
                 elif mod == 'text':
-                    clf = ClfText(self.flags, self.labels)
-                    clf_path = get_clf_path(self.flags.dir_clf, f'clf_text_{self.flags.text_encoding}_encoding')
+                    # create temporary args to set the word encoding of the classifier to text_clf_type
+                    temp_args = Namespace(**vars(self.flags))
+                    temp_args.text_encoding = self.flags.text_clf_type
+                    clf = ClfText(temp_args, self.labels)
+                    clf_path = get_clf_path(self.flags.dir_clf, f'clf_text_{self.flags.text_clf_type}_encoding')
 
                     clf.load_state_dict(torch.load(clf_path))
                     clfs[mod] = clf.to(self.flags.device)
@@ -213,7 +246,6 @@ class MimicExperiment(BaseExperiment):
                 self.experiments_dataframe['experiment_uid'] == self.experiment_uid, key] = values_dict[key]
 
         if self.flags.dataset != 'testing':
-            print('yooo writing this to df: ', values_dict)
             self.experiments_dataframe.to_csv('experiments_dataframe.csv', index=False)
 
     def init_summary_writer(self):
