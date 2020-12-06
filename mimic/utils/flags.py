@@ -3,6 +3,7 @@ import json
 
 from mimic.utils.BaseFlags import parser as parser
 from mimic.utils.filehandling import expand_paths
+from mimic import log
 
 
 def str2bool(v):
@@ -107,6 +108,7 @@ def setup_flags(flags, testing=False):
     use_cuda = torch.cuda.is_available()
     flags.device = torch.device('cuda' if use_cuda else 'cpu')
     flags = flags_set_alpha_modalities(flags)
+    flags.log_file = log.manager.root.handlers[1].baseFilename
     return flags
 
 

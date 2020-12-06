@@ -18,7 +18,7 @@ from mimic.utils.flags import parser
 from mimic.utils.flags import setup_flags
 from mimic.utils.utils import get_gpu_memory
 import pandas as pd
-
+from mimic import log
 
 class Main:
     def __init__(self, flags: Namespace, testing=False):
@@ -28,8 +28,8 @@ class Main:
         flags = setup_flags(flags, testing)
         flags = get_method(flags)
         print(colored(f"running on {flags.device} with text {flags.text_encoding} encoding "
-                      f'with method {flags.method}, batch size: {flags.batch_size} and img size {flags.img_size}, fixed_image_extractor: {flags.fixed_image_extractor}',
-                      'blue'))
+                      f'with method {flags.method}, batch size: {flags.batch_size} and img size {flags.img_size}, '
+                      f'fixed_image_extractor: {flags.fixed_image_extractor}', 'blue'))
 
         self.flags = create_dir_structure(flags)
         # because of bad initialisation, the vae might return nan values. If this is the case it is best to restart the
