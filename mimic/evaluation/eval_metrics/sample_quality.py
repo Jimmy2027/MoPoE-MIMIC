@@ -40,7 +40,7 @@ def load_inception_activations(exp):
     for m, m_key in enumerate(exp.modalities.keys()):
         mod = exp.modalities[m_key]
         if mod.gen_quality_eval:
-            acts[mod.name] = dict()
+            acts[mod.name] = {}
             for k, key in enumerate(paths.keys()):
                 if key != '':
                     fn = os.path.join(exp.flags.dir_gen_eval_fid,
@@ -137,12 +137,11 @@ def calculate_fid(feats_real, feats_gen):
     sigma_real = np.cov(feats_real, rowvar=False)
     mu_gen = np.mean(feats_gen, axis=0)
     sigma_gen = np.cov(feats_gen, rowvar=False)
-    fid = calculate_frechet_distance(mu_real, sigma_real, mu_gen, sigma_gen)
-    return fid
+    return calculate_frechet_distance(mu_real, sigma_real, mu_gen, sigma_gen)
 
 
 def calculate_fid_dict(feats_real, dict_feats_gen):
-    dict_fid = dict()
+    dict_fid = {}
     for k, key in enumerate(dict_feats_gen.keys()):
         feats_gen = dict_feats_gen[key]
         dict_fid[key] = calculate_fid(feats_real, feats_gen)
@@ -151,12 +150,11 @@ def calculate_fid_dict(feats_real, dict_feats_gen):
 
 def calculate_prd(feats_real, feats_gen):
     prd_val = prd.compute_prd_from_embedding(feats_real, feats_gen)
-    ap = np.mean(prd_val)
-    return ap
+    return np.mean(prd_val)
 
 
 def calculate_prd_dict(feats_real, dict_feats_gen):
-    dict_fid = dict()
+    dict_fid = {}
     for k, key in enumerate(dict_feats_gen.keys()):
         feats_gen = dict_feats_gen[key]
         dict_fid[key] = calculate_prd(feats_real, feats_gen)
@@ -173,7 +171,7 @@ def get_clf_activations(flags, data, model):
 def calc_prd_score(exp):
     calc_inception_features(exp)
     acts = load_inception_activations(exp)
-    ap_prds = dict()
+    ap_prds = {}
     for m, m_key in enumerate(exp.modalities.keys()):
         mod = exp.modalities[m_key]
         if mod.gen_quality_eval:
