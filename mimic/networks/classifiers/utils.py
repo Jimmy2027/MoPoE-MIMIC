@@ -17,6 +17,7 @@ from mimic.utils.filehandling import expand_paths
 from mimic.utils.filehandling import get_str_experiments
 import typing
 from sklearn.metrics import average_precision_score
+from mimic import log
 
 LABELS = ['Lung Opacity', 'Pleural Effusion', 'Support Devices']
 
@@ -55,9 +56,10 @@ class ExperimentDf:
         Updates the values in experiments dataframe with the new values from the values_dict and saves it if the
         experiment is not a test run
         """
+        log.info(f"writing to experiment df: {values_dict}")
         experiments_dataframe = pd.read_csv('clf_experiments_dataframe.csv')
-        for key in values_dict:
-            if isinstance(values_dict[key], list) and len(values_dict[key]) == 1:
+        for key, value_ in values_dict.items():
+            if isinstance(values_dict[key], list) and len(value_) == 1:
                 value = values_dict[key][0]
             else:
                 value = values_dict[key]

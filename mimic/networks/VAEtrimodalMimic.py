@@ -28,7 +28,7 @@ class VAEtrimodalMimic(BaseMMVae, nn.Module):
         self.lhood_lat = modalities['Lateral'].likelihood
         self.lhood_text = modalities['text'].likelihood
 
-    def forward(self, input_batch):
+    def forward(self, input_batch) -> typing.Mapping[str, any]:
         latents = self.inference(input_batch)
         results = {'latents': latents}
         div = self.calc_joint_divergence(latents['mus'],
@@ -64,7 +64,7 @@ class VAEtrimodalMimic(BaseMMVae, nn.Module):
     def encode(self, input_batch):
         latents = {}
         if 'PA' in input_batch.keys():
-            i_m1 = input_batch['PA'];
+            i_m1 = input_batch['PA']
             latents['PA'] = self.encoder_pa(i_m1)
             if self.encoder_pa.feature_compressor.style_mu and self.encoder_pa.feature_compressor.style_logvar:
                 latents['PA_style'] = latents['PA'][2:]
@@ -73,7 +73,7 @@ class VAEtrimodalMimic(BaseMMVae, nn.Module):
             latents['PA_style'] = [None, None]
             latents['PA'] = [None, None]
         if 'Lateral' in input_batch.keys():
-            i_m2 = input_batch['Lateral'];
+            i_m2 = input_batch['Lateral']
             latents['Lateral'] = self.encoder_lat(i_m2)
             if self.encoder_lat.feature_compressor.style_mu and self.encoder_lat.feature_compressor.style_logvar:
                 latents['Lateral_style'] = latents['Lateral'][2:]
@@ -82,7 +82,7 @@ class VAEtrimodalMimic(BaseMMVae, nn.Module):
             latents['Lateral_style'] = [None, None]
             latents['Lateral'] = [None, None]
         if 'text' in input_batch.keys():
-            i_m3 = input_batch['text'];
+            i_m3 = input_batch['text']
             latents['text'] = self.encoder_text(i_m3)
             if self.encoder_text.feature_compressor.style_mu and self.encoder_text.feature_compressor.style_logvar:
                 latents['text_style'] = latents['text'][2:]
@@ -90,41 +90,41 @@ class VAEtrimodalMimic(BaseMMVae, nn.Module):
         else:
             latents['text_style'] = [None, None]
             latents['text'] = [None, None]
-        return latents;
+        return latents
 
     def get_random_styles(self, num_samples):
         if self.flags.factorized_representation:
-            z_style_1 = torch.randn(num_samples, self.flags.style_pa_dim);
-            z_style_2 = torch.randn(num_samples, self.flags.style_lat_dim);
-            z_style_3 = torch.randn(num_samples, self.flags.style_text_dim);
-            z_style_1 = z_style_1.to(self.flags.device);
-            z_style_2 = z_style_2.to(self.flags.device);
-            z_style_3 = z_style_3.to(self.flags.device);
+            z_style_1 = torch.randn(num_samples, self.flags.style_pa_dim)
+            z_style_2 = torch.randn(num_samples, self.flags.style_lat_dim)
+            z_style_3 = torch.randn(num_samples, self.flags.style_text_dim)
+            z_style_1 = z_style_1.to(self.flags.device)
+            z_style_2 = z_style_2.to(self.flags.device)
+            z_style_3 = z_style_3.to(self.flags.device)
         else:
-            z_style_1 = None;
-            z_style_2 = None;
-            z_style_3 = None;
-        return {'PA': z_style_1, 'Lateral': z_style_2, 'text': z_style_3};
+            z_style_1 = None
+            z_style_2 = None
+            z_style_3 = None
+        return {'PA': z_style_1, 'Lateral': z_style_2, 'text': z_style_3}
 
     def get_random_style_dists(self, num_samples):
         s1_mu = torch.zeros(num_samples,
                             self.flags.style_pa_dim).to(self.flags.device)
         s1_logvar = torch.zeros(num_samples,
-                                self.flags.style_pa_dim).to(self.flags.device);
+                                self.flags.style_pa_dim).to(self.flags.device)
         s2_mu = torch.zeros(num_samples,
                             self.flags.style_lat).to(self.flags.device)
         s2_logvar = torch.zeros(num_samples,
-                                self.flags.style_lat_dim).to(self.flags.device);
+                                self.flags.style_lat_dim).to(self.flags.device)
         s3_mu = torch.zeros(num_samples,
                             self.flags.style_text_dim).to(self.flags.device)
         s3_logvar = torch.zeros(num_samples,
-                                self.flags.style_text_dim).to(self.flags.device);
-        m1_dist = [s1_mu, s1_logvar];
-        m2_dist = [s2_mu, s2_logvar];
-        m3_dist = [s3_mu, s3_logvar];
-        return {'PA': m1_dist, 'Lateral': m2_dist, 'text': m3_dist};
+                                self.flags.style_text_dim).to(self.flags.device)
+        m1_dist = [s1_mu, s1_logvar]
+        m2_dist = [s2_mu, s2_logvar]
+        m3_dist = [s3_mu, s3_logvar]
+        return {'PA': m1_dist, 'Lateral': m2_dist, 'text': m3_dist}
 
-    def generate(self, num_samples=None) -> dict:
+    def generate(self, num_samples: int = None) -> dict:
         if num_samples is None:
             num_samples = self.flags.batch_size
         z_class = torch.randn(num_samples, self.flags.class_dim)
@@ -132,8 +132,7 @@ class VAEtrimodalMimic(BaseMMVae, nn.Module):
 
         style_latents = self.get_random_styles(num_samples)
         random_latents = {'content': z_class, 'style': style_latents}
-        random_samples = self.generate_from_latents(random_latents)
-        return random_samples
+        return self.generate_from_latents(random_latents)
 
     def generate_from_latents(self, latents: dict) -> dict:
         suff_stats = self.generate_sufficient_statistics_from_latents(latents)
@@ -204,7 +203,7 @@ class VAETextMimic(BaseMMVae, nn.Module):
     def encode(self, input_batch):
         latents = {}
         if 'text' in input_batch.keys():
-            i_m3 = input_batch['text'];
+            i_m3 = input_batch['text']
             latents['text'] = self.encoder_text(i_m3)
             if self.encoder_text.feature_compressor.style_mu and self.encoder_text.feature_compressor.style_logvar:
                 latents['text_style'] = latents['text'][2:]
@@ -212,23 +211,23 @@ class VAETextMimic(BaseMMVae, nn.Module):
         else:
             latents['text_style'] = [None, None]
             latents['text'] = [None, None]
-        return latents;
+        return latents
 
     def get_random_styles(self, num_samples):
         if self.flags.factorized_representation:
-            z_style_3 = torch.randn(num_samples, self.flags.style_text_dim);
-            z_style_3 = z_style_3.to(self.flags.device);
+            z_style_3 = torch.randn(num_samples, self.flags.style_text_dim)
+            z_style_3 = z_style_3.to(self.flags.device)
         else:
-            z_style_3 = None;
+            z_style_3 = None
         return {'text': z_style_3}
 
     def get_random_style_dists(self, num_samples):
         s3_mu = torch.zeros(num_samples,
                             self.flags.style_text_dim).to(self.flags.device)
         s3_logvar = torch.zeros(num_samples,
-                                self.flags.style_text_dim).to(self.flags.device);
-        m3_dist = [s3_mu, s3_logvar];
-        return {'text': m3_dist};
+                                self.flags.style_text_dim).to(self.flags.device)
+        m3_dist = [s3_mu, s3_logvar]
+        return {'text': m3_dist}
 
     def generate(self, num_samples=None) -> dict:
         if num_samples is None:
