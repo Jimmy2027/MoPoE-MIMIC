@@ -5,10 +5,13 @@ from timeit import default_timer as timer
 from typing import Union
 
 import numpy as np
+import pandas as pd
 import torch
+import torch.distributed as dist
 import torch.multiprocessing as mp
 from termcolor import colored
 
+from mimic import log
 from mimic.run_epochs import run_epochs
 from mimic.utils.exceptions import NaNInLatent, CudaOutOfMemory
 from mimic.utils.experiment import MimicExperiment
@@ -17,8 +20,7 @@ from mimic.utils.filehandling import create_dir_structure, create_dir_structure_
 from mimic.utils.flags import parser
 from mimic.utils.flags import setup_flags
 from mimic.utils.utils import get_gpu_memory
-import pandas as pd
-from mimic import log
+
 
 class Main:
     def __init__(self, flags: Namespace, testing=False):
@@ -37,10 +39,11 @@ class Main:
         self.max_tries = 10  # maximum restarts of the experiment due to nan values
         self.current_tries = 0
         self.start_time = 0
+        self.exp = None
 
     def setup_distributed(self):
         self.flags.world_size = torch.cuda.device_count()
-        print(f'setting up distributed computing with world size {self.flags.world_size}')
+        log.info(f'setting up distributed computing with world size {self.flags.world_size}')
         self.flags.distributed = self.flags.world_size > 1
         self.flags.batch_size = int(self.flags.batch_size / self.flags.world_size)
 
@@ -55,22 +58,22 @@ class Main:
         print(colored(f'current free GPU memory: {get_gpu_memory()}', 'red'))
         self.start_time = timer()
         # need to reinitialize MimicExperiment after each retry
-        mimic = MimicExperiment(self.flags)
-        create_dir_structure_testing(mimic)
-        mimic.number_restarts = self.current_tries
+        self.exp = MimicExperiment(self.flags)
+        create_dir_structure_testing(self.exp)
+        self.expnumber_restarts = self.current_tries
         try:
             if self.flags.distributed:
                 self.setup_distributed()
-                mp.spawn(run_epochs, nprocs=self.flags.world_size, args=(mimic,), join=True)
+                mp.spawn(run_epochs, nprocs=self.flags.world_size, args=(self.exp,), join=True)
             else:
-                run_epochs(self.flags.device, mimic)
+                run_epochs(self.flags.device, self.exp)
         except NaNInLatent as e:
             print(e)
             return False
         except CudaOutOfMemory as e:
             print(e)
             return 'cuda_out_of_memory'
-        mimic.update_experiments_dataframe({'experiment_duration': (timer() - self.start_time) // 60})
+        self.exp.update_experiments_dataframe({'experiment_duration': (timer() - self.start_time) // 60})
         return True
 
     def restart(self) -> None:
@@ -80,6 +83,11 @@ class Main:
         exp_df = pd.read_csv('experiments_dataframe.csv')
         exp_df.drop(exp_df.index[exp_df['str_experiment'] == self.flags.str_experiment])
         exp_df.to_csv('experiments_dataframe.csv', index=False)
+
+        if self.exp.tb_logger:
+            self.exp.tb_logger.writer.close()
+        if self.flags.distributed:
+            dist.destroy_process_group()
 
         torch.cuda.empty_cache()
         gc.collect()
@@ -102,13 +110,13 @@ class Main:
 
             if not success:
                 self.current_tries += 1
-                print(f'********  RESTARTING EXPERIMENT FOR THE {self.current_tries} TIME  ********')
+                log.info(f'********  RESTARTING EXPERIMENT FOR THE {self.current_tries} TIME  ********')
 
             if success == 'cuda_out_of_memory':
                 old_bs = self.flags.batch_size
                 self.flags.batch_size = int(np.floor(self.flags.batch_size * 0.8))
-                print(f'********  GPU ran out of memory with batch size {old_bs}, '
-                      f'trying again with batch size: {self.flags.batch_size}  ********')
+                log.info(f'********  GPU ran out of memory with batch size {old_bs}, '
+                         f'trying again with batch size: {self.flags.batch_size}  ********')
                 success = False
 
             if not success:
@@ -119,4 +127,10 @@ if __name__ == '__main__':
     FLAGS: Namespace = parser.parse_args()
     FLAGS.config_path = get_config_path(FLAGS)
     main = Main(FLAGS)
-    main.main()
+    try:
+        main.main()
+    except KeyboardInterrupt:
+        import logging
+
+        log.info("Aborted. Bye-bye.")
+        logging.shutdown()

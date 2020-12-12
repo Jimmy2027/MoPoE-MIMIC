@@ -2,6 +2,7 @@ import itertools
 import json
 import os
 import subprocess as sp
+from collections.abc import MutableMapping
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Optional
@@ -9,11 +10,12 @@ from typing import Optional
 import numpy as np
 import torch
 import torch.distributed as dist
+from torch import device as Device
 from torch.autograd import Variable
 
+from mimic import log
 from mimic.utils.exceptions import CudaOutOfMemory
 from mimic.utils.exceptions import NaNInLatent
-from collections.abc import MutableMapping
 
 
 # Print iterations progress
@@ -45,80 +47,81 @@ def reparameterize(mu, logvar):
 
 
 def reweight_weights(w):
-    return w / w.sum();
+    return w / w.sum()
 
 
 def mixture_component_selection(flags, mus, logvars, w_modalities=None, num_samples=None):
     # if not defined, take pre-defined weights
-    num_components = mus.shape[0];
-    num_samples = mus.shape[1];
+    num_components = mus.shape[0]
+    num_samples = mus.shape[1]
     if w_modalities is None:
-        w_modalities = torch.Tensor(flags.alpha_modalities).to(flags.device);
-    idx_start = [];
+        w_modalities = torch.Tensor(flags.alpha_modalities).to(flags.device)
+    idx_start = []
     idx_end = []
     for k in range(num_components):
         i_start = 0 if k == 0 else int(idx_end[k - 1])
         if k == w_modalities.shape[0] - 1:
-            i_end = num_samples;
+            i_end = num_samples
         else:
-            i_end = i_start + int(torch.floor(num_samples * w_modalities[k]));
-        idx_start.append(i_start);
-        idx_end.append(i_end);
+            i_end = i_start + int(torch.floor(num_samples * w_modalities[k]))
+        idx_start.append(i_start)
+        idx_end.append(i_end)
 
-    idx_end[-1] = num_samples;
+    idx_end[-1] = num_samples
 
-    mu_sel = torch.cat([mus[k, idx_start[k]:idx_end[k], :] for k in range(w_modalities.shape[0])]);
-    logvar_sel = torch.cat([logvars[k, idx_start[k]:idx_end[k], :] for k in range(w_modalities.shape[0])]);
-    return [mu_sel, logvar_sel];
+    mu_sel = torch.cat([mus[k, idx_start[k]:idx_end[k], :] for k in range(w_modalities.shape[0])])
+    logvar_sel = torch.cat([logvars[k, idx_start[k]:idx_end[k], :] for k in range(w_modalities.shape[0])])
+    return [mu_sel, logvar_sel]
 
 
 def flow_mixture_component_selection(flags, reps, w_modalities=None, num_samples=None):
     # if not defined, take pre-defined weights
-    num_samples = reps.shape[1];
+    num_samples = reps.shape[1]
     if w_modalities is None:
-        w_modalities = torch.Tensor(flags.alpha_modalities).to(flags.device);
-    idx_start = [];
+        w_modalities = torch.Tensor(flags.alpha_modalities).to(flags.device)
+    idx_start = []
     idx_end = []
-    for k in range(0, w_modalities.shape[0]):
-        if k == 0:
-            i_start = 0;
-        else:
-            i_start = int(idx_end[k - 1]);
+    for k in range(w_modalities.shape[0]):
+        i_start = 0 if k == 0 else int(idx_end[k - 1])
         if k == w_modalities.shape[0] - 1:
-            i_end = num_samples;
+            i_end = num_samples
         else:
-            i_end = i_start + int(torch.floor(num_samples * w_modalities[k]));
-        idx_start.append(i_start);
-        idx_end.append(i_end);
+            i_end = i_start + int(torch.floor(num_samples * w_modalities[k]))
+        idx_start.append(i_start)
+        idx_end.append(i_end)
 
-    idx_end[-1] = num_samples;
-    rep_sel = torch.cat([reps[k, idx_start[k]:idx_end[k], :] for k in range(w_modalities.shape[0])]);
-    return rep_sel;
+    idx_end[-1] = num_samples
+    return torch.cat(
+        [
+            reps[k, idx_start[k]: idx_end[k], :]
+            for k in range(w_modalities.shape[0])
+        ]
+    )
 
 
 def calc_elbo(exp, modality, recs, klds):
-    flags = exp.flags;
-    s_weights = exp.style_weights;
-    kld_content = klds['content'];
+    flags = exp.flags
+    s_weights = exp.style_weights
+    kld_content = klds['content']
     if modality == 'joint':
-        w_style_kld = 0.0;
-        w_rec = 0.0;
+        w_style_kld = 0.0
+        w_rec = 0.0
         klds_style = klds['style']
-        mods = exp.modalities;
-        r_weights = exp.rec_weights;
+        mods = exp.modalities
+        r_weights = exp.rec_weights
         for k, m_key in enumerate(mods.keys()):
-            w_style_kld += s_weights[m_key] * klds_style[m_key];
-            w_rec += r_weights[m_key] * recs[m_key];
-        kld_style = w_style_kld;
-        rec_error = w_rec;
+            w_style_kld += s_weights[m_key] * klds_style[m_key]
+            w_rec += r_weights[m_key] * recs[m_key]
+        kld_style = w_style_kld
+        rec_error = w_rec
     else:
-        beta_style_mod = s_weights[modality];
-        # rec_weight_mod = r_weights[modality];
-        rec_weight_mod = 1.0;
-        kld_style = beta_style_mod * klds['style'][modality];
-        rec_error = rec_weight_mod * recs[modality];
-    div = flags.beta_content * kld_content + flags.beta_style * kld_style;
-    return rec_error + flags.beta * div;
+        beta_style_mod = s_weights[modality]
+        # rec_weight_mod = r_weights[modality]
+        rec_weight_mod = 1.0
+        kld_style = beta_style_mod * klds['style'][modality]
+        rec_error = rec_weight_mod * recs[modality]
+    div = flags.beta_content * kld_content + flags.beta_style * kld_style
+    return rec_error + flags.beta * div
 
 
 def save_and_log_flags(flags):
@@ -128,10 +131,10 @@ def save_and_log_flags(flags):
 
     filename_flags_rar = os.path.join(flags.dir_experiment_run, 'flags.rar')
     torch.save(flags, filename_flags_rar)
-    str_args = '';
+    str_args = ''
     for k, key in enumerate(sorted(flags.__dict__.keys())):
-        str_args = str_args + '\n' + key + ': ' + str(flags.__dict__[key]);
-    return str_args;
+        str_args = str_args + '\n' + key + ': ' + str(flags.__dict__[key])
+    return str_args
 
 
 class Flatten(torch.nn.Module):
@@ -245,3 +248,34 @@ def flatten(d: dict, parent_key='', sep='_') -> dict:
         else:
             items.append((new_key, v))
     return dict(items)
+
+
+def write_to_jsonfile(config_path: Path, parameters: list):
+    """
+    parameters: list of tuples. Example [('model.use_cuda',VALUE),] where VALUE is the parameter to be set
+    """
+    with open(config_path) as file:
+        config = json.load(file)
+    for parameter, value in parameters:
+        split = parameter.split('.')
+        key = config[split[0]]
+        for idx in range(1, len(split) - 1):
+            key = key[split[idx]]
+        key[split[-1]] = value
+
+    with open(config_path, 'w') as outfile:
+        json.dump(config, outfile, indent=4)
+
+
+def stdout_if_verbose(verbose: int, message, min_level: int):
+    """
+    verbose: current global verbose setting
+    message: message to be sent to stdout
+    level: minimum verbose level needed to send the message
+    """
+    if verbose >= min_level:
+        log.info(message)
+
+
+def dict_to_device(d: dict, dev: Device):
+    return {k: v.to(dev) for k, v in d.items()}
