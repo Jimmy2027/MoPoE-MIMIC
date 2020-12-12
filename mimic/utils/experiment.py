@@ -1,6 +1,7 @@
 import os
 import random
 import typing
+from argparse import Namespace
 from pathlib import Path
 
 import numpy as np
@@ -9,15 +10,19 @@ import torch
 import torch.optim as optim
 from PIL import ImageFont
 from sklearn.metrics import average_precision_score
+from torch import Tensor
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.tensorboard import SummaryWriter
 
+from mimic import log
 from mimic.dataio.MimicDataset import Mimic, Mimic_testing
 from mimic.dataio.MimicDataset import MimicText as MimicTextDataset
+from mimic.dataio.utils import get_transform_img
 from mimic.modalities.MimicLateral import MimicLateral
 from mimic.modalities.MimicPA import MimicPA
 from mimic.modalities.MimicText import MimicText
 from mimic.modalities.Modality import Modality
+from mimic.networks.CheXNet import CheXNet
 from mimic.networks.ConvNetworkImgClf import ClfImg as ClfImg
 from mimic.networks.ConvNetworkTextClf import ClfText as ClfText
 from mimic.networks.ConvNetworksImgMimic import EncoderImg, DecoderImg
@@ -27,9 +32,6 @@ from mimic.utils import utils
 from mimic.utils.BaseExperiment import BaseExperiment
 from mimic.utils.TBLogger import TBLogger
 from mimic.utils.utils import get_clf_path, get_alphabet
-from mimic.dataio.utils import get_transform_img
-from mimic.networks.CheXNet import CheXNet
-from argparse import Namespace
 
 
 class MimicExperiment(BaseExperiment):
@@ -77,7 +79,7 @@ class MimicExperiment(BaseExperiment):
             return VAEtrimodalMimic(self.flags, self.modalities, self.subsets)
 
     def set_modalities(self) -> typing.Mapping[str, Modality]:
-        print('setting modalities')
+        log.info('setting modalities')
         mod1 = MimicPA(EncoderImg(self.flags, self.flags.style_pa_dim),
                        DecoderImg(self.flags, self.flags.style_pa_dim))
         mod2 = MimicLateral(EncoderImg(self.flags, self.flags.style_lat_dim),
@@ -93,10 +95,10 @@ class MimicExperiment(BaseExperiment):
     def set_dataset(self):
         self.font = ImageFont.truetype(str(Path(__file__).parent.parent / 'FreeSerif.ttf'),
                                        38) if not self.flags.distributed else None
-        print('setting dataset')
+        log.info('setting dataset')
         # used for faster unittests i.e. a dummy dataset
         if self.dataset == 'testing':
-            print('using testing dataset')
+            log.info('using testing dataset')
             self.flags.vocab_size = 3517
             d_train = Mimic_testing(self.flags)
             d_eval = Mimic_testing(self.flags)
@@ -129,7 +131,7 @@ class MimicExperiment(BaseExperiment):
         }
 
     def set_clfs(self) -> typing.Mapping[str, torch.nn.Module]:
-        print('setting clfs')
+        log.info('setting clfs')
         # temp not true anymore
         # # img_clf_type and feature_extractor_img need to be the same. (for the image transformations of the dataset)
         # self.flags.img_clf_type = self.flags.feature_extractor_img
@@ -168,7 +170,7 @@ class MimicExperiment(BaseExperiment):
         return clfs
 
     def set_optimizer(self):
-        print('setting optimizer')
+        log.info('setting optimizer')
         # optimizer definition
         optimizer = optim.Adam(
             list(self.mm_vae.parameters()),
@@ -177,7 +179,7 @@ class MimicExperiment(BaseExperiment):
         self.optimizer = optimizer
 
     def set_rec_weights(self):
-        print('setting rec_weights')
+        log.info('setting rec_weights')
         rec_weights = {}
         ref_mod_d_size = self.modalities['text'].data_size.numel()
         for k, m_key in enumerate(self.modalities.keys()):
@@ -196,13 +198,17 @@ class MimicExperiment(BaseExperiment):
     def get_prediction_from_attr(self, values):
         return values.ravel()
 
-    def get_test_samples(self, num_images=10):
+    def get_test_samples(self, num_images=10) -> typing.Iterable[typing.Mapping[str, Tensor]]:
+        """
+        Gets random samples from the test dataset
+        """
         n_test = self.dataset_test.__len__()
         samples = []
         for _ in range(num_images):
-            sample, target = self.dataset_test.__getitem__(random.randint(0, n_test - 1))
-            for k, key in enumerate(sample):
-                sample[key] = sample[key].to(self.flags.device)
+            sample, _ = self.dataset_test.__getitem__(random.randint(0, n_test - 1))
+            sample = utils.dict_to_device(sample, self.flags.device)
+            # for key in sample:
+            #     sample[key] = sample[key].to(self.flags.device)
             samples.append(sample)
         return samples
 
@@ -238,6 +244,7 @@ class MimicExperiment(BaseExperiment):
         Updates the values in experiments dataframe with the new values from the values_dict and saves it if the
         experiment is not a test run
         """
+        log.info(f"writing to experiment df: {values_dict}")
         # load dataframe every time in order not to overwrite other writers
         if os.path.exists('experiments_dataframe.csv'):
             self.experiments_dataframe = pd.read_csv('experiments_dataframe.csv')
@@ -249,7 +256,7 @@ class MimicExperiment(BaseExperiment):
             self.experiments_dataframe.to_csv('experiments_dataframe.csv', index=False)
 
     def init_summary_writer(self):
-        print(f'setting up summary writer for device {self.flags.device}')
+        log.info(f'setting up summary writer for device {self.flags.device}')
         # initialize summary writer
         writer = SummaryWriter(self.flags.dir_logs)
         tb_logger = TBLogger(self.flags.str_experiment, writer)
@@ -281,18 +288,18 @@ class Callbacks:
         self.scheduler.step(loss)
         self.logger.writer.add_scalars(f'test/mean_loss', {'mean_loss': loss}, epoch)
 
-        print(f'current test loss: {loss}')
+        log.info(f'current test loss: {loss}')
         self.save_checkpoint(epoch)
 
         if epoch > self.start_early_stopping_epoch and loss < min(self.losses):
-            print(f'current test loss {loss} improved from {min(self.losses)}'
-                  f' at epoch {np.argmin(self.losses)}')
+            log.info(f'current test loss {loss} improved from {min(self.losses)}'
+                     f' at epoch {np.argmin(self.losses)}')
             self.exp.update_experiments_dataframe(
                 {'total_test_loss': loss, 'total_epochs': epoch, 'mean_epoch_time': np.mean(self.elapsed_times)})
             self.patience_idx = 1
 
         elif self.patience_idx > self.max_early_stopping_index:
-            print(
+            log.info(
                 f'stopping early at epoch {epoch} because current test loss {loss} '
                 f'did not improve from {min(self.losses)} '
                 f'at epoch {np.argmin(self.losses)}')
@@ -300,9 +307,9 @@ class Callbacks:
 
         else:
             if epoch > self.start_early_stopping_epoch:
-                print(f'current test loss {loss} did not improve from {min(self.losses)} '
-                      f'at epoch {np.argmin(self.losses)}')
-                print(f'-- idx_early_stopping = {self.patience_idx} / {self.max_early_stopping_index}')
+                log.info(f'current test loss {loss} did not improve from {min(self.losses)} '
+                         f'at epoch {np.argmin(self.losses)}')
+                log.info(f'-- idx_early_stopping = {self.patience_idx} / {self.max_early_stopping_index}')
                 self.patience_idx += 1
 
         self.losses.append(loss)

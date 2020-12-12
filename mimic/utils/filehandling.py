@@ -5,6 +5,7 @@ from datetime import datetime
 from shutil import copyfile
 
 import mimic
+from mimic import log
 
 
 def create_dir(dir_name):
@@ -39,7 +40,7 @@ def create_dir_structure(flags: argparse.ArgumentParser(), train: bool = True) -
     else:
         flags.dir_experiment_run = os.path.expanduser(flags.dir_experiment)
         flags.experiment_uid = get_str_experiments(flags)
-    print('dir_experiment_run: ', flags.dir_experiment_run)
+    log.info(f'dir_experiment_run: {flags.dir_experiment_run}')
     if train:
         create_dir(flags.dir_experiment_run)
 
@@ -51,7 +52,7 @@ def create_dir_structure(flags: argparse.ArgumentParser(), train: bool = True) -
     flags.dir_logs = os.path.join(os.path.expanduser(flags.dir_experiment_run), 'logs')
     if train:
         create_dir(flags.dir_logs)
-    print('dir_logs: ', flags.dir_logs)
+    log.info(f'dir_logs: {flags.dir_logs}')
 
     flags.dir_gen_eval = os.path.join(os.path.expanduser(flags.dir_experiment_run), 'generation_evaluation')
     if train:
@@ -62,12 +63,12 @@ def create_dir_structure(flags: argparse.ArgumentParser(), train: bool = True) -
         create_dir(flags.dir_inference)
 
     if flags.dir_fid is None:
-        flags.dir_fid = flags.dir_experiment_run;
+        flags.dir_fid = flags.dir_experiment_run
     elif not train:
-        flags.dir_fid = os.path.join(flags.dir_experiment_run, 'fid_eval');
+        flags.dir_fid = os.path.join(flags.dir_experiment_run, 'fid_eval')
         if not os.path.exists(flags.dir_fid):
-            os.makedirs(flags.dir_fid);
-    flags.dir_gen_eval_fid = os.path.join(flags.dir_fid, 'fid');
+            os.makedirs(flags.dir_fid)
+    flags.dir_gen_eval_fid = os.path.join(flags.dir_fid, str_experiments)
     create_dir(flags.dir_gen_eval_fid)
 
     flags.dir_plots = os.path.join(flags.dir_experiment_run, 'plots')

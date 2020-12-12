@@ -1,9 +1,9 @@
 import argparse
 import json
 
+from mimic import log
 from mimic.utils.BaseFlags import parser as parser
 from mimic.utils.filehandling import expand_paths
-from mimic import log
 
 
 def str2bool(v):
@@ -19,6 +19,7 @@ def str2bool(v):
 
 parser.add_argument('--dataset', type=str, default='Mimic', help="name of the dataset")
 parser.add_argument('--config_path', type=str, default=None, help="path to the json config")
+parser.add_argument('--verbose', type=int, default=0, help="global verbosity level")
 
 # Image dependent
 parser.add_argument('--fixed_image_extractor', type=str2bool, default=True,
