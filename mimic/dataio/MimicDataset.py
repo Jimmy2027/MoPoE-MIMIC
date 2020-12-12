@@ -3,6 +3,7 @@ import json
 import os
 import pickle
 import random
+import typing
 from collections import Counter, OrderedDict
 from collections import defaultdict
 from typing import List
@@ -11,6 +12,7 @@ import numpy as np
 import pandas as pd
 import torch
 from nltk.tokenize import word_tokenize
+from torch import Tensor
 from torch.utils.data import Dataset
 
 from mimic.dataio.utils import get_transform_img
@@ -49,7 +51,7 @@ class Mimic(Dataset):
 
         self.transform_img = get_transform_img(args, args.feature_extractor_img)
 
-    def __getitem__(self, index):
+    def __getitem__(self, index) -> typing.Tuple[typing.Mapping[str, Tensor], Tensor]:
         try:
             img_pa = self.imgs_pa[index, :, :]
             img_lat = self.imgs_lat[index, :, :]
