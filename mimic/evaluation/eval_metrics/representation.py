@@ -5,6 +5,9 @@ from tqdm import tqdm
 
 from mimic.networks.VAEtrimodalMimic import VAEtrimodalMimic
 from mimic.utils.experiment import MimicExperiment
+from mimic import log
+from mimic.utils.utils import stdout_if_verbose
+import typing
 
 
 def train_clf_lr_all_subsets(exp: MimicExperiment):
@@ -34,7 +37,8 @@ def train_clf_lr_all_subsets(exp: MimicExperiment):
     }
 
     all_labels = np.zeros((n_samples, len(exp.labels)))
-    for it, (batch_d, batch_l) in tqdm(enumerate(d_loader), total=training_steps, postfix='train_clf_lr'):
+    log.info(f"Creating {training_steps} batches of the latent representations for the classifier.")
+    for it, (batch_d, batch_l) in tqdm(enumerate(d_loader), total=training_steps, postfix='creating_train_lr'):
         """
         Constructs the training set (labels and inferred subsets) for the classifier training.
         """
@@ -48,8 +52,7 @@ def train_clf_lr_all_subsets(exp: MimicExperiment):
         inferred = mm_vae.module.inference(batch_d) if args.distributed else mm_vae.inference(batch_d)
 
         lr_subsets = inferred['subsets']
-        all_labels[(it * bs):((it + 1) * bs), :] = np.reshape(batch_l, (bs,
-                                                                        len(exp.labels)))
+        all_labels[(it * bs):((it + 1) * bs), :] = np.reshape(batch_l, (bs, len(exp.labels)))
         for k, key in enumerate(lr_subsets.keys()):
             data_train[key][(it * bs):((it + 1) * bs), :] = lr_subsets[key][0].cpu().data.numpy()
 
@@ -82,7 +85,7 @@ def get_random_labels(n_samples, n_train_samples, all_labels, max_tries=1000):
     return labels, rand_ind_train
 
 
-def test_clf_lr_all_subsets(epoch, clf_lr, exp):
+def test_clf_lr_all_subsets(epoch, clf_lr, exp) -> typing.Mapping[str, typing.Mapping[str, float]]:
     args = exp.flags
     mm_vae = exp.mm_vae
     mm_vae.eval()
@@ -95,15 +98,16 @@ def test_clf_lr_all_subsets(epoch, clf_lr, exp):
         for l, label_str in enumerate(exp.labels)
     }
 
-    d_loader = DataLoader(exp.dataset_test, batch_size=exp.flags.batch_size,
+    d_loader = DataLoader(exp.dataset_test, batch_size=len(exp.dataset_test) // 3,
                           shuffle=True,
-                          num_workers=exp.flags.dataloader_workers, drop_last=False)
+                          num_workers=exp.flags.dataloader_workers, drop_last=True)
 
     if exp.flags.steps_per_training_epoch > 0:
         training_steps = exp.flags.steps_per_training_epoch
     else:
         training_steps = len(d_loader)
-
+    log.info(f'Creating {training_steps} batches of latent representations for classifier testing '
+             f'with a batch_size of {exp.flags.batch_size}.')
     for iteration, batch in enumerate(d_loader):
         if iteration > training_steps:
             break
@@ -134,10 +138,13 @@ def test_clf_lr_all_subsets(epoch, clf_lr, exp):
     return lr_eval
 
 
-def classify_latent_representations(exp, epoch, clf_lr, data, labels):
+def classify_latent_representations(exp, epoch, clf_lr, data, labels) -> typing.Mapping[
+    str, typing.Mapping[str, float]]:
     labels = np.array(np.reshape(labels, (labels.shape[0], len(exp.labels))))
     eval_all_labels = {}
     for l, label_str in enumerate(exp.labels):
+        stdout_if_verbose(verbose=exp.flags.verbose,
+                          message=f'classifying the latent representations of label {label_str}', min_level=10)
         gt = labels[:, l]
         clf_lr_label = clf_lr[label_str]
         eval_all_reps = {}
@@ -149,8 +156,16 @@ def classify_latent_representations(exp, epoch, clf_lr, data, labels):
                 y_pred_rep = clf_lr_rep.predict(np.nan_to_num(data_rep))
             else:
                 y_pred_rep = clf_lr_rep.predict(data_rep)
-            eval_label_rep = exp.eval_metric(gt.ravel(),
-                                             y_pred_rep.ravel())
+            stdout_if_verbose(verbose=exp.flags.verbose,
+                              message=f'calculating eval metric for lr classifier on label {label_str}', min_level=10)
+
+            eval_label_rep = exp.eval_metric(gt.ravel(), y_pred_rep.ravel())
+
+            if np.isnan(eval_label_rep):
+                log.warning(f'lr eval metric is nan for the label {label_str}')
+                log.debug(
+                    f'lr eval metric for the label {label_str} is nan. with gt:\n {gt.ravel()} and '
+                    f'y_pred_rep:\n {y_pred_rep.ravel()} \n len_gt: {len(gt.ravel())}')
             eval_all_reps[s_key] = eval_label_rep
         eval_all_labels[label_str] = eval_all_reps
     return eval_all_labels
@@ -160,6 +175,8 @@ def train_clf_lr(exp, data, labels):
     labels = np.reshape(labels, (labels.shape[0], len(exp.labels)))
     clf_lr_labels = {}
     for l, label_str in enumerate(exp.labels):
+        stdout_if_verbose(message=f"Training lr classifier on label {label_str}", min_level=1,
+                          verbose=exp.flags.verbose)
         gt = labels[:, l]
         clf_lr_reps = {}
         for s_key in data.keys():
