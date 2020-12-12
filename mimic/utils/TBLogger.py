@@ -18,24 +18,21 @@ class TBLogger():
 
     def write_group_div(self, name, group_div):
         self.writer.add_scalars('%s/group_divergence' % name,
-                                {'group_div': group_div.item()},
+                                {'group_div': group_div},
                                 self.step)
 
     def write_latent_distr(self, name, latents):
-        l_mods = latents['modalities']
-        for k, key in enumerate(l_mods.keys()):
+        for k, key in enumerate(latents.keys()):
             self.writer.add_scalars('%s/mu' % name,
-                                    {key: l_mods[key][0].mean().item()},
+                                    {key: latents[key][0]},
                                     self.step)
             self.writer.add_scalars('%s/logvar' % name,
-                                    {key: l_mods[key][1].mean().item()},
+                                    {key: latents[key][1]},
                                     self.step)
 
     def write_lr_eval(self, lr_eval):
         for s, l_key in enumerate(sorted(lr_eval.keys())):
-            self.writer.add_scalars(f'Latent Representation/{l_key}',
-                                    lr_eval[l_key],
-                                    self.step)
+            self.writer.add_scalars(f'Latent Representation/{l_key}', lr_eval[l_key])
 
     def write_coherence_logs(self, gen_eval):
         for j, l_key in enumerate(sorted(gen_eval['cond'].keys())):
@@ -70,21 +67,22 @@ class TBLogger():
                                       epoch,
                                       dataformats="HWC")
 
-    def add_basic_logs(self, name, results, loss, log_probs, klds):
+    def add_basic_logs(self, name, joint_divergence, latents, loss, log_probs, klds):
         self.writer.add_scalars('%s/Loss' % name,
-                                {'loss': loss.data.item()},
+                                {'loss': loss},
                                 self.step)
         self.write_log_probs(name, log_probs)
         self.write_klds(name, klds)
-        self.write_group_div(name, results['joint_divergence'])
-        self.write_latent_distr(name, results['latents'])
+        self.write_group_div(name, joint_divergence)
+        self.write_latent_distr(name, latents=latents)
 
-    def write_training_logs(self, results, loss, log_probs, klds):
-        self.add_basic_logs(self.training_prefix, results, loss, log_probs, klds)
+    def write_training_logs(self, joint_divergence, latents, total_loss, log_probs, klds):
+        self.add_basic_logs(self.training_prefix, joint_divergence, latents, total_loss, log_probs,
+                            klds)
         self.step += 1
 
-    def write_testing_logs(self, results, loss, log_probs, klds):
-        self.add_basic_logs(self.testing_prefix, results, loss, log_probs, klds)
+    def write_testing_logs(self, joint_divergence, latents, total_loss, log_probs, klds):
+        self.add_basic_logs(self.testing_prefix, joint_divergence, latents, total_loss, log_probs, klds)
         self.step += 1
 
     def write_model_graph(self, model):

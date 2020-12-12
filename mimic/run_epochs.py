@@ -1,5 +1,6 @@
 import random
 import time
+import typing
 from contextlib import contextmanager
 
 import numpy as np
@@ -10,6 +11,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
+from mimic import log
 from mimic.dataio.utils import get_data_loaders, samplers_set_epoch
 from mimic.evaluation.divergence_measures.kl_div import calc_kl_divergence
 from mimic.evaluation.eval_metrics.coherence import test_generation
@@ -18,13 +20,13 @@ from mimic.evaluation.eval_metrics.representation import test_clf_lr_all_subsets
 from mimic.evaluation.eval_metrics.representation import train_clf_lr_all_subsets
 from mimic.evaluation.eval_metrics.sample_quality import calc_prd_score
 from mimic.utils import utils
+from mimic.utils.average_meters import AverageMeter, AverageMeterDict, AverageMeterLatents
 from mimic.utils.exceptions import CudaOutOfMemory
 from mimic.utils.experiment import Callbacks, MimicExperiment
 from mimic.utils.plotting import generate_plots
 from mimic.utils.utils import check_latents, at_most_n
 
 # global variables
-
 SEED = None
 SAMPLE1 = None
 if SEED is not None:
@@ -48,7 +50,7 @@ def catching_cuda_out_of_memory(batch_size):
             raise e
 
 
-def calc_log_probs(exp, result, batch):
+def calc_log_probs(exp, result, batch) -> typing.Tuple[typing.Mapping[str, float], float]:
     """
     Calculates log_probs of batch
     """
@@ -58,20 +60,19 @@ def calc_log_probs(exp, result, batch):
     for m, m_key in enumerate(mods.keys()):
         mod = mods[m_key]
         ba = batch[0][mod.name]
-
         log_probs[mod.name] = -mod.calc_log_prob(out_dist=result['rec'][mod.name], target=ba,
-                                                 norm_value=exp.flags.batch_size)
+                                                 norm_value=exp.flags.batch_size).item()
         weighted_log_prob += exp.rec_weights[mod.name] * log_probs[mod.name]
     return log_probs, weighted_log_prob
 
 
-def calc_klds(exp, result):
+def calc_klds(exp, result) -> typing.Mapping[str, float]:
     latents = result['latents']['subsets']
     klds = {}
     for m, key in enumerate(latents.keys()):
         mu, logvar = latents[key]
         klds[key] = calc_kl_divergence(mu, logvar,
-                                       norm_value=exp.flags.batch_size)
+                                       norm_value=exp.flags.batch_size).item()
     return klds
 
 
@@ -134,7 +135,7 @@ def calc_joint_elbo_loss(exp, klds_style, group_divergence, beta_style, beta_con
     return rec_weight * weighted_log_prob + beta * kld_weighted
 
 
-def basic_routine_epoch(exp, batch) -> dict:
+def basic_routine_epoch(exp, batch) -> typing.Mapping[str, any]:
     # set up weights
     beta_style = exp.flags.beta_style
     beta_content = exp.flags.beta_content
@@ -181,11 +182,19 @@ def basic_routine_epoch(exp, batch) -> dict:
     }
 
 
-def train(exp: MimicExperiment, train_loader: DataLoader):
+def train(exp: MimicExperiment, train_loader: DataLoader) -> None:
     tb_logger = exp.tb_logger
     mm_vae = exp.mm_vae
     mm_vae.train()
     exp.mm_vae = mm_vae
+
+    average_meters = {
+        'total_loss': AverageMeter('total_test_loss'),
+        'klds': AverageMeterDict('klds'),
+        'log_probs': AverageMeterDict('log_probs'),
+        'joint_divergence': AverageMeter('joint_divergence'),
+        'latents': AverageMeterLatents('latents'),
+    }
 
     if 0 < exp.flags.steps_per_training_epoch < len(train_loader):
         training_steps = exp.flags.steps_per_training_epoch
@@ -197,14 +206,24 @@ def train(exp: MimicExperiment, train_loader: DataLoader):
         basic_routine = basic_routine_epoch(exp, batch)
         results = basic_routine['results']
         total_loss = basic_routine['total_loss']
-        klds = basic_routine['klds']
-        log_probs = basic_routine['log_probs']
+        batch_results = {
+            'total_loss': total_loss.item(),
+            'klds': basic_routine['klds'],
+            'log_probs': basic_routine['log_probs'],
+            'joint_divergence': results['joint_divergence'].item(),
+            'latents': results['latents']['modalities'],
+        }
+
+        for key, value in batch_results.items():
+            average_meters[key].update(value)
         # backprop
         exp.optimizer.zero_grad()
         with catching_cuda_out_of_memory(exp.flags.batch_size):
             total_loss.backward()
         exp.optimizer.step()
-        tb_logger.write_training_logs(results, total_loss, log_probs, klds)
+
+    epoch_averages = {k: v.get_average() for k, v in average_meters.items()}
+    tb_logger.write_training_logs(**epoch_averages)
 
 
 def test(epoch, exp, test_loader: DataLoader):
@@ -217,41 +236,59 @@ def test(epoch, exp, test_loader: DataLoader):
         mm_vae.eval()
         exp.mm_vae = mm_vae
 
-        total_losses = []
-        # dict storing all test results that will be read into the experiments dataframe
-        test_results = {}
+        average_meters = {
+            'total_loss': AverageMeter('total_test_loss'),
+            'klds': AverageMeterDict('klds'),
+            'log_probs': AverageMeterDict('log_probs'),
+            'joint_divergence': AverageMeter('joint_divergence'),
+            'latents': AverageMeterLatents('latents'),
+        }
         tb_logger = exp.tb_logger
+
         for iteration, batch in tqdm(enumerate(test_loader), total=len(test_loader), postfix='test'):
             basic_routine = basic_routine_epoch(exp, batch)
             results = basic_routine['results']
-            total_loss = basic_routine['total_loss']
-            klds = basic_routine['klds']
-            log_probs = basic_routine['log_probs']
-            tb_logger.write_testing_logs(results, total_loss, log_probs, klds)
-            total_losses.append(total_loss.item())
+            batch_results = {
+                'total_loss': basic_routine['total_loss'].item(),
+                'klds': basic_routine['klds'],
+                'log_probs': basic_routine['log_probs'],
+                'joint_divergence': results['joint_divergence'].item(),
+                'latents': results['latents']['modalities'],
+            }
 
+            for key in batch_results:
+                average_meters[key].update(batch_results[key])
+
+        klds: typing.Mapping[str, float]
+        log_probs: typing.Mapping[str, float]
+        joint_divergence: float
+        latents: typing.Mapping[str, tuple]
+
+        test_results = {k: v.get_average() for k, v in average_meters.items()}
+        tb_logger.write_testing_logs(**test_results)
+        print(epoch)
         if epoch >= np.ceil(exp.flags.end_epoch * 0.8):
-            print('generating plots')
+            # if True:
+            log.info('generating plots')
             plots = generate_plots(exp, epoch)
             tb_logger.write_plots(plots, epoch)
 
         if (epoch + 1) % exp.flags.eval_freq == 0 or (epoch + 1) == exp.flags.end_epoch:
             if exp.flags.eval_lr:
-                print('evaluation of latent representation')
+                log.info('evaluation of latent representation')
                 clf_lr = train_clf_lr_all_subsets(exp)
                 lr_eval = test_clf_lr_all_subsets(epoch, clf_lr, exp)
                 tb_logger.write_lr_eval(lr_eval)
                 test_results['lr_eval'] = lr_eval
 
             if exp.flags.use_clf:
-                print('test generation')
-                with catching_cuda_out_of_memory(exp.flags.batch_size):
-                    gen_eval = test_generation(epoch, exp)
+                log.info('test generation')
+                gen_eval = test_generation(epoch, exp)
                 tb_logger.write_coherence_logs(gen_eval)
                 test_results['gen_eval'] = gen_eval
 
             if exp.flags.calc_nll:
-                print('estimating likelihoods')
+                log.info('estimating likelihoods')
                 lhoods = estimate_likelihoods(exp)
                 tb_logger.write_lhood_logs(lhoods)
                 test_results['lhoods'] = lhoods
@@ -261,17 +298,19 @@ def test(epoch, exp, test_loader: DataLoader):
                     and ((epoch + 1) % exp.flags.eval_freq_fid == 0)
 
             ):
-                print('calculating prediction score')
+                log.info('calculating prediction score')
                 prd_scores = calc_prd_score(exp)
                 tb_logger.write_prd_scores(prd_scores)
                 test_results['prd_scores'] = prd_scores
 
-        mean_loss = np.mean(total_losses)
+        test_results['latents'] = {mod: {'mu': test_results['latents'][mod][0],
+                                         'logvar': test_results['latents'][mod][1]} for mod in test_results['latents']}
+
         exp.update_experiments_dataframe(
-            {'total_test_loss': np.mean(total_losses), 'total_epochs': epoch, **utils.flatten(test_results)})
+            {'total_epochs': epoch, **utils.flatten(test_results)})
 
         exp.flags.batch_size = training_batch_size
-        return mean_loss
+        return test_results['total_loss']
 
 
 def run_epochs(rank: any, exp: MimicExperiment) -> None:
