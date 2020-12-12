@@ -33,6 +33,7 @@ class TestTraining(TestCase):
         FLAGS.dir_clf = tmpdirname
         FLAGS.vocab_size = 3517
         FLAGS.n_crops = n_crops
+        FLAGS.fixed_extractor = True
         FLAGS.distributed = False
         FLAGS.clf_loss = 'bce_with_logits'
         FLAGS.experiment_uid = 'test'
@@ -50,8 +51,8 @@ class TestTraining(TestCase):
         FLAGS.dir_logs_clf = os.path.join(os.path.expanduser(FLAGS.dir_clf),
                                           get_str_experiments(FLAGS, prefix='clf_img'))
 
-        d_train = Mimic_testing(FLAGS)
-        d_eval = Mimic_testing(FLAGS)
+        d_train = Mimic_testing(FLAGS, classifier_training=True)
+        d_eval = Mimic_testing(FLAGS, classifier_training=True)
 
         # with profiler.profile(profile_memory=True, record_shapes=True) as prof:
         training_procedure_clf(FLAGS, d_train, d_eval, modality, total_epochs=2)

@@ -23,7 +23,8 @@ class TestTraining(TestCase):
         flags.batch_size = int(flags.batch_size / flags.world_size)
 
     def _run_train_loop(self, text_encoding: str, img_size: int, tmpdirname: str,
-                        feature_extractor_img: str = 'resnet', distributed: bool = False):
+                        feature_extractor_img: str = 'resnet', distributed: bool = False, batch_size=5,
+                        calc_prd=True, only_text_modality=False, fixed_image_extractor=True):
         """
         General test to see if training loop works
         """
@@ -47,18 +48,22 @@ class TestTraining(TestCase):
         FLAGS.distributed = distributed
         FLAGS.dataset = 'testing'
         FLAGS.feature_extractor_img = feature_extractor_img
-        FLAGS.use_clf = feature_extractor_img != 'densenet'
-        FLAGS.calc_nll = False
+        FLAGS.use_clf = True
+        FLAGS.calc_nll = True
         FLAGS.eval_lr = True
-        FLAGS.calc_prd = True
+        FLAGS.only_text_modality = only_text_modality
+        FLAGS.calc_prd = calc_prd
         FLAGS.save_figure = False
         FLAGS.end_epoch = 2
-        FLAGS.batch_size = 5
+        FLAGS.batch_size = batch_size
         FLAGS.eval_freq = 1
         FLAGS.vocab_size = 3517
         FLAGS.text_encoding = text_encoding
         FLAGS.img_size = img_size
-        FLAGS.steps_per_training_epoch = 2
+        FLAGS.steps_per_training_epoch = 5
+        FLAGS.fixed_image_extractor = fixed_image_extractor
+        FLAGS.img_clf_type = 'resnet'
+
         print(
             f'running on {FLAGS.device} with text {FLAGS.text_encoding} encoding with method {FLAGS.method} '
             f'and img size {FLAGS.img_size}')
@@ -89,6 +94,7 @@ class TestTraining(TestCase):
         with tempfile.TemporaryDirectory() as tmpdirname2:
             _ = self._run_train_loop('char', 256, tmpdirname2)
 
+
     def test_train_loop_wordEncoding_128(self):
         with tempfile.TemporaryDirectory() as tmpdirname3:
             _ = self._run_train_loop('word', 128, tmpdirname3)
@@ -101,10 +107,18 @@ class TestTraining(TestCase):
         with tempfile.TemporaryDirectory() as tmpdirname1:
             _ = self._run_train_loop('char', 256, tmpdirname1, 'densenet')
 
+    def test_train_loop_charEncoding_256_densenet_fine_tuning(self):
+        with tempfile.TemporaryDirectory() as tmpdirname1:
+            _ = self._run_train_loop('char', 256, tmpdirname1, 'densenet', fixed_image_extractor=False)
+
     @pytest.mark.distributed
     def test_train_loop_charEncoding_128_distributed(self):
         with tempfile.TemporaryDirectory() as tmpdirname1:
-            _ = self._run_train_loop('char', 128, tmpdirname1, distributed=True)
+            _ = self._run_train_loop('char', 128, tmpdirname1, distributed=True, batch_size=50, calc_prd=False)
+
+    def test_train_loop_charEncoding_128_onlytext(self):
+        with tempfile.TemporaryDirectory() as tmpdirname1:
+            _ = self._run_train_loop('char', 128, tmpdirname1, only_text_modality=True)
 
 
 if __name__ == '__main__':

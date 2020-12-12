@@ -40,11 +40,14 @@ class TestCallbacks(TestCase):
             callbacks = Callbacks(args, 0, 5, modality,
                                   experiment_df, logger, optimizer)
             loss = 10
-            mean_AP = 0.9
+
             for epoch in range(100):
+                if epoch == 0:
+                    val_results = {'predictions': torch.ones((10, 3)), 'ground_truths': torch.ones((10, 3))}
+                else:
+                    val_results = {'predictions': torch.zeros((10, 3)), 'ground_truths': torch.ones((10, 3))}
                 loss += 1
-                mean_AP -= 0.1
-                if callbacks.update_epoch(epoch, loss, mean_AP, model, elapsed_time=1):
+                if callbacks.update_epoch(epoch, loss, val_results, model, elapsed_time=1):
                     break
             self.assertEqual(epoch, 6)
 
@@ -59,11 +62,16 @@ class TestCallbacks(TestCase):
             callbacks = Callbacks(args, 0, 5, modality,
                                   experiment_df, logger, optimizer)
             loss = 1000
-            mean_AP = 0.1
             for epoch in range(10):
                 loss -= 1
-                mean_AP += 0.1
-                if callbacks.update_epoch(epoch, loss, mean_AP, model, elapsed_time=1):
+                if epoch == 0:
+                    val_results = {'predictions': torch.cat((torch.ones((1, 3)), torch.zeros((9, 3)))),
+                                   'ground_truths': torch.ones((10, 3))}
+                else:
+                    val_results = {'predictions': torch.cat((torch.ones((epoch, 3)), torch.zeros((10 - epoch, 3)))),
+                                   'ground_truths': torch.ones((10, 3))}
+
+                if callbacks.update_epoch(epoch, loss, val_results, model, elapsed_time=1):
                     break
             self.assertEqual(epoch, 9)
             self.assertTrue(os.path.exists(f'{tmpdirname}/temp_9'))
