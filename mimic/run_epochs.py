@@ -57,7 +57,7 @@ def calc_log_probs(exp, result, batch) -> typing.Tuple[typing.Mapping[str, float
     mods = exp.modalities
     log_probs = {}
     weighted_log_prob = 0.0
-    for m, m_key in enumerate(mods.keys()):
+    for m_key in mods.keys():
         mod = mods[m_key]
         ba = batch[0][mod.name]
         log_probs[mod.name] = -mod.calc_log_prob(out_dist=result['rec'][mod.name], target=ba,
@@ -69,7 +69,7 @@ def calc_log_probs(exp, result, batch) -> typing.Tuple[typing.Mapping[str, float
 def calc_klds(exp, result) -> typing.Mapping[str, float]:
     latents = result['latents']['subsets']
     klds = {}
-    for m, key in enumerate(latents.keys()):
+    for key in latents.keys():
         mu, logvar = latents[key]
         klds[key] = calc_kl_divergence(mu, logvar,
                                        norm_value=exp.flags.batch_size).item()
@@ -79,7 +79,7 @@ def calc_klds(exp, result) -> typing.Mapping[str, float]:
 def calc_klds_style(exp, result):
     latents = result['latents']['modalities']
     klds = {}
-    for m, key in enumerate(latents.keys()):
+    for key in latents.keys():
         if key.endswith('style'):
             mu, logvar = latents[key]
             klds[key] = calc_kl_divergence(mu, logvar,
@@ -91,7 +91,7 @@ def calc_style_kld(exp, klds):
     mods = exp.modalities
     style_weights = exp.style_weights
     weighted_klds = 0.0
-    for m, m_key in enumerate(mods.keys()):
+    for m_key in mods.keys():
         weighted_klds += style_weights[m_key] * klds[m_key + '_style']
     return weighted_klds
 
@@ -227,10 +227,6 @@ def train(exp: MimicExperiment, train_loader: DataLoader) -> None:
 
 
 def test(epoch, exp, test_loader: DataLoader):
-    # set a lower batch_size for testing to spare GPU memory
-    training_batch_size = exp.flags.batch_size
-    exp.flags.batch_size = 30
-
     with torch.no_grad():
         mm_vae = exp.mm_vae
         mm_vae.eval()
@@ -266,14 +262,18 @@ def test(epoch, exp, test_loader: DataLoader):
 
         test_results = {k: v.get_average() for k, v in average_meters.items()}
         tb_logger.write_testing_logs(**test_results)
-        print(epoch)
-        if epoch >= np.ceil(exp.flags.end_epoch * 0.8):
-            # if True:
+
+        # set a lower batch_size for testing to spare GPU memory
+        log.info(f'setting batch size to {exp.flags.batch_size}')
+        training_batch_size = exp.flags.batch_size
+        exp.flags.batch_size = 30
+
+        if (epoch + 1) % exp.flags.eval_freq == 0 or (epoch + 1) == exp.flags.end_epoch:
+
             log.info('generating plots')
             plots = generate_plots(exp, epoch)
             tb_logger.write_plots(plots, epoch)
 
-        if (epoch + 1) % exp.flags.eval_freq == 0 or (epoch + 1) == exp.flags.end_epoch:
             if exp.flags.eval_lr:
                 log.info('evaluation of latent representation')
                 clf_lr = train_clf_lr_all_subsets(exp)
@@ -293,11 +293,7 @@ def test(epoch, exp, test_loader: DataLoader):
                 tb_logger.write_lhood_logs(lhoods)
                 test_results['lhoods'] = lhoods
 
-            if (
-                    exp.flags.calc_prd
-                    and ((epoch + 1) % exp.flags.eval_freq_fid == 0)
-
-            ):
+            if exp.flags.calc_prd and ((epoch + 1) % exp.flags.eval_freq_fid == 0):
                 log.info('calculating prediction score')
                 prd_scores = calc_prd_score(exp)
                 tb_logger.write_prd_scores(prd_scores)
@@ -306,9 +302,9 @@ def test(epoch, exp, test_loader: DataLoader):
         test_results['latents'] = {mod: {'mu': test_results['latents'][mod][0],
                                          'logvar': test_results['latents'][mod][1]} for mod in test_results['latents']}
 
-        exp.update_experiments_dataframe(
-            {'total_epochs': epoch, **utils.flatten(test_results)})
+        exp.update_experiments_dataframe({'total_epochs': epoch, **utils.flatten(test_results)})
 
+        # setting batch size back to training batch size
         exp.flags.batch_size = training_batch_size
         return test_results['total_loss']
 
@@ -317,7 +313,7 @@ def run_epochs(rank: any, exp: MimicExperiment) -> None:
     """
     rank: is int if multiprocessing and torch.device otherwise
     """
-    print('running epochs')
+    log.info('running epochs')
     exp.set_optimizer()
     exp.mm_vae = exp.mm_vae.to(rank)
     args = exp.flags
@@ -337,6 +333,7 @@ def run_epochs(rank: any, exp: MimicExperiment) -> None:
     for epoch in tqdm(range(exp.flags.start_epoch, exp.flags.end_epoch), postfix='epochs'):
         end = time.time()
         samplers_set_epoch(args, train_sampler, test_sampler, epoch)
+        exp.tb_logger.set_epoch(epoch)
         # one epoch of training and testing
         train(exp, train_loader)
         mean_eval_loss = test(epoch, exp, test_loader)
