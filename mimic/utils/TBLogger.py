@@ -32,7 +32,7 @@ class TBLogger():
 
     def write_lr_eval(self, lr_eval):
         for s, l_key in enumerate(sorted(lr_eval.keys())):
-            self.writer.add_scalars(f'Latent Representation/{l_key}', lr_eval[l_key])
+            self.writer.add_scalars(f'Latent Representation/{l_key}', lr_eval[l_key], self.step)
 
     def write_coherence_logs(self, gen_eval):
         for j, l_key in enumerate(sorted(gen_eval['cond'].keys())):
@@ -79,14 +79,18 @@ class TBLogger():
     def write_training_logs(self, joint_divergence, latents, total_loss, log_probs, klds):
         self.add_basic_logs(self.training_prefix, joint_divergence, latents, total_loss, log_probs,
                             klds)
-        self.step += 1
 
     def write_testing_logs(self, joint_divergence, latents, total_loss, log_probs, klds):
         self.add_basic_logs(self.testing_prefix, joint_divergence, latents, total_loss, log_probs, klds)
-        self.step += 1
 
     def write_model_graph(self, model):
         """
         writes the model graph to tensorboard
         """
         self.writer.add_graph(model)
+
+    def set_epoch(self, epoch: int):
+        """
+        Sets the epoch for all values that will be logged during that epoch.
+        """
+        self.step = epoch
