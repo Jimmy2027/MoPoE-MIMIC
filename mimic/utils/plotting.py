@@ -4,6 +4,7 @@ import torch
 
 from mimic.utils import plot
 from mimic.utils import utils
+from mimic import log
 
 
 def generate_plots(exp, epoch):
@@ -13,9 +14,9 @@ def generate_plots(exp, epoch):
         swapping_figs = generate_swapping_plot(exp, epoch)
         plots['swapping'] = swapping_figs
 
-    for k in range(len(exp.modalities.keys())):
-        cond_k = generate_conditional_fig_M(exp, epoch, k + 1)
-        plots['cond_gen_' + str(k + 1).zfill(2)] = cond_k
+    for mod_idx in range(len(exp.modalities)):
+        cond_k = generate_conditional_fig_M(exp, epoch, mod_idx + 1)
+        plots['cond_gen_' + str(mod_idx + 1).zfill(2)] = cond_k
 
     plots['random'] = generate_random_samples_plots(exp, epoch)
     return plots
@@ -27,7 +28,7 @@ def generate_random_samples_plots(exp, epoch):
     num_samples = 100
     random_samples = model.generate(num_samples)
     random_plots = {}
-    for k, m_key_in in enumerate(mods.keys()):
+    for m_key_in in mods:
         mod = mods[m_key_in]
         samples_mod = random_samples[m_key_in]
         rec = torch.zeros(exp.plot_img_size,
@@ -37,7 +38,7 @@ def generate_random_samples_plots(exp, epoch):
             rec[l, :, :, :] = rand_plot
         random_plots[m_key_in] = rec
 
-    for k, m_key in enumerate(mods.keys()):
+    for m_key in mods:
         fn = os.path.join(exp.flags.dir_random_samples, 'random_epoch_' +
                           str(epoch).zfill(4) + '_' + m_key + '.png')
         mod_plot = random_plots[m_key]
@@ -89,8 +90,11 @@ def generate_swapping_plot(exp, epoch):
     return swap_plots
 
 
-def generate_conditional_fig_M(exp, epoch:int, M:int):
-
+def generate_conditional_fig_M(exp, epoch: int, M: int):
+    """
+    Generates conditional figures.
+    M: the index of the modality.
+    """
     model = exp.mm_vae
     mods = exp.modalities
     samples = exp.test_samples
@@ -100,7 +104,7 @@ def generate_conditional_fig_M(exp, epoch:int, M:int):
     random_styles = model.get_random_styles(10)
 
     cond_plots = {}
-    for k, s_key in enumerate(subsets.keys()):
+    for s_key in subsets:
         subset = subsets[s_key]
         num_mod_s = len(subset)
 
@@ -121,7 +125,7 @@ def generate_conditional_fig_M(exp, epoch:int, M:int):
                 for j in range(len(samples)):
                     i_batch = {
                         mod.name: samples[j][mod.name].unsqueeze(0)
-                        for o, mod in enumerate(s_in)
+                        for mod in s_in
                     }
                     # infer latents from batch
                     latents = model.inference(i_batch, num_samples=1)

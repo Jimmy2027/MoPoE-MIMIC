@@ -7,6 +7,8 @@ from torch.utils.data import DataLoader
 from mimic.utils.likelihood import get_latent_samples
 from mimic.utils.likelihood import log_joint_estimate
 from mimic.utils.likelihood import log_marginal_estimate
+from mimic.utils.utils import dict_to_device
+from mimic import log
 
 LOG2PI = float(np.log(2.0 * math.pi))
 
@@ -24,7 +26,7 @@ def calc_log_likelihood_batch(exp, latents, subset_key, subset, batch, num_imp_s
     if flags.factorized_representation:
         enc_mods = latents['modalities']
         style = model.get_random_style_dists(flags.batch_size)
-        for m, mod in enumerate(subset):
+        for mod in (subset):
             if (enc_mods[mod.name + '_style'][0] is not None
                     and enc_mods[mod.name + '_style'][1] is not None):
                 style[mod.name] = enc_mods[mod.name + '_style']
@@ -42,8 +44,8 @@ def calc_log_likelihood_batch(exp, latents, subset_key, subset, batch, num_imp_s
          'logvar': l_content_rep['logvar'].view(n_total_samples, -1),
          'z': l_content_rep['z'].view(n_total_samples, -1)}
     l_lin_rep = {'content': c,
-                 'style': dict()}
-    for m, m_key in enumerate(l_style_rep.keys()):
+                 'style': {}}
+    for m_key in (l_style_rep.keys()):
         if flags.factorized_representation:
             s = {'mu': l_style_rep[mod.name]['mu'].view(n_total_samples, -1),
                  'logvar': l_style_rep[mod.name]['logvar'].view(n_total_samples, -1),
@@ -53,8 +55,8 @@ def calc_log_likelihood_batch(exp, latents, subset_key, subset, batch, num_imp_s
             l_lin_rep['style'][m_key] = None
 
     l_dec = {'content': l_lin_rep['content']['z'],
-             'style': dict()}
-    for m, m_key in enumerate(l_style_rep.keys()):
+             'style': {}}
+    for m_key in (l_style_rep.keys()):
         if flags.factorized_representation:
             l_dec['style'][m_key] = l_lin_rep['style'][m_key]['z']
         else:
@@ -70,10 +72,10 @@ def calc_log_likelihood_batch(exp, latents, subset_key, subset, batch, num_imp_s
         # hot encoding of the one hot encoding would be generated
         batch['text'] = torch.nn.functional.one_hot(batch['text'].to(torch.int64),
                                                     num_classes=exp.flags.vocab_size)
-    for k, m_key in enumerate(mods.keys()):
-        mod = mods[m_key]
+    for m_key, mod in mods.items():
         # compute marginal log-likelihood
         style_mod = l_lin_rep_style[mod.name] if mod in subset else None
+        log.debug(f'Computing log_marginal_estimate for modality {mod}')
         ll_mod = log_marginal_estimate(flags,
                                        num_imp_samples,
                                        gen[mod.name],
@@ -99,32 +101,28 @@ def estimate_likelihoods(exp):
                           num_workers=exp.flags.dataloader_workers, drop_last=True)
 
     subsets = exp.subsets
+    if '' in subsets:
+        del subsets['']
     lhoods = {}
-    for k, s_key in enumerate(subsets.keys()):
-        if s_key != '':
-            lhoods[s_key] = {m_key: [] for m, m_key in enumerate(mods.keys())}
-            lhoods[s_key]['joint'] = []
+    for s_key in subsets:
+        lhoods[s_key] = {m_key: [] for m_key in mods}
+        lhoods[s_key]['joint'] = []
 
-    for iteration, batch in enumerate(d_loader):
-        batch_d = batch[0]
-        for m, m_key in enumerate(mods.keys()):
-            batch_d[m_key] = batch_d[m_key].to(exp.flags.device)
+    for batch in d_loader:
+        batch_d = dict_to_device(batch[0], exp.flags.device)
 
         latents = model.inference(batch_d)
-        for k, s_key in enumerate(subsets.keys()):
-            if s_key != '':
-                subset = subsets[s_key]
-                # temp num_imp_samples was 12
-                ll_batch = calc_log_likelihood_batch(exp, latents,
-                                                     s_key, subset,
-                                                     batch_d,
-                                                     num_imp_samples=1)
-                for l, m_key in enumerate(ll_batch.keys()):
-                    lhoods[s_key][m_key].append(ll_batch[m_key].item())
+        for s_key in (subsets.keys()):
+            subset = subsets[s_key]
+            ll_batch = calc_log_likelihood_batch(exp, latents,
+                                                 s_key, subset,
+                                                 batch_d,
+                                                 num_imp_samples=6)
+            for m_key in (ll_batch.keys()):
+                lhoods[s_key][m_key].append(ll_batch[m_key].item())
 
-    for k, s_key in enumerate(lhoods.keys()):
-        lh_subset = lhoods[s_key]
-        for l, m_key in enumerate(lh_subset.keys()):
+    for s_key, lh_subset in lhoods.items():
+        for m_key in (lh_subset.keys()):
             mean_val = np.mean(np.array(lh_subset[m_key]))
             lhoods[s_key][m_key] = mean_val
     exp.flags.batch_size = bs_normal

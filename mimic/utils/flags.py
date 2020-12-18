@@ -69,7 +69,7 @@ parser.add_argument('--clf_loss', type=str, default='binary_crossentropy',
 
 # Callbacks
 parser.add_argument('--reduce_lr_on_plateau', type=bool, default=False,
-                    help="boolean indicating if ccallback 'reduce lr on plateau' is used")
+                    help="boolean indicating if callback 'reduce lr on plateau' is used")
 parser.add_argument('--max_early_stopping_index', type=int, default=5,
                     help="patience of the early stopper. If the target metric did not improve "
                          "for that amount of epochs, training is stopepd")

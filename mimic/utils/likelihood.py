@@ -5,6 +5,7 @@ import torch
 
 from mimic.evaluation.divergence_measures.mm_div import alpha_poe
 from mimic.utils import utils
+from mimic import log
 
 LOG2PI = float(np.log(2.0 * math.pi))
 
@@ -15,7 +16,7 @@ def get_latent_samples(flags, latents, n_imp_samples, mod_names=None):
     l_c_m_rep = l_c[0].unsqueeze(0).repeat(n_imp_samples, 1, 1)
     l_c_lv_rep = l_c[1].unsqueeze(0).repeat(n_imp_samples, 1, 1)
     c_emb = utils.reparameterize(l_c_m_rep, l_c_lv_rep)
-    styles = dict()
+    styles = {}
     c = {'mu': l_c_m_rep, 'logvar': l_c_lv_rep, 'z': c_emb}
     if flags.factorized_representation:
         for k, key in enumerate(l_s.keys()):
@@ -28,8 +29,7 @@ def get_latent_samples(flags, latents, n_imp_samples, mod_names=None):
     else:
         for k, key in enumerate(mod_names):
             styles[key] = None
-    emb = {'content': c, 'style': styles}
-    return emb
+    return {'content': c, 'style': styles}
 
 
 def get_dyn_prior(weights, mus, logvars):
@@ -115,7 +115,7 @@ def log_marginal_estimate(flags, n_samples, likelihood, image, style, content, d
     z_content = content['z']
     mu_content = content['mu']
     logvar_content = content['logvar']
-
+    log.debug(f'Computing log prob of image with shape: {image.shape}')
     log_p_x_given_z_2d = likelihood.log_prob(image).view(batch_size * n_samples,
                                                          -1).sum(dim=1)
     content_log_q_z_given_x_2d = gaussian_log_pdf(z_content, mu_content, logvar_content)
@@ -161,8 +161,8 @@ def log_joint_estimate(flags, n_samples, likelihoods, targets, styles, content, 
     """
     batch_size = flags.batch_size
     if styles is not None:
-        styles_log_q_z_given_x_2d = dict()
-        styles_p_z_2d = dict()
+        styles_log_q_z_given_x_2d = {}
+        styles_p_z_2d = {}
         for key in styles.keys():
             if styles[key] is not None:
                 style_m = styles[key]

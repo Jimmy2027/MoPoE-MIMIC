@@ -32,12 +32,11 @@ def text_to_pil(exp, t, imgsize, font, w=128, h=128, linewidth=8):
         draw.text((0, (h / 2) - (num_lines / 2 - l) * height), line, (0, 0, 0), font=font)
         y_text += height
     if imgsize[0] == 3:
-        text_pil = transforms.ToTensor()(pil_img.resize((imgsize[1], imgsize[2]),
+        return transforms.ToTensor()(pil_img.resize((imgsize[1], imgsize[2]),
                                                         Image.ANTIALIAS));
     else:
-        text_pil = transforms.ToTensor()(pil_img.resize((imgsize[1], imgsize[2]),
+        return transforms.ToTensor()(pil_img.resize((imgsize[1], imgsize[2]),
                                                         Image.ANTIALIAS).convert('L'));
-    return text_pil;
 
 
 def text_to_pil_celeba(t, imgsize, alphabet, font, w=256, h=256):

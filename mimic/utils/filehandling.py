@@ -33,8 +33,8 @@ def create_dir_structure_testing(exp):
 
 
 def create_dir_structure(flags: argparse.ArgumentParser(), train: bool = True) -> argparse.ArgumentParser:
+    str_experiments = get_str_experiments(flags)
     if train:
-        str_experiments = get_str_experiments(flags)
         flags.dir_experiment_run = os.path.join(os.path.expanduser(flags.dir_experiment), str_experiments)
         flags.str_experiment = str_experiments
     else:
