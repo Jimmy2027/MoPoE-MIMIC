@@ -1,5 +1,7 @@
 import typing
 from contextlib import contextmanager
+from itertools import product
+from typing import Mapping
 
 import numpy as np
 import torch
@@ -11,8 +13,7 @@ from mimic import log
 from mimic.utils.exceptions import CudaOutOfMemory
 from mimic.utils.save_samples import save_generated_samples_singlegroup
 from mimic.utils.utils import at_most_n, dict_to_device
-from itertools import product
-from typing import Mapping, Union
+from mimic.utils.utils import init_twolevel_nested_dict
 
 
 @contextmanager
@@ -176,7 +177,7 @@ def init_gen_perf(labels, subsets, mods) -> typing.Mapping[str, dict]:
         {'Lung Opacity': Tensor(), 'Pleural Effusion': Tensor(), 'Support Devices': Tensor()}}
     """
     return {'cond': init_twolevel_nested_dict(labels, subsets, init_val={mod: torch.Tensor() for mod in mods}),
-            'random': {k: [] for k in labels}}
+            'random': {k: [].copy() for k in labels}}
 
 
 def calc_coherence_random_gen(exp, mm_vae, iteration: int, gen_perf: typing.Mapping[str, dict], batch_d: dict) -> \
@@ -185,7 +186,7 @@ def calc_coherence_random_gen(exp, mm_vae, iteration: int, gen_perf: typing.Mapp
     # generating random samples
     with catching_cuda_out_of_memory(batch_size=args.batch_size):
         rand_gen = mm_vae.module.generate() if args.distributed else mm_vae.generate()
-    rand_gen = {k: v.to(args.device) for k, v in rand_gen.items()}
+    rand_gen = dict_to_device(rand_gen, args.device)
     # classifying generated examples
     coherence_random = calculate_coherence(exp, rand_gen)
     for j, l_key in enumerate(exp.labels):
@@ -198,110 +199,25 @@ def calc_coherence_random_gen(exp, mm_vae, iteration: int, gen_perf: typing.Mapp
     return gen_perf
 
 
-def test_generation_(epoch, exp):
-    args = exp.flags
-
-    mods = exp.modalities
-    mm_vae = exp.mm_vae
-    subsets = exp.subsets
-
-    gen_perf = init_gen_perf(exp)
-    old_batch_size = args.batch_size
-    args.batch_size = 5
-    log.info(f'setting batch size to {args.batch_size}')
-    d_loader = DataLoader(exp.dataset_test,
-                          batch_size=args.batch_size,
-                          shuffle=True,
-                          num_workers=exp.flags.dataloader_workers, drop_last=True)
-
-    total_steps = None if args.steps_per_training_epoch < 0 else args.steps_per_training_epoch
-    # temp
-    total_steps = 1
-    for iteration, batch in tqdm(enumerate(at_most_n(d_loader, total_steps)),
-                                 total=len(d_loader), postfix='test_generation'):
-        batch_d = batch[0]
-        batch_l = batch[1]
-        # generating random samples
-        with catching_cuda_out_of_memory(batch_size=args.batch_size):
-            rand_gen = mm_vae.module.generate() if args.distributed else mm_vae.generate()
-        rand_gen = {k: v.to(args.device) for k, v in rand_gen.items()}
-        # classifying generated examples
-        coherence_random = calculate_coherence(exp, rand_gen)
-        for j, l_key in enumerate(exp.labels):
-            gen_perf['random'][l_key].append(coherence_random[l_key])
-
-        if (exp.flags.batch_size * iteration) < exp.flags.num_samples_fid:
-            # saving generated samples to dir_fid
-            save_generated_samples(exp, rand_gen, iteration, batch_d)
-
-        for k, m_key in enumerate(batch_d.keys()):
-            batch_d[m_key] = batch_d[m_key].to(exp.flags.device)
-
-        inferred = mm_vae.module.inference(batch_d) if args.distributed else mm_vae.inference(batch_d)
-        lr_subsets = inferred['subsets']
-        cg = mm_vae.module.cond_generation(lr_subsets) if args.distributed else mm_vae.cond_generation(lr_subsets)
-
-        for k, s_key in enumerate(cg.keys()):
-            clf_cg = classify_cond_gen_samples(exp, batch_l, cg[s_key])
-            for j, l_key in enumerate(exp.labels):
-                for m, m_key in enumerate(mods.keys()):
-                    gen_perf['cond'][l_key][s_key][m_key].append(clf_cg[l_key][m_key])
-            if (exp.flags.batch_size * iteration) < exp.flags.num_samples_fid:
-                save_generated_samples_singlegroup(exp, iteration, s_key, cg[s_key])
-
-    for j, l_key in enumerate(exp.labels):
-        for k, s_key in enumerate(subsets.keys()):
-            if s_key != '':
-                for l, m_key in enumerate(mods.keys()):
-                    perf = exp.mean_eval_metric(gen_perf['cond'][l_key][s_key][m_key])
-                    gen_perf['cond'][l_key][s_key][m_key] = perf
-                    if np.isnan(perf):
-                        log.warning(f'mean coherence eval metric "cond" is nan for cond {l_key},{s_key},{m_key}')
-                        log.debug(
-                            f'mean coherence eval metric "cond" is nan for cond {l_key},{s_key},{m_key}. '
-                            f'With coherence gen perf:\n {gen_perf["cond"][l_key][s_key][m_key]}')
-        eval_score = exp.mean_eval_metric(gen_perf['random'][l_key])
-        if np.isnan(eval_score):
-            log.warning(f'mean coherence eval metric is nan for the label {l_key}')
-            log.debug(
-                f'mean coherence eval metric for the label {l_key} is nan. '
-                f'With coherence eval metric:\n {gen_perf["random"][l_key]}')
-        gen_perf['random'][l_key] = eval_score
-
-    args.batch_size = old_batch_size
-    return gen_perf
-
-
-def init_twolevel_nested_dict(level1_keys, level2_keys, init_val: any) -> dict:
-    """
-    Initialises a 2 level nested dict with value: init_val
-    HK, 15.12.20
-    """
-    return {l1: {l2: init_val for l2 in level2_keys if l2} for l1 in level1_keys if l1}
-
-
 def eval_classified_gen_samples(exp, subsets, mods, cond_gen_classified, gen_perf, batch_labels):
     """
     HK, 15.12.20
     """
+    gen_perf_cond = {}
     # compare the classification on the generated samples with the ground truth
     for l_idx, l_key in enumerate(exp.labels):
-        for s_key, m_key in product(subsets, mods):
-            perf = exp.mean_eval_metric(
-                exp.eval_label(cond_gen_classified[s_key][m_key].cpu().data.numpy(), batch_labels, l_idx))
-            gen_perf['cond'][l_key][s_key][m_key] = perf
-            if np.isnan(perf):
-                log.warning(f'mean coherence eval metric "cond" is nan for cond {l_key},{s_key},{m_key}')
-                log.debug(
-                    f'mean coherence eval metric "cond" is nan for cond {l_key},{s_key},{m_key}. '
-                    f'With coherence gen perf:\n {gen_perf["cond"][l_key][s_key][m_key]}')
+        gen_perf_cond[l_key] = {}
+        for s_key in subsets:
+            gen_perf_cond[l_key][s_key] = {}
+            for m_key in mods:
+                perf = exp.eval_label(cond_gen_classified[s_key][m_key].cpu().data.numpy(), batch_labels, l_idx)
+                gen_perf_cond[l_key][s_key][m_key] = perf
+
         eval_score = exp.mean_eval_metric(gen_perf['random'][l_key])
-        if np.isnan(eval_score):
-            log.warning(f'mean coherence eval metric is nan for the label {l_key}')
-            log.debug(
-                f'mean coherence eval metric for the label {l_key} is nan. '
-                f'With coherence eval metric:\n {gen_perf["random"][l_key]}')
         gen_perf['random'][l_key] = eval_score
+
+    gen_perf['cond'] = gen_perf_cond
+
     return gen_perf
 
 
@@ -314,10 +230,12 @@ def test_generation(epoch, exp):
     mods = exp.modalities
     mm_vae = exp.mm_vae
     subsets = exp.subsets
-    del subsets['']
+    if '' in subsets:
+        del subsets['']
     labels = exp.labels
 
     gen_perf = init_gen_perf(labels, subsets, mods)
+
     d_loader = DataLoader(exp.dataset_test,
                           batch_size=args.batch_size,
                           shuffle=True,
@@ -334,6 +252,7 @@ def test_generation(epoch, exp):
 
         batch_labels = torch.cat((batch_labels, batch_l), 0)
         batch_d = dict_to_device(batch_d, exp.flags.device)
+
         # evaluating random generation
         gen_perf = calc_coherence_random_gen(exp, mm_vae, iteration, gen_perf, batch_d)
 
@@ -346,12 +265,12 @@ def test_generation(epoch, exp):
         cg: typing.Mapping[subsets, typing.Mapping[mods, Tensor]]
 
         # classify the cond. generated samples
-        for cond_key, cond_val in cg.items():
+        for subset, cond_val in cg.items():
             clf_cg: Mapping[mods, Tensor] = classify_cond_gen_samples(exp, batch_l, cond_val)
             for mod in mods:
-                cond_gen_classified[cond_key][mod] = torch.cat((cond_gen_classified[cond_key][mod], clf_cg[mod]), 0)
+                cond_gen_classified[subset][mod] = torch.cat((cond_gen_classified[subset][mod], clf_cg[mod]), 0)
             if (exp.flags.batch_size * iteration) < exp.flags.num_samples_fid:
-                save_generated_samples_singlegroup(exp, iteration, cond_key, cond_val)
+                save_generated_samples_singlegroup(exp, iteration, subset, cond_val)
 
-    gen_perf['cond']: typing.Mapping[str, typing.Mapping[str, typing.Mapping[str, float]]]
+    gen_perf['cond']: Mapping[str, Mapping[str, Mapping[str, float]]]
     return eval_classified_gen_samples(exp, subsets, mods, cond_gen_classified, gen_perf, batch_labels)
