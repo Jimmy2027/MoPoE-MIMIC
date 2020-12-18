@@ -279,3 +279,17 @@ def stdout_if_verbose(verbose: int, message, min_level: int):
 
 def dict_to_device(d: dict, dev: Device):
     return {k: v.to(dev) for k, v in d.items()}
+
+
+def init_twolevel_nested_dict(level1_keys: list, level2_keys: list, init_val: any, copy_init_val: bool = False) -> dict:
+    """
+    Initialises a 2 level nested dict with value: init_val.
+    copy_init_val: when using a list need to copy value.
+    HK, 15.12.20
+    """
+    if copy_init_val:
+        return {l1: {l2: init_val.copy() for l2 in level2_keys if l2} for l1 in level1_keys if l1}
+    else:
+        return {l1: {l2: init_val for l2 in level2_keys if l2} for l1 in level1_keys if l1}
+
+
