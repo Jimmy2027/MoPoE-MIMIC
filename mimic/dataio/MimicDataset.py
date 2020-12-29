@@ -62,7 +62,7 @@ class Mimic(Dataset):
                 text_str = self.report_findings[index]
                 if len(text_str) > self.args.len_sequence:
                     text_str = text_str[:self.args.len_sequence]
-                text_vec = text.one_hot_encode(self.args.len_sequence, self.args.alphabet, text_str)
+                text_vec = text.one_hot_encode(self.args.len_sequence, self.args.alphabet, text_str.lower())
 
             elif self.args.text_encoding == 'word':
                 text_vec = self.report_findings_dataset.__getitem__(index)
