@@ -11,6 +11,7 @@ from mimic.networks.word_encoding.mmvae_text_enc import FeatureExtractorText as 
 class EncoderText(nn.Module):
     def __init__(self, flags, style_dim):
         super(EncoderText, self).__init__()
+        self.args = flags
         if flags.text_encoding == 'char':
             self.feature_extractor = FeatureExtractorText_CharEnc(flags)
         elif flags.text_encoding == 'word':
@@ -21,23 +22,24 @@ class EncoderText(nn.Module):
 
     def forward(self, x_text):
         # d_model must be divisible by nhead
+        # text_in = nn.functional.one_hot(x_text.to(torch.int64), num_classes=self.args.vocab_size)
         # encoder_layer = nn.TransformerEncoderLayer(d_model=x_text.shape[-1], nhead=8)
         # transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=8)
-        # h_text = transformer_encoder(x_text)
+        # h_text = transformer_encoder(text_in)
         # todo is this better?
         h_text = self.feature_extractor(x_text)
         if self.feature_compressor.style_mu and self.feature_compressor.style_logvar:
-            mu_style, logvar_style, mu_content, logvar_content = self.feature_compressor(h_text);
+            mu_style, logvar_style, mu_content, logvar_content = self.feature_compressor(h_text)
             return mu_content, logvar_content, mu_style, logvar_style
         else:
             mu_content, logvar_content = self.feature_compressor(h_text)
-            return mu_content, logvar_content;
+            return mu_content, logvar_content
 
 
 class DecoderText(nn.Module):
     def __init__(self, flags, style_dim):
-        super(DecoderText, self).__init__();
-        self.flags = flags;
+        super(DecoderText, self).__init__()
+        self.flags = flags
         self.feature_generator = nn.Linear(style_dim + flags.class_dim,
                                            5 * flags.DIM_text, bias=True)
         if flags.text_encoding == 'char':
@@ -53,7 +55,7 @@ class DecoderText(nn.Module):
             z = z_content
         text_feat_hat = self.feature_generator(z)
         text_feat_hat = text_feat_hat.unsqueeze(-1)
-        # # predict in batches to spare GPU memory
+        # predict in batches to spare GPU memory
         if text_feat_hat.shape[0] > self.flags.batch_size:
             dl = torch.utils.data.DataLoader(text_feat_hat, batch_size=self.flags.batch_size)
             text_hat = torch.Tensor().to(self.flags.device)
