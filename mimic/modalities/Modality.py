@@ -9,6 +9,7 @@ from torchvision import transforms
 
 import mimic.modalities.utils
 from mimic.utils.save_samples import write_samples_img_to_file
+from typing import Optional
 
 
 class Modality(ABC):
@@ -34,7 +35,7 @@ class ModalityIMG(Modality):
         img_per_row = args['img_per_row']
         write_samples_img_to_file(d, fn, img_per_row)
 
-    def plot_data(self, exp, d: Tensor):
+    def plot_data(self, exp, d: Tensor, log_tag: Optional[str] = None):
         if d.shape != self.data_size:
             transform = transforms.Compose([transforms.ToPILImage(),
                                             transforms.Grayscale(),
