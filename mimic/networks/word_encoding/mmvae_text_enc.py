@@ -40,9 +40,11 @@ class FeatureExtractorText(nn.Module):
         self.resblock_4 = make_res_block_enc_feat_ext(4 * self.args.DIM_text,
                                                       4 * self.args.DIM_text,
                                                       kernelsize=4, stride=2, padding=1, dilation=1)
+
         self.resblock_5 = make_res_block_enc_feat_ext(4 * self.args.DIM_text,
                                                       4 * self.args.DIM_text,
                                                       kernelsize=4, stride=2, padding=1, dilation=1)
+
         self.resblock_6 = make_res_block_enc_feat_ext(4 * self.args.DIM_text,
                                                       5 * self.args.DIM_text,
                                                       kernelsize=4, stride=2, padding=1, dilation=1)
@@ -57,7 +59,7 @@ class FeatureExtractorText(nn.Module):
         """
         Example for x.shape=torch.Size([200, 1024]):
         torch.Size([200, 1024, 128])
-        torch.Size([200, 128, 1024])
+        transpose: torch.Size([200, 128, 1024])
         torch.Size([200, 128, 512])
         torch.Size([200, 256, 256])
         torch.Size([200, 384, 128])
@@ -77,6 +79,7 @@ class FeatureExtractorText(nn.Module):
         out = self.resblock_4(out)
         out = self.resblock_5(out)
         out = self.resblock_6(out)
-        out = self.resblock_7(out)
-        out = self.resblock_8(out)
+        if self.args.len_sequence > 500:
+            out = self.resblock_7(out)
+            out = self.resblock_8(out)
         return out

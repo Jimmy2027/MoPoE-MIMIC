@@ -78,8 +78,9 @@ class ClfText(nn.Module):
         out = self.resblock_4(out)
         out = self.resblock_5(out)
         out = self.resblock_6(out)
-        out = self.resblock_7(out)
-        out = self.resblock_8(out)
+        if self.args.len_sequence > 500:
+            out = self.resblock_7(out)
+            out = self.resblock_8(out)
         h = self.dropout(out)
         h = h.view(h.size(0), -1)
         h = self.linear(h)

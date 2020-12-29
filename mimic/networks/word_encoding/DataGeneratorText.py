@@ -52,6 +52,7 @@ class DataGeneratorText(nn.Module):
         # needs input shape of (batch_size, self.args.DIM_text)
         self.toVocabSize = nn.Linear(self.args.DIM_text, self.args.vocab_size)
         self.softmax = nn.LogSoftmax(dim=1)
+        self.sigmoid = nn.Sigmoid()
 
     def forward(self, feats):
         """
@@ -78,5 +79,6 @@ class DataGeneratorText(nn.Module):
         d = self.conv2(d)
         # d = d.view(-1, self.args.DIM_text)
         # d = self.toVocabSize(d)
-        d = self.softmax(d)
+        # d = self.softmax(d)
+        d = self.sigmoid(d)
         return d
