@@ -82,9 +82,9 @@ class Mimic(Dataset):
 
     def get_report_findings_dataset(self, dir_dataset):
 
-        self.report_findings_dataset = MimicSentences(args=self.args, data_dir=dir_dataset,
-                                                      findings=self.report_findings, split=self.split,
-                                                      transform=True)
+        self.report_findings_dataset = MimicSentences(max_squence_len=self.args.len_sequence, data_dir=dir_dataset,
+                                                      findings=self.report_findings, split=self.split, transform=True,
+                                                      min_occ=self.args.word_min_occ)
         assert len(self.report_findings_dataset) == len(self.report_findings), \
             'report findings dataset must have the same length than the report findings dataframe'
         self.args.vocab_size = self.report_findings_dataset.vocab_size
@@ -205,15 +205,16 @@ class MimicSentences(Dataset):
     Word encoding for mimic report findings
     """
 
-    def __init__(self, args, data_dir: str, findings: pd.DataFrame, split: str, transform=False, **kwargs):
+    def __init__(self, max_squence_len: int, data_dir: str, findings: pd.DataFrame, split: str, transform=False,
+                 min_occ: int = 3):
         """split: 'train', 'val' or 'test' """
 
         super().__init__()
         self.split = split
         self.data_dir = data_dir
-        self.args = args
-        self.max_sequence_length = args.len_sequence
-        self.min_occ = kwargs.get('min_occ', 3)
+        # self.args = args
+        self.max_sequence_length = max_squence_len
+        self.min_occ = min_occ
         self.transform = to_tensor if transform else None
         self.findings = findings
         self.gen_dir = os.path.join(self.data_dir, "oc:{}_msl:{}".
@@ -390,9 +391,9 @@ class Mimic_testing(Dataset):
     def __getitem__(self, index):
         sample = self.get_images() if not self.flags.only_text_modality else {}
         if self.flags.text_encoding == 'word':
-            sample['text'] = torch.randint(0, 3517, (1, 1024)).view(1024).float()
+            sample['text'] = torch.randint(0, 3517, (1, self.flags.len_sentence)).view(self.flags.len_sentence).float()
         elif self.flags.text_encoding == 'char':
-            sample['text'] = torch.rand(1024, 71).float()
+            sample['text'] = torch.rand(self.flags.len_sentence, 71).float()
 
         label = torch.tensor([random.randint(0, 1), random.randint(0, 1), random.randint(0, 1)]).float()
 
