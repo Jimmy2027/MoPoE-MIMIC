@@ -42,12 +42,17 @@ class DataGeneratorText(nn.Module):
                                                  kernelsize=4, stride=2, padding=1, dilation=1, o_padding=0)
         self.resblock_8 = make_res_block_decoder(2 * args.DIM_text, args.DIM_text,
                                                  kernelsize=4, stride=2, padding=1, dilation=1, o_padding=0)
-        self.conv2 = nn.ConvTranspose1d(args.DIM_text, self.args.vocab_size,
-                                        kernel_size=4,
-                                        stride=2,
-                                        padding=1,
-                                        dilation=1,
-                                        output_padding=0)
+
+        if self.args.len_sequence > 500:
+            self.conv2 = nn.ConvTranspose1d(args.DIM_text, self.args.vocab_size,
+                                            kernel_size=4,
+                                            stride=2,
+                                            padding=1,
+                                            dilation=1,
+                                            output_padding=0)
+        else:
+            self.conv2 = nn.Conv1d(self.args.DIM_text, self.args.vocab_size, stride=4, kernel_size=4)
+
         # inverts the 'embedding' module upto one-hotness
         # needs input shape of (batch_size, self.args.DIM_text)
         self.toVocabSize = nn.Linear(self.args.DIM_text, self.args.vocab_size)
@@ -66,7 +71,6 @@ class DataGeneratorText(nn.Module):
         torch.Size([200, 256, 256])
         torch.Size([200, 128, 512])
         conv2: torch.Size([bs, vocab_size, 1024])
-        toVocabSize:
         """
         d = self.resblock_1(feats)
         d = self.resblock_2(d)
