@@ -204,6 +204,9 @@ def train(exp: MimicExperiment, train_loader: DataLoader) -> None:
 
     for iteration, batch in tqdm(enumerate(at_most_n(train_loader, training_steps or None)),
                                  total=training_steps or len(train_loader), postfix='train'):
+        # log text input once evey epoch:
+        if iteration == 0:
+            tb_logger.write_tensor_to_text(batch[0]['text'][0], exp, log_tag='train_input')
         basic_routine = basic_routine_epoch(exp, batch)
         results = basic_routine['results']
         total_loss = basic_routine['total_loss']
