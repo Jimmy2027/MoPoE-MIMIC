@@ -103,13 +103,29 @@ def update_flags_with_config(config_path: str, additional_args={}, testing=False
         return parser.parse_args(namespace=t_args)
 
 
+def get_freer_gpu() -> int:
+    """
+    Returns the index of the gpu with the most free memory.
+    Taken from https://discuss.pytorch.org/t/it-there-anyway-to-let-program-select-free-gpu-automatically/17560/6
+    """
+    os.system('nvidia-smi -q -d Memory |grep -A4 GPU|grep Free >tmp')
+    memory_available = [int(x.split()[2]) for x in open('tmp', 'r').readlines()]
+    return np.argmax(memory_available)
+
+
 def setup_flags(flags, testing=False):
+    """
+    If testing is true, no cli arguments will be read.
+    """
     import torch
+    from pathlib import Path
     if flags.config_path:
         flags = update_flags_with_config(config_path=flags.config_path, testing=testing)
     flags = expand_paths(flags)
     use_cuda = torch.cuda.is_available()
     flags.device = torch.device('cuda' if use_cuda else 'cpu')
+    if str(flags.device) == 'cuda':
+        torch.cuda.set_device(get_freer_gpu())
     flags = flags_set_alpha_modalities(flags)
     flags.log_file = log.manager.root.handlers[1].baseFilename
     return flags
