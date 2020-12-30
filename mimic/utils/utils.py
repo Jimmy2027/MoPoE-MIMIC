@@ -16,6 +16,7 @@ from torch.autograd import Variable
 from mimic import log
 from mimic.utils.exceptions import CudaOutOfMemory
 from mimic.utils.exceptions import NaNInLatent
+from typing import Iterable
 
 
 # Print iterations progress
@@ -109,7 +110,7 @@ def calc_elbo(exp, modality, recs, klds):
         klds_style = klds['style']
         mods = exp.modalities
         r_weights = exp.rec_weights
-        for k, m_key in enumerate(mods.keys()):
+        for m_key in mods:
             w_style_kld += s_weights[m_key] * klds_style[m_key]
             w_rec += r_weights[m_key] * recs[m_key]
         kld_style = w_style_kld
@@ -125,10 +126,6 @@ def calc_elbo(exp, modality, recs, klds):
 
 
 def save_and_log_flags(flags):
-    # filename_flags = os.path.join(flags.dir_experiment_run, 'flags.json')
-    # with open(filename_flags, 'w') as f:
-    #    json.dump(flags.__dict__, f, indent=2, sort_keys=True)
-
     filename_flags_rar = os.path.join(flags.dir_experiment_run, 'flags.rar')
     torch.save(flags, filename_flags_rar)
     str_args = ''
