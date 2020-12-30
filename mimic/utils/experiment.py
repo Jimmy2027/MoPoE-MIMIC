@@ -13,6 +13,7 @@ from sklearn.metrics import average_precision_score
 from torch import Tensor
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.tensorboard import SummaryWriter
+from mimic.utils.text import tensor_to_text
 
 from mimic import log
 from mimic.dataio.MimicDataset import Mimic, Mimic_testing
@@ -210,12 +211,16 @@ class MimicExperiment(BaseExperiment):
             # for key in sample:
             #     sample[key] = sample[key].to(self.flags.device)
             samples.append(sample)
+
         return samples
 
     def mean_eval_metric(self, values):
         return np.mean(np.array(values))
 
-    def eval_label(self, values, labels, index=None):
+    def eval_label(self, values: Tensor, labels: Tensor, index: int = None):
+        """
+        index: index of the labels
+        """
         pred = values[:, index]
         gt = labels[:, index]
         return self.eval_metric(gt, pred)
@@ -264,7 +269,19 @@ class MimicExperiment(BaseExperiment):
         tb_logger.writer.add_text('FLAGS', str_flags, 0)
         # todo find a way to store model graph
         # tb_logger.write_model_graph(exp.mm_vae)
+        self.log_text_test_samples(tb_logger)
         return tb_logger
+
+    def log_text_test_samples(self, tb_logger):
+        """
+        Logs the text test samples to the tb_logger to verify if the text encoding does what it is supposed to do.
+        """
+        samples = self.test_samples
+        one_hot = self.flags.text_encoding != 'word'
+        text_test_samples = tensor_to_text(self,
+                                           torch.cat(([samples[i]['text'].unsqueeze(0) for i in range(5)]), 0),
+                                           one_hot=one_hot)
+        tb_logger.write_texts_from_list('test_samples', text_test_samples, text_encoding=self.flags.text_encoding)
 
 
 class Callbacks:
