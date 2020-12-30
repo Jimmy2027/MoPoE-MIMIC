@@ -24,7 +24,8 @@ from mimic.utils.average_meters import AverageMeter, AverageMeterDict, AverageMe
 from mimic.utils.exceptions import CudaOutOfMemory
 from mimic.utils.experiment import Callbacks, MimicExperiment
 from mimic.utils.plotting import generate_plots
-from mimic.utils.utils import check_latents, at_most_n
+from mimic.utils.utils import check_latents, at_most_n, get_items_from_dict
+from termcolor import colored
 
 # global variables
 SEED = None
@@ -50,26 +51,27 @@ def catching_cuda_out_of_memory(batch_size):
             raise e
 
 
-def calc_log_probs(exp, result, batch) -> typing.Tuple[typing.Mapping[str, float], float]:
+def calc_log_probs(exp, result, batch):
     """
     Calculates log_probs of batch
     """
     mods = exp.modalities
     log_probs = {}
     weighted_log_prob = 0.0
-    for m_key in mods.keys():
+    for m, m_key in enumerate(mods.keys()):
         mod = mods[m_key]
         ba = batch[0][mod.name]
+
         log_probs[mod.name] = -mod.calc_log_prob(out_dist=result['rec'][mod.name], target=ba,
                                                  norm_value=exp.flags.batch_size)
         weighted_log_prob += exp.rec_weights[mod.name] * log_probs[mod.name]
     return log_probs, weighted_log_prob
 
 
-def calc_klds(exp, result) -> typing.Mapping[str, float]:
+def calc_klds(exp, result):
     latents = result['latents']['subsets']
     klds = {}
-    for key in latents.keys():
+    for m, key in enumerate(latents.keys()):
         mu, logvar = latents[key]
         klds[key] = calc_kl_divergence(mu, logvar,
                                        norm_value=exp.flags.batch_size)
@@ -98,8 +100,7 @@ def calc_style_kld(exp, klds):
 
 def calc_poe_loss(exp, mods, group_divergence, klds, klds_style, batch_d, mm_vae, log_probs):
     klds_joint = {'content': group_divergence,
-                  'style': dict()}
-    recs_joint = {}
+                  'style': {}}
     elbos = {}
     for m, m_key in enumerate(mods.keys()):
         mod = mods[m_key]
@@ -206,21 +207,23 @@ def train(exp: MimicExperiment, train_loader: DataLoader) -> None:
         basic_routine = basic_routine_epoch(exp, batch)
         results = basic_routine['results']
         total_loss = basic_routine['total_loss']
+
+        # backprop
+        exp.optimizer.zero_grad()
+        with catching_cuda_out_of_memory(exp.flags.batch_size):
+            total_loss.backward()
+        exp.optimizer.step()
+
         batch_results = {
             'total_loss': total_loss.item(),
-            'klds': basic_routine['klds'],
-            'log_probs': basic_routine['log_probs'],
+            'klds': get_items_from_dict(basic_routine['klds']),
+            'log_probs': get_items_from_dict(basic_routine['log_probs']),
             'joint_divergence': results['joint_divergence'].item(),
             'latents': results['latents']['modalities'],
         }
 
         for key, value in batch_results.items():
             average_meters[key].update(value)
-        # backprop
-        exp.optimizer.zero_grad()
-        with catching_cuda_out_of_memory(exp.flags.batch_size):
-            total_loss.backward()
-        exp.optimizer.step()
 
     epoch_averages = {k: v.get_average() for k, v in average_meters.items()}
     tb_logger.write_training_logs(**epoch_averages)
@@ -246,8 +249,8 @@ def test(epoch, exp, test_loader: DataLoader):
             results = basic_routine['results']
             batch_results = {
                 'total_loss': basic_routine['total_loss'].item(),
-                'klds': basic_routine['klds'],
-                'log_probs': basic_routine['log_probs'],
+                'klds': get_items_from_dict(basic_routine['klds']),
+                'log_probs': get_items_from_dict(basic_routine['log_probs']),
                 'joint_divergence': results['joint_divergence'].item(),
                 'latents': results['latents']['modalities'],
             }
@@ -331,6 +334,7 @@ def run_epochs(rank: any, exp: MimicExperiment) -> None:
 
     end = time.time()
     for epoch in tqdm(range(exp.flags.start_epoch, exp.flags.end_epoch), postfix='epochs'):
+        print(colored(f'\nEpoch {epoch} {"-" * 140}\n', 'green'))
         end = time.time()
         samplers_set_epoch(args, train_sampler, test_sampler, epoch)
         exp.tb_logger.set_epoch(epoch)
