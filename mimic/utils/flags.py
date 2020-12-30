@@ -20,7 +20,9 @@ def str2bool(v):
 parser.add_argument('--dataset', type=str, default='Mimic', help="name of the dataset")
 parser.add_argument('--config_path', type=str, default=None, help="path to the json config")
 parser.add_argument('--verbose', type=int, default=0, help="global verbosity level")
-
+parser.add_argument('--load_flags', type=str, default=None, help="overwrite all values with parameters from an old "
+                                                                 "experiment. Give the path to the flags.rar "
+                                                                 "file as input.")
 # Image dependent
 parser.add_argument('--fixed_image_extractor', type=str2bool, default=True,
                     help="If the feature extraction layers of the "
