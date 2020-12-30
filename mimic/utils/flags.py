@@ -131,6 +131,14 @@ def setup_flags(flags, testing=False):
         torch.cuda.set_device(get_freer_gpu())
     flags = flags_set_alpha_modalities(flags)
     flags.log_file = log.manager.root.handlers[1].baseFilename
+    flags.len_sequence = 128 if flags.text_encoding == 'word' else 1024
+
+    if flags.load_flags:
+        old_flags = torch.load(Path(flags.load_flags).expanduser())
+        # create param dict from all the params of old_flags that are not paths
+        params = {k: v for k, v in old_flags.item() if ('dir' not in v) and ('path' not in v)}
+        flags.__dict__.update(params)
+
     return flags
 
 
