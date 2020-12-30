@@ -4,7 +4,8 @@ import json
 from mimic import log
 from mimic.utils.BaseFlags import parser as parser
 from mimic.utils.filehandling import expand_paths
-
+import os
+import numpy as np
 
 def str2bool(v):
     if isinstance(v, bool):
@@ -30,8 +31,8 @@ parser.add_argument('--fixed_image_extractor', type=str2bool, default=True,
                          "Only works when img_clf_type classifier "
                          "is densenet.")
 # DATA DEPENDENT
-parser.add_argument('--only_text_modality', type=str, default=None,
-                    help="flag to indicat if only the text modality is to be used")
+parser.add_argument('--only_text_modality', type=str2bool, default=False,
+                    help="flag to indicate if only the text modality is to be used")
 # Text Dependent
 
 parser.add_argument('--text_encoding', type=str, default='char',
@@ -90,12 +91,15 @@ parser.add_argument('--div_weight_m1_content', type=float, default=0.25,
 parser.add_argument('--div_weight_m2_content', type=float, default=0.25,
                     help="default weight divergence term content modality 2")
 parser.add_argument('--div_weight_m3_content', type=float, default=0.25,
-                    help="default weight divergence term content modality 2")
+                    help="default weight divergence term content modality 3")
 parser.add_argument('--div_weight_uniform_content', type=float, default=0.25,
                     help="default weight divergence term prior")
 
 
 def update_flags_with_config(config_path: str, additional_args={}, testing=False):
+    """
+    If testing is true, no cli arguments will be read.
+    """
     with open(config_path, 'rt') as json_file:
         t_args = argparse.Namespace()
         json_config = json.load(json_file)
