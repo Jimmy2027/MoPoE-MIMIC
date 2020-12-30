@@ -8,6 +8,7 @@ from torchvision.utils import make_grid
 from torchvision.utils import save_image
 
 from mimic.utils import text as text
+from mimic import log
 
 
 def create_fig(fn, img_data, num_img_row, save_figure=False):
@@ -18,12 +19,18 @@ def create_fig(fn, img_data, num_img_row, save_figure=False):
     return plot;
 
 
-def text_to_pil(exp, t, imgsize, font, w=128, h=128, linewidth=8):
-    blank_img = torch.ones([imgsize[0], w, h]);
+def text_to_pil(exp, t, imgsize, font, w=128, h=128, linewidth=8, log_tag: Optional[str] = None):
+    blank_img = torch.ones([imgsize[0], w, h])
     pil_img = transforms.ToPILImage()(blank_img.cpu()).convert("RGB")
     draw = ImageDraw.Draw(pil_img)
-    text_sample = text.tensor_to_text(exp, t)[0]
-    text_sample = ''.join(text_sample).translate({ord('*'): None})
+    one_hot = len(t.shape) > 2
+    sep = ' ' if exp.flags.text_encoding == 'word' else ''
+    text_sample = text.tensor_to_text(exp, t, one_hot=one_hot)[0]
+
+    text_sample = sep.join(text_sample).translate({ord('*'): None})
+    if log_tag:
+        log.info(f"logging to {log_tag}: {text_sample}")
+        exp.tb_logger.write_text(log_tag, text_sample)
     lines = textwrap.wrap(''.join(text_sample), width=linewidth)
     y_text = h
     num_lines = len(lines);
