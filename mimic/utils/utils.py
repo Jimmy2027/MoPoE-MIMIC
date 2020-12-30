@@ -293,3 +293,30 @@ def init_twolevel_nested_dict(level1_keys: list, level2_keys: list, init_val: an
         return {l1: {l2: init_val for l2 in level2_keys if l2} for l1 in level1_keys if l1}
 
 
+def get_items_from_nested_dict(nested: dict) -> dict:
+    new = {}
+    for k1, v1 in nested.items():
+        new[k1] = {}
+        for k2, v2 in v1.items():
+            new[k1] = v2.cpu().item()
+
+    return new
+
+
+def get_items_from_dict(in_dict: dict) -> dict:
+    return {k1: v1.cpu().item() for k1, v1 in in_dict.items()}
+
+
+class OnlyOnce:
+    """
+    Contains a set of strings. If the passed string is not in the set, returns True.
+    """
+
+    def __init__(self):
+        self.myset: Iterable[str] = {''}
+
+    def __call__(self, arg: str):
+        if arg in self.myset:
+            return False
+        self.myset.add(arg)
+        return True

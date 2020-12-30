@@ -4,7 +4,7 @@ import torch
 
 from mimic.utils import plot
 from mimic.utils import utils
-from mimic import log
+from mimic.utils.utils import OnlyOnce
 
 
 def generate_plots(exp, epoch):
@@ -27,14 +27,17 @@ def generate_random_samples_plots(exp, epoch):
     mods = exp.modalities
     num_samples = 100
     random_samples = model.generate(num_samples)
+    # Only log the generated text once per subset:
+    check_if_log = OnlyOnce()
+
     random_plots = {}
     for m_key_in in mods:
         mod = mods[m_key_in]
         samples_mod = random_samples[m_key_in]
-        rec = torch.zeros(exp.plot_img_size,
-                          dtype=torch.float32).repeat(num_samples, 1, 1, 1)
+        plot_key = f'rand_gen_{m_key_in}'
+        rec = torch.zeros(exp.plot_img_size, dtype=torch.float32).repeat(num_samples, 1, 1, 1)
         for l in range(num_samples):
-            rand_plot = mod.plot_data(exp, samples_mod[l])
+            rand_plot = mod.plot_data(exp, samples_mod[l], log_tag=plot_key if check_if_log(plot_key) else None)
             rec[l, :, :, :] = rand_plot
         random_plots[m_key_in] = rec
 
@@ -103,6 +106,9 @@ def generate_conditional_fig_M(exp, epoch: int, M: int):
     # get style from random sampling
     random_styles = model.get_random_styles(10)
 
+    # Only log the generated text once per subset:
+    check_if_log = OnlyOnce()
+
     cond_plots = {}
     for s_key in subsets:
         subset = subsets[s_key]
@@ -110,15 +116,16 @@ def generate_conditional_fig_M(exp, epoch: int, M: int):
 
         if num_mod_s == M:
             s_in = subset
-            for l, m_key_out in enumerate(mods.keys()):
+            for m_key_out in mods:
                 mod_out = mods[m_key_out]
+                plot_key = s_key + '__' + mod_out.name
                 rec = torch.zeros(exp.plot_img_size,
                                   dtype=torch.float32).repeat(100 + M * 10, 1, 1, 1)
                 for m, sample in enumerate(samples):
                     for n, mod_in in enumerate(s_in):
                         c_in = mod_in.plot_data(exp, sample[mod_in.name])
                         rec[m + n * 10, :, :, :] = c_in
-                cond_plots[s_key + '__' + mod_out.name] = rec
+                cond_plots[plot_key] = rec
 
             # style transfer
             for i in range(len(samples)):
@@ -133,7 +140,7 @@ def generate_conditional_fig_M(exp, epoch: int, M: int):
                     c_rep = utils.reparameterize(mu=c_in[0], logvar=c_in[1])
 
                     style = {}
-                    for l, m_key_out in enumerate(mods.keys()):
+                    for m_key_out in mods:
                         mod_out = mods[m_key_out]
                         if exp.flags.factorized_representation:
                             style[mod_out.name] = random_styles[mod_out.name][i].unsqueeze(0)
@@ -142,19 +149,19 @@ def generate_conditional_fig_M(exp, epoch: int, M: int):
                     cond_mod_in = {'content': c_rep, 'style': style}
                     cond_gen_samples = model.generate_from_latents(cond_mod_in)
 
-                    for l, m_key_out in enumerate(mods.keys()):
+                    for m_key_out in mods:
                         mod_out = mods[m_key_out]
-                        rec = cond_plots[s_key + '__' + mod_out.name]
+                        plot_key = s_key + '__' + mod_out.name
+                        rec = cond_plots[plot_key]
                         squeezed = cond_gen_samples[mod_out.name].squeeze(0)
-                        p_out = mod_out.plot_data(exp, squeezed)
+                        p_out = mod_out.plot_data(exp, squeezed, log_tag=plot_key if check_if_log(plot_key) else None)
                         rec[(i + M) * 10 + j, :, :, :] = p_out
-                        cond_plots[s_key + '__' + mod_out.name] = rec
+                        cond_plots[plot_key] = rec
 
-    for k, s_key_in in enumerate(subsets.keys()):
+    for s_key_in in subsets:
         subset = subsets[s_key_in]
         if len(subset) == M:
-            s_in = subset
-            for l, m_key_out in enumerate(mods.keys()):
+            for m_key_out in mods.keys():
                 mod_out = mods[m_key_out]
                 rec = cond_plots[s_key_in + '__' + mod_out.name]
                 fn_comb = (s_key_in + '_to_' + mod_out.name + '_epoch_' +
