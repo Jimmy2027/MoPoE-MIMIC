@@ -9,7 +9,9 @@ from mimic.utils.utils import OnlyOnce
 
 def generate_plots(exp, epoch):
     plots = {}
-    if exp.flags.factorized_representation:
+    # temp
+    if False:
+    # if exp.flags.factorized_representation:
         # mnist to mnist: swapping content and style intra modal
         swapping_figs = generate_swapping_plot(exp, epoch)
         plots['swapping'] = swapping_figs
