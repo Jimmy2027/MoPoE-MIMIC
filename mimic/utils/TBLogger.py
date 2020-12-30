@@ -1,3 +1,8 @@
+from typing import Iterable
+import torch
+from mimic.utils.text import tensor_to_text
+
+
 class TBLogger():
     def __init__(self, name, writer):
         self.name = name
@@ -58,9 +63,9 @@ class TBLogger():
                                 self.step)
 
     def write_plots(self, plots, epoch):
-        for k, p_key in enumerate(plots.keys()):
+        for p_key in plots:
             ps = plots[p_key]
-            for l, name in enumerate(ps.keys()):
+            for name in ps:
                 fig = ps[name]
                 self.writer.add_image(p_key + '_' + name,
                                       fig,
@@ -89,8 +94,21 @@ class TBLogger():
         """
         self.writer.add_graph(model)
 
+    def write_text(self, log_tag: str, text: str):
+        self.writer.add_text(log_tag, text, global_step=self.step)
+
+    def write_texts_from_list(self, log_tag: str, texts: Iterable[str], text_encoding: str):
+        for i, text in enumerate(texts):
+            sep = ' ' if text_encoding == 'word' else ''
+            self.writer.add_text(log_tag, sep.join(text), global_step=i)
+
     def set_epoch(self, epoch: int):
         """
         Sets the epoch for all values that will be logged during that epoch.
         """
         self.step = epoch
+
+    def write_tensor_to_text(self, text_tensor, exp, log_tag: str):
+        sep = ' ' if exp.flags.text_encoding == 'word' else ''
+        one_hot = exp.flags.text_encoding == 'char'
+        self.writer.add_text(log_tag, sep.join(tensor_to_text(exp, text_tensor, one_hot=one_hot)), global_step=self.step)
