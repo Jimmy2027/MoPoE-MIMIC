@@ -37,6 +37,9 @@ parser.add_argument('--only_text_modality', type=str, default=None,
 parser.add_argument('--text_encoding', type=str, default='char',
                     help="encoding of the text, either character or wordwise")
 parser.add_argument('--len_sequence', type=int, default=1024, help="length of sequence")
+parser.add_argument('--word_min_occ', type=int, default=3,
+                    help="min occurence of a word in the dataset such that it is added to the vocabulary.")
+
 parser.add_argument('--style_pa_dim', type=int, default=0, help="dimension of varying factor latent space")
 parser.add_argument('--style_lat_dim', type=int, default=0, help="dimension of varying factor latent space")
 parser.add_argument('--style_text_dim', type=int, default=0, help="dimension of varying factor latent space")
