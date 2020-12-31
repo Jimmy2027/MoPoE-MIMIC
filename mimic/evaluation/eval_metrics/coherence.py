@@ -269,7 +269,7 @@ def test_generation(epoch, exp):
             clf_cg: Mapping[mods, Tensor] = classify_cond_gen_samples(exp, batch_l, cond_val)
             for mod in mods:
                 cond_gen_classified[subset][mod] = torch.cat((cond_gen_classified[subset][mod], clf_cg[mod]), 0)
-            if (exp.flags.batch_size * iteration) < exp.flags.num_samples_fid:
+            if (exp.flags.batch_size * iteration) < exp.flags.num_samples_fid and exp.flags.save_figure:
                 save_generated_samples_singlegroup(exp, iteration, subset, cond_val)
 
     gen_perf['cond']: Mapping[str, Mapping[str, Mapping[str, float]]]
