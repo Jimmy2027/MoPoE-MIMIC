@@ -112,7 +112,7 @@ class VAEtrimodalMimic(BaseMMVae, nn.Module):
         s1_logvar = torch.zeros(num_samples,
                                 self.flags.style_pa_dim).to(self.flags.device)
         s2_mu = torch.zeros(num_samples,
-                            self.flags.style_lat).to(self.flags.device)
+                            self.flags.style_lat_dim).to(self.flags.device)
         s2_logvar = torch.zeros(num_samples,
                                 self.flags.style_lat_dim).to(self.flags.device)
         s3_mu = torch.zeros(num_samples,
