@@ -393,7 +393,7 @@ class Mimic_testing(Dataset):
         if self.flags.text_encoding == 'word':
             sample['text'] = torch.randint(0, 3517, (1, self.flags.len_sentence)).view(self.flags.len_sentence).float()
         elif self.flags.text_encoding == 'char':
-            sample['text'] = torch.rand(self.flags.len_sentence, 71).float()
+            sample['text'] = torch.rand(self.flags.len_sentence, self.flags.num_features).float()
 
         label = torch.tensor([random.randint(0, 1), random.randint(0, 1), random.randint(0, 1)]).float()
 
