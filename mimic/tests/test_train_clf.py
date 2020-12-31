@@ -12,7 +12,6 @@ from mimic.networks.classifiers.main_train_clf_mimic import training_procedure_c
 from mimic.utils.filehandling import create_dir_structure, expand_paths, get_config_path
 from mimic.utils.filehandling import get_str_experiments
 from mimic.utils.flags import parser
-import pytest
 
 
 class TestTraining(TestCase):
@@ -32,6 +31,7 @@ class TestTraining(TestCase):
         FLAGS.img_clf_type = img_clf_type
         FLAGS.dir_clf = tmpdirname
         FLAGS.vocab_size = 3517
+        FLAGS.len_sentence = 1024
         FLAGS.n_crops = n_crops
         FLAGS.fixed_extractor = True
         FLAGS.distributed = False
