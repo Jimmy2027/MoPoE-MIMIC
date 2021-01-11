@@ -23,6 +23,9 @@ class Modality(ABC):
         pass;
 
     def calc_log_prob(self, out_dist, target: torch.Tensor, norm_value: int):
+        """
+        Calculate log P(target | out_dist)
+        """
         log_prob = out_dist.log_prob(target).sum()
         return log_prob / norm_value
 
@@ -36,10 +39,9 @@ class ModalityIMG(Modality):
         write_samples_img_to_file(d, fn, img_per_row)
 
     def plot_data(self, exp, d: Tensor, log_tag: Optional[str] = None):
-        if d.shape != self.data_size:
+        if d.shape != exp.plot_img_size:
             transform = transforms.Compose([transforms.ToPILImage(),
-                                            transforms.Grayscale(),
-                                            transforms.Resize(size=self.data_size[1:], interpolation=Image.BICUBIC),
+                                            transforms.Resize(size=exp.plot_img_size[1:], interpolation=Image.BICUBIC),
                                             transforms.ToTensor()])
             d = transform(d.cpu())
         return d.repeat(1, 1, 1, 1)

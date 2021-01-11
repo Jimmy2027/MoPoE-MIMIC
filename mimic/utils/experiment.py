@@ -82,9 +82,9 @@ class MimicExperiment(BaseExperiment):
     def set_modalities(self) -> typing.Mapping[str, Modality]:
         log.info('setting modalities')
         mod1 = MimicPA(EncoderImg(self.flags, self.flags.style_pa_dim),
-                       DecoderImg(self.flags, self.flags.style_pa_dim))
+                       DecoderImg(self.flags, self.flags.style_pa_dim), self.flags)
         mod2 = MimicLateral(EncoderImg(self.flags, self.flags.style_lat_dim),
-                            DecoderImg(self.flags, self.flags.style_lat_dim))
+                            DecoderImg(self.flags, self.flags.style_lat_dim), self.flags)
         mod3 = MimicText(EncoderText(self.flags, self.flags.style_text_dim),
                          DecoderText(self.flags, self.flags.style_text_dim), self.flags.len_sequence,
                          self.plot_img_size, self.font, self.flags)
@@ -180,14 +180,26 @@ class MimicExperiment(BaseExperiment):
         self.optimizer = optimizer
 
     def set_rec_weights(self):
+        """
+        Sets the weights of the log probs for each modality.
+        """
         log.info('setting rec_weights')
-        rec_weights = {}
-        ref_mod_d_size = self.modalities['text'].data_size.numel()
-        for k, m_key in enumerate(self.modalities.keys()):
-            mod = self.modalities[m_key]
-            numel_mod = mod.data_size.numel()
-            rec_weights[mod.name] = float(ref_mod_d_size / numel_mod)
-        return rec_weights
+        if self.flags.rec_weight_m1 == 'proportional':
+            numel_img = self.modalities['PA'].data_size.numel()
+            numel_text = self.modalities['text'].data_size.numel()
+            prop = 2 * numel_img + numel_text
+            weight_img = numel_img / prop
+            weight_text = numel_text / prop
+            return {
+                'PA': weight_img,
+                'Lateral': weight_img,
+                'text': weight_text
+            }
+        return {
+            'PA': self.flags.rec_weight_m1,
+            'Lateral': self.flags.rec_weight_m2,
+            'text': self.flags.rec_weight_m3
+        }
 
     def set_style_weights(self):
         return {

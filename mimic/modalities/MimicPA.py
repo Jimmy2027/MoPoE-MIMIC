@@ -5,10 +5,10 @@ from mimic.modalities.Modality import ModalityIMG
 
 
 class MimicPA(ModalityIMG):
-    def __init__(self, enc, dec):
+    def __init__(self, enc, dec, args):
         self.name = 'PA'
         self.likelihood_name = 'laplace'
-        self.data_size = torch.Size((1, 128, 128))
+        self.data_size = torch.Size((1, args.img_size, args.img_size))
         super().__init__(data_size=self.data_size)
         self.gen_quality_eval = True
         self.file_suffix = '.png'
