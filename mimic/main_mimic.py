@@ -94,6 +94,7 @@ class Main:
         command = f'rm -r {self.flags.dir_experiment_run}'
         print(command)
         os.system(command)
+
         self.flags = create_dir_structure(self.flags)
 
     def main(self):

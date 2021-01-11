@@ -87,7 +87,6 @@ class BaseExperiment(ABC):
         paths = {'real': dir_real,
                  'random': dir_random}
         dir_cond = self.flags.dir_gen_eval_fid
-        for k, name in enumerate(self.subsets):
+        for name in self.subsets:
             paths[name] = os.path.join(dir_cond, name)
-        print(paths.keys())
         return paths

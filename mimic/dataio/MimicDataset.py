@@ -403,10 +403,8 @@ class Mimic_testing(Dataset):
     def get_images(self) -> dict:
         img_size = (self.flags.img_size, self.flags.img_size)
 
-        sample = {'PA': torch.rand(1, *img_size).float(),
-                  'Lateral': torch.rand(1, *img_size).float()}
-
-        return sample
+        return {'PA': torch.rand(1, *img_size).float(),
+                'Lateral': torch.rand(1, *img_size).float()}
 
     def __len__(self) -> int:
         return 2 * self.flags.batch_size
