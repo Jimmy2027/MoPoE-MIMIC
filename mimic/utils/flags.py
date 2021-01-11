@@ -98,6 +98,12 @@ parser.add_argument('--div_weight_m3_content', type=float, default=0.25,
                     help="default weight divergence term content modality 3")
 parser.add_argument('--div_weight_uniform_content', type=float, default=0.25,
                     help="default weight divergence term prior")
+parser.add_argument('--rec_weight_m1', default=0.33,
+                    help="weight of the m1 modality for the log probs. Type should be either float or string.")
+parser.add_argument('--rec_weight_m2', default=0.33,
+                    help="weight of the m2 modality for the log probs. Type should be either float or string.")
+parser.add_argument('--rec_weight_m3', default=0.33,
+                    help="weight of the m3 modality for the log probs. Type should be either float or string.")
 
 
 def update_flags_with_config(config_path: str, additional_args={}, testing=False):
