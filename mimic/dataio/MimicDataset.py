@@ -294,8 +294,8 @@ class MimicSentences(Dataset):
         pad_count = 0
 
         for i, line in enumerate(sentences):
-            words = word_tokenize(line.lower())
-
+            # words = word_tokenize(line.lower())
+            words = word_tokenize(line)
             tok = words[:self.max_sequence_length - 1]
             tok = tok + ['<eos>']
             length = len(tok)
@@ -343,7 +343,8 @@ class MimicSentences(Dataset):
         unq_words = []
 
         for i, line in enumerate(sentences):
-            words = word_tokenize(line.lower())
+            words = word_tokenize(line)
+            # words = word_tokenize(line.lower())
             occ_register.update(words)
             texts.append(words)
 
