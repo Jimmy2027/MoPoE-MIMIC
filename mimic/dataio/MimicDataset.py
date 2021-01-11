@@ -403,17 +403,8 @@ class Mimic_testing(Dataset):
     def get_images(self) -> dict:
         img_size = (self.flags.img_size, self.flags.img_size)
 
-        if (self.flags.feature_extractor_img == 'densenet' or (
-                self.classifier_training and self.flags.img_clf_type == 'densenet')):
-            if self.flags.n_crops in [5, 10]:
-                sample = {'PA': torch.rand(self.flags.n_crops, 3, *img_size).float(),
-                          'Lateral': torch.rand(self.flags.n_crops, 3, *img_size).float()}
-            else:
-                sample = {'PA': torch.rand(3, *img_size).float(),
-                          'Lateral': torch.rand(3, *img_size).float()}
-        else:
-            sample = {'PA': torch.rand(1, *img_size).float(),
-                      'Lateral': torch.rand(1, *img_size).float()}
+        sample = {'PA': torch.rand(1, *img_size).float(),
+                  'Lateral': torch.rand(1, *img_size).float()}
 
         return sample
 

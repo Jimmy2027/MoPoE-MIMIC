@@ -8,6 +8,7 @@ import torch.nn as nn
 import torchvision
 import torch.nn.functional as F
 import torch
+from mimic.dataio.utils import get_densenet_transforms
 
 
 class CheXNet(nn.Module):
@@ -84,14 +85,25 @@ class DenseLayers(nn.Module):
 class DenseNetFeatureExtractor(nn.Module):
     def __init__(self, args):
         super().__init__()
+        self.args = args
         self.pretrained_dense = PretrainedDenseNet(args)
         self.dense_layers = DenseLayers(args)
+        self.transforms = get_densenet_transforms(args)
 
     def forward(self, x):
-        x = self.pretrained_dense(x)
-        x = self.dense_layers(x)
-        x = x.unsqueeze(-1)
-        return x
+        x_tf = self.transform_batch(x)
+        out = self.pretrained_dense(x_tf)
+        out = self.dense_layers(out)
+        out = out.unsqueeze(-1)
+        return out
+
+    def transform_batch(self, x):
+        x_tf = torch.Tensor(x.shape[0], 3, *x.shape[2:])
+        for idx, elem in enumerate(x):
+            new = self.transforms(elem.cpu())
+            x_tf[idx] = new
+        x_tf.to(self.args.device)
+        return x_tf
 
 
 if __name__ == '__main__':

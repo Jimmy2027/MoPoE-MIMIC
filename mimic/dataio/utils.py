@@ -19,19 +19,18 @@ class CustomTransforms:
 
 
 def get_transform_img(args: any, img_clf_type: str):
+    return transforms.Compose([
+        transforms.ToPILImage(),
+        transforms.Resize(size=(args.img_size, args.img_size),
+                          interpolation=Image.BICUBIC),
+        transforms.ToTensor()
+    ])
+
+
+def get_densenet_transforms(args):
     """
     densenet needs RGB images and normalization.
     """
-
-    if (
-            img_clf_type != 'densenet'
-    ):
-        return transforms.Compose([
-            transforms.ToPILImage(),
-            transforms.Resize(size=(args.img_size, args.img_size),
-                              interpolation=Image.BICUBIC),
-            transforms.ToTensor()
-        ])
     custom_transforms = CustomTransforms()
     normalize = transforms.Normalize([0.485, 0.456, 0.406],
                                      [0.229, 0.224, 0.225])
@@ -39,7 +38,8 @@ def get_transform_img(args: any, img_clf_type: str):
     transformation_list = [
         transforms.ToPILImage(),
         transforms.Lambda(custom_transforms.to_RGB),
-        transforms.Resize(args.img_size)]
+        # transforms.Resize(args.img_size)
+    ]
     if args.n_crops not in [10, 5]:
         transformation_list.extend([transforms.ToTensor(), normalize])
     else:
