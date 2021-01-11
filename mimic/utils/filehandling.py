@@ -14,13 +14,10 @@ def create_dir(dir_name):
     os.makedirs(dir_name)
 
 
-def get_str_experiments(flags, prefix: str = ''):
+def get_str_experiments(flags):
     dateTimeObj = datetime.now()
     dateStr = dateTimeObj.strftime("%Y_%m_%d_%H_%M_%S_%f")
-    if prefix:
-        return prefix + '_' + dateStr
-    else:
-        return flags.dataset + '_' + dateStr
+    return flags.exp_str_prefix + '_' + dateStr
 
 
 def create_dir_structure_testing(exp):

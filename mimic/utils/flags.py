@@ -6,6 +6,8 @@ from mimic.utils.BaseFlags import parser as parser
 from mimic.utils.filehandling import expand_paths
 import os
 import numpy as np
+from typing import Union
+
 
 def str2bool(v):
     if isinstance(v, bool):
@@ -18,6 +20,8 @@ def str2bool(v):
         raise argparse.ArgumentTypeError('Boolean value expected.')
 
 
+
+parser.add_argument('--exp_str_prefix', type=str, default='Mimic', help="prefix of the experiment directory.")
 parser.add_argument('--dataset', type=str, default='Mimic', help="name of the dataset")
 parser.add_argument('--config_path', type=str, default=None, help="path to the json config")
 parser.add_argument('--verbose', type=int, default=0, help="global verbosity level")
