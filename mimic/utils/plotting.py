@@ -118,6 +118,7 @@ def generate_conditional_fig_M(exp, epoch: int, M: int):
 
         if num_mod_s == M:
             s_in = subset
+            # plot test samples
             for m_key_out in mods:
                 mod_out = mods[m_key_out]
                 plot_key = s_key + '__' + mod_out.name

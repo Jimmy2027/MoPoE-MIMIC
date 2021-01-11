@@ -51,6 +51,7 @@ class DecoderText(nn.Module):
     def forward(self, z_style, z_content):
         if self.flags.factorized_representation:
             z = torch.cat((z_style, z_content), dim=1).squeeze(-1)
+            # z.shape = [100, 64]
         else:
             z = z_content
         text_feat_hat = self.feature_generator(z)
