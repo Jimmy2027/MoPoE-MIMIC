@@ -20,7 +20,6 @@ def str2bool(v):
         raise argparse.ArgumentTypeError('Boolean value expected.')
 
 
-
 parser.add_argument('--exp_str_prefix', type=str, default='Mimic', help="prefix of the experiment directory.")
 parser.add_argument('--dataset', type=str, default='Mimic', help="name of the dataset")
 parser.add_argument('--config_path', type=str, default=None, help="path to the json config")
@@ -98,11 +97,11 @@ parser.add_argument('--div_weight_m3_content', type=float, default=0.25,
                     help="default weight divergence term content modality 3")
 parser.add_argument('--div_weight_uniform_content', type=float, default=0.25,
                     help="default weight divergence term prior")
-parser.add_argument('--rec_weight_m1', default=0.33,
+parser.add_argument('--rec_weight_m1', default=0.33, type=float,
                     help="weight of the m1 modality for the log probs. Type should be either float or string.")
-parser.add_argument('--rec_weight_m2', default=0.33,
+parser.add_argument('--rec_weight_m2', default=0.33, type=float,
                     help="weight of the m2 modality for the log probs. Type should be either float or string.")
-parser.add_argument('--rec_weight_m3', default=0.33,
+parser.add_argument('--rec_weight_m3', default=0.33, type=float,
                     help="weight of the m3 modality for the log probs. Type should be either float or string.")
 
 
@@ -120,7 +119,7 @@ def update_flags_with_config(config_path: str, additional_args={}, testing=False
         return parser.parse_args(namespace=t_args)
 
 
-def get_freer_gpu() -> int:
+def get_freer_gpu():
     """
     Returns the index of the gpu with the most free memory.
     Taken from https://discuss.pytorch.org/t/it-there-anyway-to-let-program-select-free-gpu-automatically/17560/6

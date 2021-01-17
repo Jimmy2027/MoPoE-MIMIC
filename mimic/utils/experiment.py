@@ -69,7 +69,7 @@ class MimicExperiment(BaseExperiment):
         self.paths_fid = self.set_paths_fid()
         self.experiments_dataframe = self.get_experiments_dataframe()
 
-        self.restart_experiment = False  # if the model returns nans, the workflow gets started again
+        self.restart_experiment = False  # if true and the model returns nans, the workflow gets started again
         self.number_restarts = 0
         self.tb_logger = None
 
@@ -133,9 +133,7 @@ class MimicExperiment(BaseExperiment):
 
     def set_clfs(self) -> typing.Mapping[str, torch.nn.Module]:
         log.info('setting clfs')
-        # temp not true anymore
-        # # img_clf_type and feature_extractor_img need to be the same. (for the image transformations of the dataset)
-        # self.flags.img_clf_type = self.flags.feature_extractor_img
+
         # mapping clf type to clf_save_m*
         clf_save_names: typing.Mapping[str, str] = {
             'PA': self.flags.clf_save_m1,
@@ -184,17 +182,6 @@ class MimicExperiment(BaseExperiment):
         Sets the weights of the log probs for each modality.
         """
         log.info('setting rec_weights')
-        if self.flags.rec_weight_m1 == 'proportional':
-            numel_img = self.modalities['PA'].data_size.numel()
-            numel_text = self.modalities['text'].data_size.numel()
-            prop = 2 * numel_img + numel_text
-            weight_img = numel_img / prop
-            weight_text = numel_text / prop
-            return {
-                'PA': weight_img,
-                'Lateral': weight_img,
-                'text': weight_text
-            }
         return {
             'PA': self.flags.rec_weight_m1,
             'Lateral': self.flags.rec_weight_m2,
