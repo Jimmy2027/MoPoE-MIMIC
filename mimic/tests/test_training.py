@@ -58,11 +58,13 @@ class TestTraining(TestCase):
         FLAGS.batch_size = batch_size
         FLAGS.eval_freq = 1
         FLAGS.vocab_size = 3517
+        FLAGS.len_sequence = 128
         FLAGS.text_encoding = text_encoding
         FLAGS.img_size = img_size
         FLAGS.steps_per_training_epoch = 5
         FLAGS.fixed_image_extractor = fixed_image_extractor
         FLAGS.img_clf_type = 'resnet'
+        FLAGS.rec_weight_m1 = 0.5
 
         print(
             f'running on {FLAGS.device} with text {FLAGS.text_encoding} encoding with method {FLAGS.method} '
@@ -94,11 +96,11 @@ class TestTraining(TestCase):
         with tempfile.TemporaryDirectory() as tmpdirname2:
             _ = self._run_train_loop('char', 256, tmpdirname2)
 
-
     def test_train_loop_wordEncoding_128(self):
         with tempfile.TemporaryDirectory() as tmpdirname3:
             _ = self._run_train_loop('word', 128, tmpdirname3)
 
+    @pytest.mark.bigmem
     def test_train_loop_wordEncoding_256(self):
         with tempfile.TemporaryDirectory() as tmpdirname2:
             _ = self._run_train_loop('word', 256, tmpdirname2)
