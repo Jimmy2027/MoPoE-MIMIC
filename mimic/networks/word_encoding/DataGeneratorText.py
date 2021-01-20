@@ -44,7 +44,7 @@ class DataGeneratorText(nn.Module):
                                           kernelsize=4, stride=2, padding=1, dilation=1, o_padding=0),
                    ]
 
-        if args.len_sequence >= 1024:
+        if args.len_sequence >= 512:
             modules.append(make_res_block_decoder(4 * args.DIM_text, 3 * args.DIM_text,
                                                   kernelsize=4, stride=2, padding=1, dilation=1, o_padding=0))
             modules.append(make_res_block_decoder(3 * args.DIM_text, 2 * args.DIM_text,
