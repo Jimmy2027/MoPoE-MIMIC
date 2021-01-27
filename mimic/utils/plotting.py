@@ -11,7 +11,7 @@ def generate_plots(exp, epoch):
     plots = {}
     # temp
     if False:
-    # if exp.flags.factorized_representation:
+        # if exp.flags.factorized_representation:
         # mnist to mnist: swapping content and style intra modal
         swapping_figs = generate_swapping_plot(exp, epoch)
         plots['swapping'] = swapping_figs
@@ -95,22 +95,41 @@ def generate_swapping_plot(exp, epoch):
     return swap_plots
 
 
-def generate_conditional_fig_M(exp, epoch: int, M: int):
+def generate_conditional_fig_M(exp, epoch: int, M: int, log_text: bool = True, num_img_row=10):
     """
     Generates conditional figures.
-    M: the index of the modality.
+    M: the number of input modalities that are used as conditioner for the generation.
+    log_text: if true, logs the generated text to tensorboard.
     """
-    model = exp.mm_vae
     mods = exp.modalities
-    samples = exp.test_samples
     subsets = exp.subsets
 
-    # get style from random sampling
-    random_styles = model.get_random_styles(10)
+    cond_plots = generate_cond_imgs(M, exp, log_text, mods, subsets)
 
+    for s_key_in in subsets:
+        subset = subsets[s_key_in]
+        if len(subset) == M:
+            for m_key_out in mods.keys():
+                mod_out = mods[m_key_out]
+                rec = cond_plots[s_key_in + '__' + mod_out.name]
+                fn_comb = (s_key_in + '_to_' + mod_out.name + '_epoch_' +
+                           str(epoch).zfill(4) + '.png')
+                fn_out = os.path.join(exp.flags.dir_cond_gen, fn_comb)
+                plot_out = plot.create_fig(fn_out, img_data=rec, num_img_row=num_img_row,
+                                           save_figure=exp.flags.save_figure)
+                cond_plots[s_key_in + '__' + mod_out.name] = plot_out
+    return cond_plots
+
+
+def generate_cond_imgs(M, exp, log_text, mods, subsets) -> dict:
+    nbr_samples = 5
+    samples = exp.test_samples
+    model = exp.mm_vae
+
+    # get style from random sampling
+    random_styles = model.get_random_styles(nbr_samples)
     # Only log the generated text once per subset:
     check_if_log = OnlyOnce()
-
     cond_plots = {}
     for s_key in subsets:
         subset = subsets[s_key]
@@ -123,16 +142,18 @@ def generate_conditional_fig_M(exp, epoch: int, M: int):
                 mod_out = mods[m_key_out]
                 plot_key = s_key + '__' + mod_out.name
                 rec = torch.zeros(exp.plot_img_size,
-                                  dtype=torch.float32).repeat(100 + M * 10, 1, 1, 1)
+                                  dtype=torch.float32).repeat(25 + M * nbr_samples, 1, 1, 1)
                 for m, sample in enumerate(samples):
                     for n, mod_in in enumerate(s_in):
                         c_in = mod_in.plot_data(exp, sample[mod_in.name])
-                        rec[m + n * 10, :, :, :] = c_in
+                        rec[m + n * nbr_samples, :, :, :] = c_in
                 cond_plots[plot_key] = rec
 
             # style transfer
-            for i in range(len(samples)):
-                for j in range(len(samples)):
+            for i in range(5):
+            # for i in range(len(samples)):
+                for j in range(5):
+                # for j in range(len(samples)):
                     i_batch = {
                         mod.name: samples[j][mod.name].unsqueeze(0)
                         for mod in s_in
@@ -157,19 +178,8 @@ def generate_conditional_fig_M(exp, epoch: int, M: int):
                         plot_key = s_key + '__' + mod_out.name
                         rec = cond_plots[plot_key]
                         squeezed = cond_gen_samples[mod_out.name].squeeze(0)
-                        p_out = mod_out.plot_data(exp, squeezed, log_tag=plot_key if check_if_log(plot_key) else None)
-                        rec[(i + M) * 10 + j, :, :, :] = p_out
+                        p_out = mod_out.plot_data(exp, squeezed,
+                                                  log_tag=plot_key if check_if_log(plot_key) and log_text else None)
+                        rec[(i + M) * nbr_samples + j, :, :, :] = p_out
                         cond_plots[plot_key] = rec
-
-    for s_key_in in subsets:
-        subset = subsets[s_key_in]
-        if len(subset) == M:
-            for m_key_out in mods.keys():
-                mod_out = mods[m_key_out]
-                rec = cond_plots[s_key_in + '__' + mod_out.name]
-                fn_comb = (s_key_in + '_to_' + mod_out.name + '_epoch_' +
-                           str(epoch).zfill(4) + '.png')
-                fn_out = os.path.join(exp.flags.dir_cond_gen, fn_comb)
-                plot_out = plot.create_fig(fn_out, rec, 10, save_figure=exp.flags.save_figure)
-                cond_plots[s_key_in + '__' + mod_out.name] = plot_out
     return cond_plots

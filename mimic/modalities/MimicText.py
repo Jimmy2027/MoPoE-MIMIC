@@ -32,9 +32,6 @@ class MimicText(Modality):
         write_samples_text_to_file(tensor_to_text(exp, d.unsqueeze(0)), fn)
 
     def plot_data(self, exp, d, log_tag: Optional[str] = None):
-        # if exp.flags.text_encoding == 'word' and len(d.shape) == 1:
-        #     d = torch.nn.functional.one_hot(d.to(torch.int64), num_classes=self.args.vocab_size)
-
         return plot.text_to_pil(exp, d.unsqueeze(0), self.plot_img_size, self.font, log_tag=log_tag)
 
     def calc_log_prob(self, out_dist: torch.distributions, target: torch.Tensor, norm_value: int):
