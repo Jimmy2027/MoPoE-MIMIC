@@ -72,8 +72,8 @@ class DataGeneratorText(nn.Module):
                 f' Please adapt them.')
 
         self.softmax = nn.LogSoftmax(dim=1)
-        self.sigmoid = nn.Sigmoid()
-        modules.append(self.sigmoid)
+        # self.sigmoid = nn.Sigmoid()
+        modules.append(self.softmax)
         self.generator = nn.Sequential(*modules)
 
     def forward(self, feats):
