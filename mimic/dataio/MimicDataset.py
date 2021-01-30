@@ -15,7 +15,7 @@ from nltk.tokenize import word_tokenize
 from torch import Tensor
 from torch.utils.data import Dataset
 
-from mimic.dataio.utils import get_transform_img
+from mimic.dataio.utils import get_transform_img, filter_labels
 from mimic.utils import text as text
 from mimic.utils.utils import get_alphabet
 
@@ -23,9 +23,11 @@ from mimic.utils.utils import get_alphabet
 class Mimic(Dataset):
     """Custom Dataset for loading mimic images"""
 
-    def __init__(self, args, str_labels, split: str):
+    def __init__(self, args, str_labels, split: str, clf_training=False):
         """
         split: string, either train, eval or test
+        clf_training: set to true if the dataset is used to train a classifier. In this case the densenet
+        transformations can be applied directly in the dataset transformations.
         """
         self.args = args
         self.split = split
@@ -40,7 +42,9 @@ class Mimic(Dataset):
         self.imgs_lat = torch.load(fn_img_lat)
         self.report_findings = pd.read_csv(fn_findings)['findings']
         # need to filter out labels that contain the label "-1"
-        self._filter_labels()
+        self.labels = filter_labels(self.labels, args.undersample_dataset)
+
+        self._verify_dataset()
 
         if self.args.text_encoding == 'char':
             self.args.alphabet = get_alphabet()
@@ -49,30 +53,51 @@ class Mimic(Dataset):
             # if word_encoding == word, need dataset for report_findings that contains the encodings.
             self.get_report_findings_dataset(dir_dataset)
 
-        self.transform_img = get_transform_img(args, args.feature_extractor_img)
+        self.transform_img = get_transform_img(args, args.feature_extractor_img, clf_training)
 
-    def __getitem__(self, index) -> typing.Tuple[typing.Mapping[str, Tensor], Tensor]:
+        if self.args.text_encoding == 'char':
+            self.get_vec = self.get_char_text_vec
+        elif self.args.text_encoding == 'word':
+            self.get_vec = self.get_word_text_vec
+        else:
+            raise NotImplementedError(f'{self.args.text_encoding} has to be either char or word')
+
+    def __getitem__(self, label_index) -> typing.Tuple[typing.Mapping[str, Tensor], Tensor]:
         try:
+            label = torch.from_numpy((self.labels.iloc[label_index].values).astype(int)).float()
+            index = self.labels.iloc[label_index].name
+            # get modalities
             img_pa = self.imgs_pa[index, :, :]
             img_lat = self.imgs_lat[index, :, :]
+            text_vec = self.get_vec(index)
+            # transform images
             img_pa = self.transform_img(img_pa)
             img_lat = self.transform_img(img_lat)
 
-            if self.args.text_encoding == 'char':
-                text_str = self.report_findings[index]
-                if len(text_str) > self.args.len_sequence:
-                    text_str = text_str[:self.args.len_sequence]
-                text_vec = text.one_hot_encode(self.args.len_sequence, self.args.alphabet, text_str.lower())
+            # if self.args.text_encoding == 'char':
+            #     text_str = self.report_findings[index]
+            #     if len(text_str) > self.args.len_sequence:
+            #         text_str = text_str[:self.args.len_sequence]
+            #     text_vec = text.one_hot_encode(self.args.len_sequence, self.args.alphabet, text_str.lower())
+            #
+            # elif self.args.text_encoding == 'word':
+            #     text_vec = self.report_findings_dataset.__getitem__(index)
+            # else:
+            #     raise NotImplementedError(f'{self.args.text_encoding} has to be either char or word')
 
-            elif self.args.text_encoding == 'word':
-                text_vec = self.report_findings_dataset.__getitem__(index)
-            else:
-                raise NotImplementedError(f'{self.args.text_encoding} has to be either char or word')
-            label = torch.from_numpy((self.labels[index, :]).astype(int)).float()
             sample = {'PA': img_pa, 'Lateral': img_lat, 'text': text_vec}
         except (IndexError, OSError):
             return None
         return sample, label
+
+    def get_char_text_vec(self, index):
+        text_str = self.report_findings[index]
+        if len(text_str) > self.args.len_sequence:
+            text_str = text_str[:self.args.len_sequence]
+        return text.one_hot_encode(self.args.len_sequence, self.args.alphabet, text_str.lower())
+
+    def get_word_text_vec(self, index):
+        return self.report_findings_dataset.__getitem__(index)
 
     def __len__(self):
         return self.labels.shape[0]
@@ -89,23 +114,17 @@ class Mimic(Dataset):
             'report findings dataset must have the same length than the report findings dataframe'
         self.args.vocab_size = self.report_findings_dataset.vocab_size
 
-    def _filter_labels(self):
-        # need to remove all cases where the labels have 3 classes
-        indices = []
-        indices += self.labels.index[(self.labels['Lung Opacity'] == -1)].tolist()
-        indices += self.labels.index[(self.labels['Pleural Effusion'] == -1)].tolist()
-        indices += self.labels.index[(self.labels['Support Devices'] == -1)].tolist()
-        indices = list(set(indices))
-        self.labels = self.labels.drop(indices).values
-        self.report_findings = self.report_findings.drop(indices).values
-        self.imgs_pa = torch.tensor(np.delete(self.imgs_pa.numpy(), indices, 0))
-        self.imgs_lat = torch.tensor(np.delete(self.imgs_lat.numpy(), indices, 0))
-
-        assert len(np.unique(self.labels)) == 2, \
+    def _verify_dataset(self):
+        """
+        Need to remove all cases where the labels have 3 classes.
+        The 3rd class (-1) represents "uncertain" and can be removed from the dataset.
+        """
+        labels = self.labels.values
+        assert len(np.unique(labels)) == 2, \
             'labels should contain 2 classes, might need to remove -1 labels'
-        assert self.imgs_pa.shape[0] == self.imgs_lat.shape[0] == len(self.labels) == len(
+        assert self.imgs_pa.shape[0] == self.imgs_lat.shape[0] == len(
             self.report_findings), f'all modalities must have the same length. len(imgs_pa): {self.imgs_pa.shape[0]},' \
-                                   f' len(imgs_lat): {self.imgs_lat.shape[0]}, len(labels): {len(self.labels)},' \
+                                   f' len(imgs_lat): {self.imgs_lat.shape[0]},' \
                                    f' len(report_findings): {len(self.report_findings)}'
 
 
@@ -128,7 +147,7 @@ class MimicText(Dataset):
 
         self.report_findings = pd.read_csv(fn_findings)['findings']
         # need to filter out labels that contain the label "-1"
-        self._filter_labels()
+        self.labels = filter_labels(self.labels, args.undersample_dataset)
 
         if self.args.text_encoding == 'char':
             self.args.alphabet = get_alphabet()
@@ -137,8 +156,11 @@ class MimicText(Dataset):
             # if word_encoding == word, need dataset for report_findings that contains the encodings.
             self.get_report_findings_dataset(dir_dataset)
 
-    def __getitem__(self, index):
+    def __getitem__(self, label_index):
         try:
+            label = torch.from_numpy((self.labels.iloc[label_index].values).astype(int)).float()
+            index = self.labels.iloc[label_index].name
+
             if self.args.text_encoding == 'char':
                 text_str = self.report_findings[index]
                 if len(text_str) > self.args.len_sequence:
@@ -148,7 +170,7 @@ class MimicText(Dataset):
                 text_vec = self.report_findings_dataset.__getitem__(index)
             else:
                 raise NotImplementedError(f'{self.args.text_encoding} has to be either char or word')
-            label = torch.from_numpy((self.labels[index, :]).astype(int)).float()
+
             sample = {'text': text_vec}
         except (IndexError, OSError):
             return None
@@ -162,25 +184,12 @@ class MimicText(Dataset):
 
     def get_report_findings_dataset(self, dir_dataset):
 
-        self.report_findings_dataset = MimicSentences(args=self.args, data_dir=dir_dataset,
+        self.report_findings_dataset = MimicSentences(max_squence_len=self.args.len_sequence, data_dir=dir_dataset,
                                                       findings=self.report_findings, split=self.split,
-                                                      transform=True)
+                                                      transform=True, min_occ=self.args.word_min_occ)
         assert len(self.report_findings_dataset) == len(self.report_findings), \
             'report findings dataset must have the same length than the report findings dataframe'
         self.args.vocab_size = self.report_findings_dataset.vocab_size
-
-    def _filter_labels(self):
-        # need to remove all cases where the labels have 3 classes
-        indices = []
-        indices += self.labels.index[(self.labels['Lung Opacity'] == -1)].tolist()
-        indices += self.labels.index[(self.labels['Pleural Effusion'] == -1)].tolist()
-        indices += self.labels.index[(self.labels['Support Devices'] == -1)].tolist()
-        indices = list(set(indices))
-        self.labels = self.labels.drop(indices).values
-        self.report_findings = self.report_findings.drop(indices).values
-
-        assert len(np.unique(self.labels)) == 2, \
-            'labels should contain 2 classes, might need to remove -1 labels'
 
 
 class OrderedCounter(Counter, OrderedDict):
@@ -294,8 +303,8 @@ class MimicSentences(Dataset):
         pad_count = 0
 
         for i, line in enumerate(sentences):
-            # words = word_tokenize(line.lower())
-            words = word_tokenize(line)
+            words = word_tokenize(line.lower())
+            # words = word_tokenize(line)
             tok = words[:self.max_sequence_length - 1]
             tok = tok + ['<eos>']
             length = len(tok)
@@ -343,8 +352,8 @@ class MimicSentences(Dataset):
         unq_words = []
 
         for i, line in enumerate(sentences):
-            words = word_tokenize(line)
-            # words = word_tokenize(line.lower())
+            # words = word_tokenize(line)
+            words = word_tokenize(line.lower())
             occ_register.update(words)
             texts.append(words)
 

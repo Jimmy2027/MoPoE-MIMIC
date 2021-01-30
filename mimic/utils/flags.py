@@ -36,8 +36,11 @@ parser.add_argument('--fixed_image_extractor', type=str2bool, default=True,
 # DATA DEPENDENT
 parser.add_argument('--only_text_modality', type=str2bool, default=False,
                     help="flag to indicate if only the text modality is to be used")
-# Text Dependent
+parser.add_argument('--undersample_dataset', type=str2bool, default=False,
+                    help="flag to indicate if the dataset should be undersampled such that there are "
+                         "the same number of datapoints that have no label than datapoints that have a label")
 
+# Text Dependent
 parser.add_argument('--text_encoding', type=str, default='char',
                     help="encoding of the text, either character or wordwise")
 parser.add_argument('--len_sequence', type=int, default=1024, help="length of sequence")
