@@ -30,31 +30,37 @@ class DataGeneratorImg(nn.Module):
     def __init__(self, args, a=2.0, b=0.3):
         super(DataGeneratorImg, self).__init__()
         self.args = args
-        modules = []
-        modules.append(make_res_block_data_generator(5 * self.args.DIM_img,
-                                                     4 * self.args.DIM_img,
-                                                     kernelsize=4, stride=1,
-                                                     padding=0, dilation=1,
-                                                     o_padding=0, a_val=a,
-                                                     b_val=b))
-        modules.append(make_res_block_data_generator(4 * self.args.DIM_img,
-                                                     3 * self.args.DIM_img,
-                                                     kernelsize=4, stride=2,
-                                                     padding=1, dilation=1,
-                                                     o_padding=0, a_val=a,
-                                                     b_val=b))
-        modules.append(make_res_block_data_generator(3 * self.args.DIM_img,
-                                                     2 * self.args.DIM_img,
-                                                     kernelsize=4, stride=2,
-                                                     padding=1, dilation=1,
-                                                     o_padding=0, a_val=a,
-                                                     b_val=b))
-        modules.append(make_res_block_data_generator(2 * self.args.DIM_img,
-                                                     1 * self.args.DIM_img,
-                                                     kernelsize=4, stride=2,
-                                                     padding=1, dilation=1,
-                                                     o_padding=0, a_val=a,
-                                                     b_val=b))
+        modules = [
+            make_res_block_data_generator(5 * self.args.DIM_img,
+                                          4 * self.args.DIM_img,
+                                          kernelsize=4,
+                                          stride=1,
+                                          padding=0,
+                                          dilation=1,
+                                          o_padding=0,
+                                          a_val=a,
+                                          b_val=b,
+                                          ),
+
+            make_res_block_data_generator(4 * self.args.DIM_img,
+                                          3 * self.args.DIM_img,
+                                          kernelsize=4, stride=2,
+                                          padding=1, dilation=1,
+                                          o_padding=0, a_val=a,
+                                          b_val=b),
+            make_res_block_data_generator(3 * self.args.DIM_img,
+                                          2 * self.args.DIM_img,
+                                          kernelsize=4, stride=2,
+                                          padding=1, dilation=1,
+                                          o_padding=0, a_val=a,
+                                          b_val=b),
+            make_res_block_data_generator(2 * self.args.DIM_img,
+                                          1 * self.args.DIM_img,
+                                          kernelsize=4, stride=2,
+                                          padding=1, dilation=1,
+                                          o_padding=0, a_val=a,
+                                          b_val=b)]
+
         if args.img_size == 128:
             modules.append(make_res_block_data_generator(1 * self.args.DIM_img,
                                                          1 * self.args.DIM_img,
@@ -75,7 +81,8 @@ class DataGeneratorImg(nn.Module):
                                                          padding=1, dilation=1,
                                                          o_padding=0, a_val=a,
                                                          b_val=b))
-        modules.append(nn.ConvTranspose2d(self.args.DIM_img, self.args.image_channels,
+        modules.append(nn.ConvTranspose2d(self.args.DIM_img,
+                                          self.args.image_channels,
                                           kernel_size=3,
                                           stride=2,
                                           padding=1,
@@ -88,5 +95,4 @@ class DataGeneratorImg(nn.Module):
         Example:
             feats.shape = [bs, 320, 1, 1]
         """
-        d = self.generator(feats)
-        return d
+        return self.generator(feats)
