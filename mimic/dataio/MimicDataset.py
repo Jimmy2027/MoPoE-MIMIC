@@ -42,7 +42,7 @@ class Mimic(Dataset):
         self.imgs_lat = torch.load(fn_img_lat)
         self.report_findings = pd.read_csv(fn_findings)['findings']
         # need to filter out labels that contain the label "-1"
-        self.labels = filter_labels(self.labels, args.undersample_dataset)
+        self.labels = filter_labels(self.labels, args.undersample_dataset, split)
 
         self._verify_dataset()
 

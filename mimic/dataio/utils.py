@@ -132,7 +132,7 @@ def get_undersample_indices(labels_df: pd.DataFrame):
     return [*df_class_1.index.to_list(), *df_class_0_under.index.to_list()]
 
 
-def filter_labels(labels: pd.DataFrame, undersample_dataset: bool):
+def filter_labels(labels: pd.DataFrame, undersample_dataset: bool, split: str):
     """
     Need to remove all cases where the labels have 3 classes.
     The 3rd class (-1) represents "uncertain" and can be removed from the dataset.
@@ -143,7 +143,7 @@ def filter_labels(labels: pd.DataFrame, undersample_dataset: bool):
     indices += labels.index[(labels['Support Devices'] == -1)].tolist()
     indices = list(set(indices))
     labels = labels.drop(indices)
-    if undersample_dataset:
+    if undersample_dataset and split == 'train':
         labels = undersample(labels)
     return labels
 
