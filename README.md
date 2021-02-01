@@ -1,6 +1,7 @@
 # joint_elbo
 
 ## Installation
+
 ```
 git clone https://github.com/Jimmy2027/joint_elbo
 cd joint_elbo
@@ -22,7 +23,8 @@ cd joint_elbo
 git checkout hendrik_mimic
 path/to/conda/environment/bin/python -m pip install -e .[test]
 ```
-
+### Note
+If pip throws an SSL Error, create first a new conda environment with `conda env create -f environment.yml`, and then install mimic using the steps above.
 ## Usage
 Run the main training workflow with:
 ```
@@ -49,3 +51,10 @@ or more specifically:
 cd mimic
 python -m unittest tests/test_that_you_want_to_run.py
 ```
+## Creating the tensor dataset
+The tensor dataset can be created with the script `dataio/create_tensor_dataset.py`.
+The creation of the tensor dataset consists of two steps. In a first step, the images of the original dataset are resized to a wanted size and stored as jpg in a folder. 
+The first step is only executed if the folder of the resized images, or a zipped version of it is not found.
+
+During the second step, the jpg images are read into a torch tensor and saved as such.
+
