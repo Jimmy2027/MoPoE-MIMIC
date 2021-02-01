@@ -12,7 +12,7 @@ def calc_kl_divergence(mu0, logvar0, mu1=None, logvar1=None, norm_value=None):
         KLD = -0.5 * (
             torch.sum(1 - logvar0.exp() / logvar1.exp() - (mu0 - mu1).pow(2) / logvar1.exp() + logvar0 - logvar1))
     if norm_value is not None:
-        KLD = KLD / float(norm_value);
+        KLD = KLD / float(norm_value)
     return KLD
 
 
