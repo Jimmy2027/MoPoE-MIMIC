@@ -95,7 +95,7 @@ class MimicExperiment(BaseExperiment):
 
     def set_dataset(self):
         self.font = ImageFont.truetype(str(Path(__file__).parent.parent / 'FreeSerif.ttf'),
-                                       38) if not self.flags.distributed else None
+                                       20) if not self.flags.distributed else None
         log.info('setting dataset')
         # used for faster unittests i.e. a dummy dataset
         if self.dataset == 'testing':
@@ -155,7 +155,8 @@ class MimicExperiment(BaseExperiment):
                     clf.load_state_dict(torch.load(clf_path))
                     clfs[mod] = clf.to(self.flags.device)
                 elif mod == 'text':
-                    # create temporary args to set the word encoding of the classifier to text_clf_type
+                    # create temporary args to set the word encoding of the classifier to text_clf_type.
+                    # This allows to have a different text encoding setting for the VAE than for the classifier.
                     temp_args = Namespace(**vars(self.flags))
                     temp_args.text_encoding = self.flags.text_clf_type
                     clf = ClfText(temp_args, self.labels)
@@ -182,6 +183,7 @@ class MimicExperiment(BaseExperiment):
         Sets the weights of the log probs for each modality.
         """
         log.info('setting rec_weights')
+
         return {
             'PA': self.flags.rec_weight_m1,
             'Lateral': self.flags.rec_weight_m2,
@@ -207,8 +209,7 @@ class MimicExperiment(BaseExperiment):
         for _ in range(num_images):
             sample, _ = self.dataset_test.__getitem__(random.randint(0, n_test - 1))
             sample = utils.dict_to_device(sample, self.flags.device)
-            # for key in sample:
-            #     sample[key] = sample[key].to(self.flags.device)
+
             samples.append(sample)
 
         return samples
