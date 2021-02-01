@@ -221,7 +221,7 @@ if __name__ == '__main__':
 
     dir_mimic = '/cluster/work/vogtlab/Projects/mimic-cxr/physionet.org/files/mimic-cxr-jpg/2.0.0'
     dir_out = os.path.expanduser(f'~/klugh/files_small_{img_size[0]}')
-    dir_base_resized_compressed = '/cluster/work/vogtlab/Group/klugh/'
+    dir_base_resized_compressed = '/cluster/work/vogtlab/Projects/mimic-cxr/physionet.org/files/mimic-cxr-jpg/2.0.0/'
     assert os.path.exists(os.path.expandvars('$TMPDIR'))
     assert os.path.exists(dir_base_resized_compressed)
 
