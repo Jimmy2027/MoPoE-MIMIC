@@ -2,6 +2,7 @@ import torch
 import torch.nn.functional as F
 
 from sklearn.metrics import roc_curve, auc
+import torch.nn as nn
 
 
 def calc_auc(gt, pred_proba):
@@ -47,11 +48,42 @@ def loss_text(input, target, norm_value=None):
     return reconstruct_error_text
 
 
-def clf_loss(args, estimate, gt):
+def dice_loss(pred, target):
+    """This definition generalize to real valued pred and target vector.
+This should be differentiable.
+    pred: tensor with first dimension as batch
+    target: tensor with first dimension as batch
+
+    Taken from https://gist.github.com/weiliu620/52d140b22685cf9552da4899e2160183 then changed.
+    """
+
+    smooth = 0.0001
+
+    # have to use contiguous since they may from a torch.view op
+    iflat = pred.contiguous().view(-1)
+    tflat = target.contiguous().view(-1)
+    intersection = (iflat * tflat).sum()
+
+    A_sum = torch.sum(iflat * iflat)
+    B_sum = torch.sum(tflat * tflat)
+
+    return 1 - 2. * (intersection + smooth) / (A_sum + B_sum + 2 * smooth)
+
+
+def get_clf_loss(which_loss: str):
+    if which_loss == 'binary_crossentropy':
+        return nn.BCELoss()
+    elif which_loss == 'dice':
+        return dice_loss
+    else:
+        raise NotImplementedError(f'{args.clf_loss} is not implemented yet')
+
+
+def get_clf_crit(args):
     if args.clf_loss == 'binary_crossentropy':
-        loss = F.binary_cross_entropy(estimate, gt, reduction='mean')
+        return F.binary_cross_entropy
     elif args.clf_loss == 'crossentropy':
-        loss = F.cross_entropy(estimate, gt.long())
+        return F.cross_entropy
     elif args.clf_loss == 'bce_with_logits':
         loss = torch.nn.BCEWithLogitsLoss()(estimate, gt)
     else:
