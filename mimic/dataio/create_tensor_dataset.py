@@ -10,6 +10,7 @@ import pandas as pd
 import torch
 from torchvision import transforms
 from tqdm import tqdm
+from mimic import log
 
 trans1 = transforms.ToTensor()
 
@@ -25,10 +26,9 @@ class CreateTensorDataset:
         """
         dir_out: where the tensor dataset will be saved
         dir_base_resize: where the resized image are saved
-        dir_base_resize (optional): where the compressed resized images are. It is recommended to compress the resized
+        dir_base_resized_compressed (optional): where the compressed resized images are. It is recommended to compress the resized
         images after their usage and delete the non-compressed ones to save space.
-        max_it: (optional) maximum iterations. Use this for testing only. if -1 (default): do all
-
+        max_it: (optional) maximum iterations. Use this for testing only. if None (default): do all
         """
         self.dir_base_orig = os.path.join(dir_mimic, 'files')
         self.dir_base_resize = dir_base_resize
@@ -60,38 +60,40 @@ class CreateTensorDataset:
 
         if not os.path.exists(dir_src):
             if os.path.exists(self.dir_resized_compressed):
-                print(f'compressed images are found and are decompressed to {dir_src}')
+                log.info(f'compressed images are found and are decompressed to {dir_src}')
                 os.mkdir(dir_src)
                 with zipfile.ZipFile(self.dir_resized_compressed, 'r') as zip_ref:
                     zip_ref.extractall(dir_src)
             else:
-                print(
+                log.info(
                     f'directory of resized images {dir_src} does not exist and needs to be created. '
                     f'This may take a while.')
                 _ = self._resize_all()
-                if self.dir_base_resized_compressed:
-                    if not os.path.exists(self.dir_resized_compressed):
-                        print('zipping resized images folder {} to {} -> {}'.format(dir_src,
-                                                                                    self.dir_resized_compressed.split(
-                                                                                        '.')[0],
-                                                                                    self.dir_resized_compressed))
+                if self.dir_base_resized_compressed and not os.path.exists(self.dir_resized_compressed):
+                    log.info('zipping resized images folder {} to {} -> {}'.format(dir_src,
+                                                                                   self.dir_resized_compressed.split(
+                                                                                       '.')[0],
+                                                                                   self.dir_resized_compressed))
 
-                        shutil.make_archive(self.dir_resized_compressed.replace('.zip', ''), 'zip', dir_src,
-                                            verbose=True)
-                        assert os.path.exists(
-                            self.dir_resized_compressed), 'path does not exist: {}. \n {}'.format(
-                            self.dir_resized_compressed, os.listdir(self.dir_base_resized_compressed))
+                    shutil.make_archive(self.dir_resized_compressed.replace('.zip', ''), 'zip', dir_src,
+                                        verbose=True)
+                    assert os.path.exists(
+                        self.dir_resized_compressed), 'path does not exist: {}. \n {}'.format(
+                        self.dir_resized_compressed, os.listdir(self.dir_base_resized_compressed))
 
+        df['uid'] = df['pa_dicom_id'] + '_' + df['lat_dicom_id']
+        assert df['uid'].duplicated().sum() == 0, f'The uid of the dataframe must be unique, ' \
+                                                  f'{df["uid"].duplicated().sum()} duplicates were found.'
         dir_out = self.dir_out
-        num_samples = self.max_it if self.max_it else df.shape[0]
+        num_samples = self.max_it or df.shape[0]
         imgs_pa = torch.Tensor(num_samples, self.img_size[0], self.img_size[0])
         imgs_lat = torch.Tensor(num_samples, self.img_size[0], self.img_size[0])
         ind = torch.Tensor(num_samples)  # tensor that indicates the images that were found
         labels = df.filter(
-            ['Atelectasis', 'Cardiomegaly', 'Lung Opacity', 'Pleural Effusion', 'Support Devices', 'No Finding'],
+            ['Atelectasis', 'Cardiomegaly', 'Lung Opacity', 'Pleural Effusion', 'Support Devices', 'No Finding', 'uid'],
             axis=1)
-        findings = df.filter(['findings'])
-        impressions = df.filter(['impression'])
+        findings = df.filter(['findings', 'uid'])
+        impressions = df.filter(['impression', 'uid'])
         for index, row in tqdm(df.iterrows(), postfix=split):
             if self.max_it and index >= self.max_it:
                 break
@@ -111,7 +113,7 @@ class CreateTensorDataset:
             try:
                 img_pa = self._load_image(fn_pa_src)
             except FileNotFoundError as e:
-                print(e)
+                log.info(e)
                 findings = findings.drop(index, axis=0)
                 impressions = impressions.drop(index, axis=0)
                 labels = labels.drop(index, axis=0)
@@ -120,7 +122,7 @@ class CreateTensorDataset:
             try:
                 img_lat = self._load_image(fn_lat_src)
             except FileNotFoundError as e:
-                print(e)
+                log.info(e)
                 findings = findings.drop(index, axis=0)
                 impressions = impressions.drop(index, axis=0)
                 labels = labels.drop(index, axis=0)
@@ -129,23 +131,13 @@ class CreateTensorDataset:
             ind[index] = 1  # 1 indicates that the image was found
             imgs_pa[index, :, :] = img_pa
             imgs_lat[index, :, :] = img_lat
-        print(imgs_pa.shape)
+        log.info(imgs_pa.shape)
         mask = ind > 0
         if self.max_it is None:
             # only do this if not test run
             imgs_pa = imgs_pa[mask, :, :]
             imgs_lat = imgs_lat[mask, :, :]
-            print(imgs_pa.shape)
-            # need to remove all cases where the labels have 3 classes
-            indices = []
-            indices += labels.index[(labels['Lung Opacity'] == -1)].tolist()
-            indices += labels.index[(labels['Pleural Effusion'] == -1)].tolist()
-            indices += labels.index[(labels['Support Devices'] == -1)].tolist()
-            indices = list(set(indices))
-            labels = labels.drop(indices)
-            findings = findings.drop(indices)
-            imgs_pa = torch.tensor(np.delete(imgs_pa.numpy(), indices, 0))
-            imgs_lat = torch.tensor(np.delete(imgs_lat.numpy(), indices, 0))
+            log.info(imgs_pa.shape)
 
         fn_pa_out = os.path.join(dir_out, split + '_pa.pt')
         fn_lat_out = os.path.join(dir_out, split + '_lat.pt')
@@ -154,7 +146,7 @@ class CreateTensorDataset:
         fn_labels_out = os.path.join(dir_out, split + '_labels.csv')
         torch.save(imgs_pa, fn_pa_out)
         torch.save(imgs_lat, fn_lat_out)
-        print(findings.shape)
+        log.info(findings.shape)
         findings[:self.max_it].to_csv(fn_findings_out)
         impressions[:self.max_it].to_csv(fn_impressions_out)
         labels[:self.max_it].to_csv(fn_labels_out)
@@ -191,7 +183,7 @@ class CreateTensorDataset:
         Walks through the directories of original mimic data and resizes the images to self.img_size
         """
         dir_src_base = self.dir_base_orig
-        print('computing total folders')
+        log.info('computing total folders')
         total_folders = self._compute_total_folders(dir_src_base) if self.max_it is None else None
         count_imgs = 0
         for dirName, subdirList, fileList in tqdm(os.walk(dir_src_base), total=total_folders, postfix='resize'):
@@ -213,7 +205,7 @@ class CreateTensorDataset:
                             img_src.close()
                             img_new.close()
                         except OSError:
-                            print('file could not be opened...')
+                            log.info('file could not be opened...')
                     count_imgs += 1
         return True
 
@@ -224,8 +216,8 @@ class CreateTensorDataset:
 
 
 if __name__ == '__main__':
-    img_size = (256, 256)
-    # img_size = (128, 128)
+    # img_size = (256, 256)
+    img_size = (128, 128)
 
     dir_mimic = '/cluster/work/vogtlab/Projects/mimic-cxr/physionet.org/files/mimic-cxr-jpg/2.0.0'
     dir_out = os.path.expanduser(f'~/klugh/files_small_{img_size[0]}')
