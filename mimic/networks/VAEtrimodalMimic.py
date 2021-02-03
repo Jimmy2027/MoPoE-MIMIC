@@ -38,11 +38,11 @@ class VAEtrimodalMimic(BaseMMVae, nn.Module):
         class_embeddings = utils.reparameterize(latents['joint'][0],
                                                 latents['joint'][1])
 
-        for k, key in enumerate(div.keys()):
+        for key in div:
             results[key] = div[key]
 
         results_rec: typing.Mapping[str, Distribution] = {}
-        for k, m_key in enumerate(self.modalities.keys()):
+        for m_key in self.modalities:
             input_mod = input_batch[m_key]
             if input_mod is not None:
                 mod = self.modalities[m_key]
