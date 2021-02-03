@@ -30,16 +30,18 @@ def test_clfs(flags, img_size: int, text_encoding: str, alphabet=''):
     results = {}
     for modality in ['PA', 'Lateral', 'text']:
         models[modality] = mimic_experiment.clfs[modality].eval()
-        results[modality] = {}
-        results[modality]['list_precision_vals'] = []
-        results[modality]['list_prediction_vals'] = []
-        results[modality]['list_gt_vals'] = []
+        results[modality] = {
+            'list_precision_vals': [],
+            'list_prediction_vals': [],
+            'list_gt_vals': [],
+        }
+
     for idx, batch in enumerate(dataloader):
         batch_d = batch[0]
         batch_l = batch[1]
         labels = np.array(np.reshape(batch_l, (batch_l.shape[0], len(mimic_experiment.labels))))
 
-        for modality in results.keys():
+        for modality in results:
             clf_input = Variable(batch_d[modality]).to(flags.device)
             prediction = models[modality](clf_input).cpu()
             results[modality]['list_prediction_vals'] = translate(prediction, results[modality]['list_prediction_vals'])
@@ -54,7 +56,7 @@ def test_clfs(flags, img_size: int, text_encoding: str, alphabet=''):
                     f'avg_precision_{modality} has value {avg_precision} with labels: {labels.ravel()} and '
                     f'prediction: {prediction}')
 
-    for modality in results.keys():
+    for modality in results:
         results[modality]['report'] = metrics.classification_report(results[modality]['list_gt_vals'],
                                                                     results[modality]['list_prediction_vals'], digits=4)
     return results
@@ -130,7 +132,7 @@ def test_model(flags, model, clf_type: str, test_set, modality, labels):
         gt = np.array(np.reshape(batch_l, (batch_l.shape[0], len(labels)))).ravel()
 
         prediction = model(imgs)
-        if flags.img_clf_type == 'densenet' and not modality == 'text':
+        if flags.img_clf_type == 'densenet' and modality != 'text':
             prediction = prediction.view(bs, n_crops, -1).mean(1)
 
         list_predicted_labels = translate(prediction.cpu(), list_predicted_labels)
@@ -203,9 +205,9 @@ if __name__ == '__main__':
                               FLAGS.div_weight_m2_content, FLAGS.div_weight_m3_content]
     FLAGS.text_encoding = 'char'
     FLAGS.img_size = 128
-    MIMIC_EXPERIMENT = MimicExperiment(flags=FLAGS)
-    mimic_test = Mimic(FLAGS, MIMIC_EXPERIMENT.labels, split='eval')
-    test_dummy(FLAGS, MIMIC_EXPERIMENT, mimic_test)
+    # MIMIC_EXPERIMENT = MimicExperiment(flags=FLAGS)
+    # mimic_test = Mimic(FLAGS, MIMIC_EXPERIMENT.labels, split='eval')
+    test_clfs(FLAGS, 256, 'text')
     asdasd = 0
     # results = test_clfs(FLAGS, 128, 'char', alphabet)
 
