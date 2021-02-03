@@ -18,6 +18,7 @@ from mimic.utils.filehandling import get_str_experiments
 import typing
 from sklearn.metrics import average_precision_score
 from mimic import log
+from matplotlib import pyplot as plt
 
 LABELS = ['Lung Opacity', 'Pleural Effusion', 'Support Devices']
 
@@ -77,6 +78,7 @@ class CallbacksProto(Protocol):
     clf_save_m2: Optional[str]
     clf_save_m3: Optional[str]
     dir_clf: str
+    dir_logs_clf: str
 
 
 class Callbacks:
@@ -93,13 +95,27 @@ class Callbacks:
         self.patience_idx = 1
         self.scheduler = ReduceLROnPlateau(optimizer, 'min', patience=5, verbose=True)
         self.elapsed_times = []
-        self.metrics = {}
+        # metrics is a dict that will contain a list for each metric, containing a value for each epoch
+        self.metrics: typing.Mapping[str, list] = {}
+        # self.early_stopping_crit = 'mean_AP_total'
+        self.early_stopping_crit = 'dice'
+        # maximize metric or minimize
+        self.early_stopping_mode = 'maximize'
+
+    def plot_metrics(self):
+        for k, v in self.metrics.items():
+            plt.plot(v)
+            plt.title(k)
+            plt.savefig(os.path.join(self.flags.dir_logs_clf, f'{k}.png'))
+            plt.close()
 
     def update_epoch(self, epoch: int, loss, val_results: typing.Dict[str, torch.Tensor], model, elapsed_time):
         # calculate metrics
         metrics = Metrics(val_results['predictions'], val_results['ground_truths'])
         metrics_dict = metrics.evaluate()
-        mean_AP = metrics_dict['mean_AP'][0]
+        metrics_dict['eval_loss'] = [loss]
+        early_stop_crit_val = metrics_dict[self.early_stopping_crit][0]
+
         self._update_metrics(metrics_dict)
 
         stop_early = False
@@ -108,14 +124,23 @@ class Callbacks:
 
         # update logger
         for k, v in metrics_dict.items():
+            k = k.replace(' ', '_')
             self.logger.add_scalars(f'eval_clf_{self.modality}/{k}', {self.modality: v}, epoch)
         self.logger.add_scalars(f'eval_clf_{self.modality}/mean_loss', {self.modality: loss}, epoch)
 
+        if epoch < 1:
+            # start early stopping after epoch 1
+            return False
+
         # evaluate progress
+        max_eval_metric = max(self.metrics[self.early_stopping_crit][1:])
+        epoch_max_eval_metric = np.argmax(self.metrics[self.early_stopping_crit][1:])
+
         print(f'current eval loss: {loss}, metrics: {metrics_dict}')
-        if epoch > self.start_early_stopping_epoch and mean_AP >= max(self.metrics["mean_AP"]):
-            print(f'current mean AP {mean_AP} improved from {max(self.metrics["mean_AP"])}'
-                  f' at epoch {np.argmax(self.metrics["mean_AP"])}')
+        if epoch > self.start_early_stopping_epoch and early_stop_crit_val >= max_eval_metric:
+            print(
+                f'current {self.early_stopping_crit} {early_stop_crit_val} improved from {max_eval_metric}'
+                f' at epoch {epoch_max_eval_metric}')
             self.experiment_df.update_experiments_dataframe(
                 {'mean_eval_loss': loss, 'total_epochs': epoch, **metrics_dict})
 
@@ -123,13 +148,14 @@ class Callbacks:
             self.patience_idx = 1
         elif self.patience_idx > self.max_early_stopping_index:
             print(
-                f'stopping early at epoch {epoch} because current mean_AP {mean_AP} '
-                f'did not improve from {max(self.metrics["mean_AP"])} at epoch {np.argmax(self.metrics["mean_AP"])}')
+                f'stopping early at epoch {epoch} because current {self.early_stopping_crit} {early_stop_crit_val} '
+                f'did not improve from {max_eval_metric} at epoch {epoch_max_eval_metric}')
             stop_early = True
         else:
             if epoch > self.start_early_stopping_epoch:
-                print(f'current mean_AP {mean_AP} did not improve from {max(self.metrics["mean_AP"])} '
-                      f'at epoch {np.argmax(self.metrics["mean_AP"])}')
+                print(
+                    f'current {self.early_stopping_crit} {early_stop_crit_val} did not improve from {max_eval_metric} '
+                    f'at epoch {epoch_max_eval_metric}')
                 print(f'-- idx_early_stopping = {self.patience_idx} / {self.max_early_stopping_index}')
                 self.patience_idx += 1
 
@@ -138,6 +164,8 @@ class Callbacks:
     def _update_metrics(self, metrics_dict: typing.Dict[str, list]):
         if not self.metrics:
             self.metrics = metrics_dict
+            # initialize early_stopping_crit metric with -inf
+            # self.metrics[self.early_stopping_crit].insert(0, [-float('inf')])
         else:
             for k, v in metrics_dict.items():
                 self.metrics[k].extend(v)
@@ -197,11 +225,13 @@ def get_models(flags: GetModelsProto, modality: str):
 
 def set_clf_paths(flags):
     """
+    Used for the trianing of the classifiers.
     dir_clf: path to the directory where the classifier checkpoints will be saved
     clf_save_m{1,2,3}: filename of the classifier checkpoint
     dir_logs_clf: path to the directory where the training logs will be saved
     """
-    flags.experiment_uid = get_str_experiments(flags, prefix=f'clf_{flags.modality}')
+    flags.exp_str_prefix = f'clf_{flags.modality}' + f'{flags.exp_str_prefix}' * bool(flags.exp_str_prefix)
+    flags.experiment_uid = get_str_experiments(flags)
     flags.dir_logs_clf = os.path.join(os.path.expanduser(flags.dir_clf), 'logs', flags.experiment_uid)
     create_dir(flags.dir_logs_clf)
     # change dir_clf
@@ -212,10 +242,6 @@ def set_clf_paths(flags):
         flags.dir_clf = os.path.expanduser(flags.dir_clf)
     if not os.path.exists(flags.dir_clf):
         os.makedirs(flags.dir_clf)
-
-    use_cuda = torch.cuda.is_available()
-
-    flags.device = torch.device('cuda' if use_cuda else 'cpu')
 
     flags = expand_paths(flags)
     return flags
@@ -234,7 +260,7 @@ def get_input(args: any, input: torch.Tensor, modality):
     if args.img_clf_type == 'densenet' and modality != 'text' and args.n_crops in [5, 10]:
         imgs, bs, n_crops = get_imgs_from_crops(input, args.device)
     else:
-        imgs = Variable(input).to(args.device)
+        imgs = input.to(args.device)
         bs = None
         n_crops = 1
     return imgs, bs, n_crops
@@ -252,15 +278,21 @@ class Metrics(object):
             prediction: Tensor which is given as output of the network
             groundtruth: Tensor which resembles the goundtruth
         """
-        self.prediction: torch.Tensor = (prediction > 0.5) * 1
-        self.groundtruth: torch.Tensor = (groundtruth > 0.5) * 1
+        self.prediction = prediction
+        self.groundtruth = groundtruth
+        self.prediction_bin: torch.Tensor = (prediction > 0.5) * 1
+        self.groundtruth_bin: torch.Tensor = (groundtruth > 0.5) * 1
+        # classwise binarized predictions
+        self.class_pred_bin: dict = {LABELS[i]: self.prediction_bin[:, i] for i in range(len(LABELS))}
+        self.class_gt_bin: dict = {LABELS[i]: self.groundtruth_bin[:, i] for i in range(len(LABELS))}
 
     def evaluate(self) -> typing.Dict[str, list]:
         """
         Computes the different metrics (accuracy, recall, specificity, precision, f1 score, jaccard score, dice score).
         NOTE: f1 and dice are the same
         """
-        return {
+
+        return {**{
             'accuracy': [Metrics.accuracy(self)],
             'recall': [Metrics.recall(self)],
             'specificity': [Metrics.specificity(self)],
@@ -268,32 +300,34 @@ class Metrics(object):
             'f1': [Metrics.f1(self)],
             'jaccard': [Metrics.jaccard(self)],
             'dice': [Metrics.dice(self)],
-            'mean_AP': [self.mean_AP()],
-        }
+
+        },
+                **self.mean_AP(), **self.counts()
+                }
 
     def accuracy(self) -> float:
         """
         Computes the accuracy
         """
-        self.INTER = torch.mul(self.prediction, self.groundtruth).sum()
-        self.INTER_NEG = torch.mul(1 - self.prediction, 1 - self.groundtruth).sum()
-        self.TOTAL = self.prediction.nelement()
+        self.INTER = torch.mul(self.prediction_bin, self.groundtruth_bin).sum()
+        self.INTER_NEG = torch.mul(1 - self.prediction_bin, 1 - self.groundtruth_bin).sum()
+        self.TOTAL = self.prediction_bin.nelement()
         return float(self.INTER + self.INTER_NEG) / float(self.TOTAL)
 
     def recall(self) -> float:
         """
         Computes the recall
         """
-        self.TP = torch.mul(self.prediction, self.groundtruth).sum()
-        self.FN = torch.mul(1 - self.prediction, self.groundtruth).sum()
+        self.TP = torch.mul(self.prediction_bin, self.groundtruth_bin).sum()
+        self.FN = torch.mul(1 - self.prediction_bin, self.groundtruth_bin).sum()
 
         self.RC = float(self.TP) / (float(self.TP + self.FN) + 1e-6)
 
         return self.RC
 
     def specificity(self):
-        self.TN = torch.mul(1 - self.prediction, 1 - self.groundtruth).sum()
-        self.FP = torch.mul(self.prediction, 1 - self.groundtruth).sum()
+        self.TN = torch.mul(1 - self.prediction_bin, 1 - self.groundtruth_bin).sum()
+        self.FP = torch.mul(self.prediction_bin, 1 - self.groundtruth_bin).sum()
 
         self.SP = float(self.TN) / (float(self.TN + self.FP) + 1e-6)
 
@@ -331,9 +365,20 @@ class Metrics(object):
 
         return DC
 
-    def mean_AP(self):
+    def mean_AP(self) -> dict:
         """
         Computes the mean average precision
         """
-        return average_precision_score(self.prediction.cpu().data.numpy().ravel(),
-                                       self.groundtruth.cpu().data.numpy().ravel())
+        ap_values = {f'mean_AP_{LABELS[i]}': [average_precision_score((self.prediction[:, i].numpy().ravel() > 0.5) * 1,
+                                                                      (self.groundtruth[:,
+                                                                       i].numpy().ravel() > 0.5) * 1)] for i in
+                     range(len(LABELS))}
+        ap_values['mean_AP_total'] = [average_precision_score(self.prediction_bin.cpu().data.numpy().ravel(),
+                                                              self.groundtruth_bin.cpu().data.numpy().ravel())]
+        return ap_values
+
+    def counts(self) -> dict:
+        predicted_counts = {f'pred_count_{label}': [self.class_pred_bin[label].sum().item()] for label in LABELS}
+        gt_counts = {f'gt_count_{label}': [self.class_gt_bin[label].sum().item()] for label in LABELS}
+
+        return {**predicted_counts, **gt_counts}
