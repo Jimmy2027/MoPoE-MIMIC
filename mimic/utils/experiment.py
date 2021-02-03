@@ -332,8 +332,8 @@ class Callbacks:
 
         self.losses.append(loss)
 
-        if epoch % 5 == 4:
-            # plot evolution of metrics every 5 epochs
+        if epoch % self.exp.flags.eval_freq == self.exp.flags.eval_freq - 1:
+            # plot evolution of metrics every Nth epochs
             self.plot_results_lr()
 
         return stop_early
@@ -350,9 +350,11 @@ class Callbacks:
             plt.close()
 
     def _update_results_lr(self, results_lr):
-        for label, d_label in results_lr.items():
-            for subset in d_label:
-                self.results_lr[label][subset].append(results_lr[label][subset])
+        # update values only if results_lr is non None, (the test metrics are only evaluated every Nth epoch)
+        if results_lr:
+            for label, d_label in results_lr.items():
+                for subset in d_label:
+                    self.results_lr[label][subset].append(results_lr[label][subset])
 
     def save_checkpoint(self, epoch):
         # save checkpoints every 5 epochs

@@ -189,6 +189,7 @@ def test(epoch, exp, test_loader: DataLoader):
         training_batch_size = exp.flags.batch_size
         exp.flags.batch_size = 30
 
+        test_results['lr_eval'] = None
         if (epoch + 1) % exp.flags.eval_freq == 0 or (epoch + 1) == exp.flags.end_epoch:
 
             log.info('generating plots')
