@@ -78,11 +78,11 @@ class BaseMMVae(ABC, nn.Module):
                                                  logvars,
                                                  weights,
                                                  normalization=self.flags.batch_size)
-        divs = dict()
-        divs['joint_divergence'] = div_measures[0]
-        divs['individual_divs'] = div_measures[1]
-        divs['dyn_prior'] = None
-        return divs
+        return {
+            'joint_divergence': div_measures[0],
+            'individual_divs': div_measures[1],
+            'dyn_prior': None,
+        }
 
     def divergence_dynamic_prior(self, mus, logvars, weights=None):
         if weights is None:
@@ -92,11 +92,11 @@ class BaseMMVae(ABC, nn.Module):
                                                 logvars,
                                                 weights,
                                                 normalization=self.flags.batch_size)
-        divs = dict()
-        divs['joint_divergence'] = div_measures[0]
-        divs['individual_divs'] = div_measures[1]
-        divs['dyn_prior'] = div_measures[2]
-        return divs
+        return {
+            'joint_divergence': div_measures[0],
+            'individual_divs': div_measures[1],
+            'dyn_prior': div_measures[2],
+        }
 
     def moe_fusion(self, mus, logvars, weights=None):
         if weights is None:
@@ -111,6 +111,9 @@ class BaseMMVae(ABC, nn.Module):
         return [mu_moe, logvar_moe]
 
     def poe_fusion(self, mus, logvars, weights=None):
+        """
+        Fuses all modalities in subset with product of experts method.
+        """
         if self.flags.modality_poe:
             num_samples = mus[0].shape[0]
             mus = torch.cat((mus, torch.zeros(1, num_samples,
@@ -141,14 +144,15 @@ class BaseMMVae(ABC, nn.Module):
         mus = torch.Tensor().to(self.flags.device)
         logvars = torch.Tensor().to(self.flags.device)
         distr_subsets = {}
-        for k, s_key in enumerate(self.subsets.keys()):
+        # concatenate mus and logvars for every modality in each subset
+        for s_key in self.subsets:
             if s_key != '':
                 mods = self.subsets[s_key]
                 mus_subset = torch.Tensor().to(self.flags.device)
                 logvars_subset = torch.Tensor().to(self.flags.device)
                 mods_avail = True
-                for m, mod in enumerate(mods):
-                    if mod.name in input_batch.keys():
+                for mod in mods:
+                    if mod.name in input_batch:
                         mus_subset = torch.cat((mus_subset,
                                                 enc_mods[mod.name][0].unsqueeze(0)),
                                                dim=0)
@@ -156,14 +160,18 @@ class BaseMMVae(ABC, nn.Module):
                                                     enc_mods[mod.name][1].unsqueeze(0)),
                                                    dim=0)
                     else:
+                        # todo was ist mods_avail? wenn eine modality fehlt? was passiert dann?
                         mods_avail = False
                 if mods_avail:
+                    # normalize latents by number of modalities in subset
                     weights_subset = ((1 / float(len(mus_subset))) *
                                       torch.ones(len(mus_subset)).to(self.flags.device))
                     s_mu, s_logvar = self.modality_fusion(mus_subset,
                                                           logvars_subset,
                                                           weights_subset)
                     distr_subsets[s_key] = [s_mu, s_logvar]
+                    # fusion_condition always true
+                    # store all s_mus and s_logvars in variables mus and logvars
                     if self.fusion_condition(mods, input_batch):
                         mus = torch.cat((mus, s_mu.unsqueeze(0)), dim=0)
                         logvars = torch.cat((logvars, s_logvar.unsqueeze(0)),
@@ -176,6 +184,7 @@ class BaseMMVae(ABC, nn.Module):
                                                       self.flags.class_dim).to(self.flags.device)),
                                 dim=0)
         # weights = (1/float(len(mus)))*torch.ones(len(mus)).to(self.flags.device)
+        # normalize with number of subsets
         weights = (1 / float(mus.shape[0])) * torch.ones(mus.shape[0]).to(self.flags.device)
         joint_mu, joint_logvar = self.moe_fusion(mus, logvars, weights)
         # mus = torch.cat(mus, dim=0)
