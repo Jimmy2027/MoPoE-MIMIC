@@ -227,7 +227,7 @@ def test(epoch, exp, test_loader: DataLoader):
 
         # setting batch size back to training batch size
         exp.flags.batch_size = training_batch_size
-        return test_results['total_loss']
+        return test_results['total_loss'], test_results['lr_eval']
 
 
 def run_epochs(rank: any, exp: MimicExperiment) -> None:
@@ -245,8 +245,8 @@ def run_epochs(rank: any, exp: MimicExperiment) -> None:
         utils.set_up_process_group(args.world_size, rank)
         exp.mm_vae = DDP(exp.mm_vae, device_ids=[exp.flags.device])
 
-    train_sampler, train_loader = get_data_loaders(args, exp.dataset_train)
-    test_sampler, test_loader = get_data_loaders(args, exp.dataset_test)
+    train_sampler, train_loader = get_data_loaders(args, exp.dataset_train, which_set='train')
+    test_sampler, test_loader = get_data_loaders(args, exp.dataset_test, which_set='eval')
 
     callbacks = Callbacks(exp)
 
@@ -258,9 +258,9 @@ def run_epochs(rank: any, exp: MimicExperiment) -> None:
         exp.tb_logger.set_epoch(epoch)
         # one epoch of training and testing
         train(exp, train_loader)
-        mean_eval_loss = test(epoch, exp, test_loader)
+        mean_eval_loss, results_lr = test(epoch, exp, test_loader)
 
-        if callbacks.update_epoch(epoch, mean_eval_loss, time.time() - end):
+        if callbacks.update_epoch(epoch, mean_eval_loss, time.time() - end, results_lr):
             break
 
     if exp.tb_logger:

@@ -9,11 +9,11 @@ import pandas as pd
 import torch
 import torch.optim as optim
 from PIL import ImageFont
+from matplotlib import pyplot as plt
 from sklearn.metrics import average_precision_score
 from torch import Tensor
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.tensorboard import SummaryWriter
-from mimic.utils.text import tensor_to_text
 
 from mimic import log
 from mimic.dataio.MimicDataset import Mimic, Mimic_testing
@@ -32,14 +32,15 @@ from mimic.networks.VAEtrimodalMimic import VAEtrimodalMimic, VAETextMimic
 from mimic.utils import utils
 from mimic.utils.BaseExperiment import BaseExperiment
 from mimic.utils.TBLogger import TBLogger
+from mimic.utils.text import tensor_to_text
 from mimic.utils.utils import get_clf_path, get_alphabet
+from mimic.utils.utils import init_twolevel_nested_dict
 
 
 class MimicExperiment(BaseExperiment):
     def __init__(self, flags):
         super().__init__(flags)
         self.labels = ['Lung Opacity', 'Pleural Effusion', 'Support Devices']
-        self.flags.vocab_size = 3517
         self.flags = flags
         self.experiment_uid = flags.str_experiment
         self.dataset = flags.dataset
@@ -50,9 +51,7 @@ class MimicExperiment(BaseExperiment):
             self.alphabet = get_alphabet()
             self.flags.num_features = len(self.alphabet)
 
-        self.dataset_train = None
-        self.dataset_test = None
-        self.set_dataset()
+        self.dataset_train, self.dataset_test = self.set_dataset()
         self.modalities: typing.Mapping[str, Modality] = self.set_modalities()
         self.num_modalities = len(self.modalities.keys())
         self.subsets = self.set_subsets()
@@ -110,8 +109,7 @@ class MimicExperiment(BaseExperiment):
             else:
                 d_train = Mimic(self.flags, self.labels, split='train')
                 d_eval = Mimic(self.flags, self.labels, split='eval')
-        self.dataset_train = d_train
-        self.dataset_test = d_eval
+        return d_train, d_eval
 
     def set_clf_transforms(self) -> dict:
         if self.flags.text_clf_type == 'word':
@@ -293,13 +291,15 @@ class Callbacks:
         self.experiment_df = exp.experiments_dataframe
         self.start_early_stopping_epoch = self.args.start_early_stopping_epoch
         self.max_early_stopping_index = self.args.max_early_stopping_index
-        # initialize with huge loss
-        self.losses = [1e10]
+        # initialize with infinite loss
+        self.losses = [float('inf')]
         self.patience_idx = 1
         self.scheduler = ReduceLROnPlateau(optimizer, 'min', patience=5, verbose=True)
         self.elapsed_times = []
+        self.results_lr = init_twolevel_nested_dict(exp.labels, exp.subsets.keys(), init_val=[], copy_init_val=True)
 
-    def update_epoch(self, epoch, loss, elapsed_time):
+    def update_epoch(self, epoch, loss, elapsed_time, results_lr):
+        self._update_results_lr(results_lr)
         stop_early = False
         self.elapsed_times.append(elapsed_time)
         self.scheduler.step(loss)
@@ -308,6 +308,7 @@ class Callbacks:
         log.info(f'current test loss: {loss}')
         self.save_checkpoint(epoch)
 
+        # evaluate progress
         if epoch > self.start_early_stopping_epoch and loss < min(self.losses):
             log.info(f'current test loss {loss} improved from {min(self.losses)}'
                      f' at epoch {np.argmin(self.losses)}')
@@ -330,7 +331,28 @@ class Callbacks:
                 self.patience_idx += 1
 
         self.losses.append(loss)
+
+        if epoch % 5 == 4:
+            # plot evolution of metrics every 5 epochs
+            self.plot_results_lr()
+
         return stop_early
+
+    def plot_results_lr(self):
+        if not os.path.exists(self.exp.flags.dir_checkpoints):
+            os.mkdir(self.exp.flags.dir_checkpoints)
+        for label, d_label in self.results_lr.items():
+            for subset, values in d_label.items():
+                plt.plot(values, label=subset)
+            plt.title(label)
+            plt.legend()
+            plt.savefig(os.path.join(self.exp.flags.dir_checkpoints, f"{label.replace(' ', '_')}.png"))
+            plt.close()
+
+    def _update_results_lr(self, results_lr):
+        for label, d_label in results_lr.items():
+            for subset in d_label:
+                self.results_lr[label][subset].append(results_lr[label][subset])
 
     def save_checkpoint(self, epoch):
         # save checkpoints every 5 epochs
