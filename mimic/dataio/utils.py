@@ -83,7 +83,7 @@ def calculateWeights(label_df, counts):
                                       counts[labels[1]] + (row[labels[2]]) * 1 / counts[labels[2]] + (
                                               row[labels[0]] == row[labels[1]] == row[labels[2]] == 0) * 1 / (
                                               len(label_df) - counts[labels[0]] - counts[labels[1]] - counts[labels[2]])
-    return torch.DoubleTensor(label_df.weights.values)
+    return torch.DoubleTensor(label_df.weights.values), label_df
 
 
 def get_ds_stats():
@@ -100,18 +100,25 @@ def get_label_counts():
     return data['counts']
 
 
-def get_data_loaders(args, dataset, which_set: str, clf_training: bool = False):
+def get_data_loaders(args, dataset, which_set: str, weighted_sampler: bool = False, nbr_samples_4_sampler: int = -1):
+    """
+    nbr_samples_4_sampler: how many samples will be sampled with the sampler.
+        If set to -1 the same number of samples will be sampled as the length of the dataset.
+    """
     if args.distributed:
         sampler = torch.utils.data.distributed.DistributedSampler(dataset)
         num_workers = args.dataloader_workers // args.world_size
     else:
         sampler = None
         num_workers = args.dataloader_workers
-    if which_set == 'train' and args.weighted_sampler:
+    if which_set == 'train' and weighted_sampler:
+        # todo shuffle set
         labels_df = dataset.labels
         label_counts = labels_df[labels_df == 1].count()
-        weights = calculateWeights(labels_df, label_counts)
-        sampler = torch.utils.data.sampler.WeightedRandomSampler(weights, len(weights), replacement=True)
+        weights, label_weights_df = calculateWeights(labels_df, label_counts)
+        if nbr_samples_4_sampler == -1:
+            nbr_samples_4_sampler = len(weights)
+        sampler = torch.utils.data.sampler.WeightedRandomSampler(weights, nbr_samples_4_sampler, replacement=True)
     d_loader = DataLoader(dataset, batch_size=args.batch_size,
                           shuffle=(sampler is None),
                           num_workers=num_workers,

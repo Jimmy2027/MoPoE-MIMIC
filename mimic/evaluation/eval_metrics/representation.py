@@ -8,6 +8,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from mimic import log
+from mimic.dataio.utils import get_data_loaders
 from mimic.networks.VAEtrimodalMimic import VAEtrimodalMimic
 from mimic.utils.experiment import MimicExperiment
 from mimic.utils.utils import dict_to_device
@@ -16,6 +17,9 @@ from mimic.utils.utils import stdout_if_verbose
 
 
 def train_clf_lr_all_subsets(exp: MimicExperiment):
+    """
+    Encodes samples from the training set and train line classifiers from them.
+    """
     args = exp.flags
     mm_vae = exp.mm_vae
     mm_vae.eval()
@@ -23,27 +27,22 @@ def train_clf_lr_all_subsets(exp: MimicExperiment):
     subsets = exp.subsets
     if '' in subsets:
         del subsets['']
-    d_loader = DataLoader(exp.dataset_train, batch_size=exp.flags.batch_size,
-                          shuffle=True,
-                          num_workers=args.dataloader_workers // args.world_size if args.distributed
-                          else args.dataloader_workers,
-                          drop_last=True)
+    n_train_samples = exp.flags.num_training_samples_lr
+    _, train_loader = get_data_loaders(args, exp.dataset_train, which_set='train', weighted_sampler=True,
+                                       nbr_samples_4_sampler=n_train_samples*2)
+
     if exp.flags.steps_per_training_epoch > 0:
         training_steps = exp.flags.steps_per_training_epoch
     else:
-        training_steps = len(d_loader)
+        training_steps = len(train_loader)
 
-    bs = exp.flags.batch_size
-    class_dim = exp.flags.class_dim
-    n_samples = int(exp.dataset_train.__len__())
     data_train = {
-        s_key: np.zeros((n_samples, class_dim))
+        s_key: torch.Tensor()
         for s_key in subsets
     }
-
-    all_labels = np.zeros((n_samples, len(exp.labels)))
+    all_labels = torch.Tensor()
     log.info(f"Creating {training_steps} batches of the latent representations for the classifier.")
-    for it, (batch_d, batch_l) in tqdm(enumerate(d_loader), total=training_steps, postfix='creating_train_lr'):
+    for it, (batch_d, batch_l) in tqdm(enumerate(train_loader), total=training_steps, postfix='creating_train_lr'):
         """
         Constructs the training set (labels and inferred subsets) for the classifier training.
         """
@@ -57,13 +56,13 @@ def train_clf_lr_all_subsets(exp: MimicExperiment):
         inferred = mm_vae.module.inference(batch_d) if args.distributed else mm_vae.inference(batch_d)
 
         lr_subsets = inferred['subsets']
-        all_labels[(it * bs):((it + 1) * bs), :] = np.reshape(batch_l, (bs, len(exp.labels)))
+        all_labels = torch.cat((all_labels, batch_l), 0)
         for key in lr_subsets:
-            data_train[key][(it * bs):((it + 1) * bs), :] = lr_subsets[key][0].cpu().data.numpy()
+            data_train[key] = torch.cat((data_train[key], lr_subsets[key][0].cpu()), 0)
 
-    n_train_samples = exp.flags.num_training_samples_lr
+
     # get random labels such that it contains both classes
-    labels, rand_ind_train = get_random_labels(n_samples, n_train_samples, all_labels)
+    labels, rand_ind_train = get_random_labels(all_labels.shape[0], n_train_samples, all_labels)
     for s_key in subsets:
         d = data_train[s_key]
         data_train[s_key] = d[rand_ind_train, :]
@@ -178,9 +177,9 @@ def train_clf_lr(exp, data, labels):
             clf_lr_s = LogisticRegression(random_state=0, solver='lbfgs', multi_class='auto', max_iter=1000)
             if exp.flags.dataset == 'testing':
                 # when using the testing dataset, the vae data_rep might contain nans. Replace them for testing purposes
-                clf_lr_s.fit(np.nan_to_num(data_rep), gt.ravel())
+                clf_lr_s.fit(np.nan_to_num(data_rep), gt)
             else:
-                clf_lr_s.fit(data_rep, gt.ravel())
+                clf_lr_s.fit(data_rep, gt)
             clf_lr_reps[s_key] = clf_lr_s
         clf_lr_labels[label_str] = clf_lr_reps
     return clf_lr_labels
