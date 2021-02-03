@@ -63,7 +63,7 @@ class TestDataset(TestCase):
             f'len(imgs_pa): {self.imgs_pa.shape[0]}, len(imgs_lat): {self.imgs_lat.shape[0]}, '
             f'len(labels): {len(self.labels)}, len(report_findings): {len(self.report_findings)}')
 
-        self.labels = filter_labels(self.labels, undersample_dataset)
+        self.labels = filter_labels(self.labels, undersample_dataset, split)
 
         self.labels = self.labels.values
         self.report_findings = self.report_findings.values
@@ -135,10 +135,9 @@ class TestDataset(TestCase):
         Compares the torch dataset with the original dataset by comparing labels and findings with a uid.
         """
         for split, img_shape, undersample_dataset in product(['train', 'eval', 'test'], [128, 256], [True, False]):
-        # for split, img_shape, undersample_dataset in product(['test'], [128], [True, False]):
             FLAGS = self._loadflags()
             labels, report_findings = self._load_data(FLAGS, img_shape, split, load_images=False)
-            labels = filter_labels(labels, undersample_dataset)
+            labels = filter_labels(labels, undersample_dataset, split)
             df_train = pd.read_csv(Path(FLAGS.dir_data) / f'{split}.csv').fillna(0)
             df_train['uid'] = df_train['pa_dicom_id'] + '_' + df_train['lat_dicom_id']
 
