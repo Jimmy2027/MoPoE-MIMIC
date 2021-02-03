@@ -61,6 +61,7 @@ def get_densenet_transforms(args):
             custom_transforms.crops_to_tensor),
                                     transforms.Lambda(
                                         custom_transforms.normalize_crops)])
+
     return transforms.Compose(transformation_list)
 
 
@@ -74,12 +75,15 @@ def get_crops_transform(args) -> transforms:
         return transforms.Lambda(lambda x: x)
 
 
-def calculateWeights(label_dict, d_set):
-    arr = []
-    for label, count in label_dict.items():
-        weight = count / len(d_set)
-        arr.append(weight)
-    return arr
+def calculateWeights(label_df, counts):
+    labels = counts.keys()
+    for idx, row in label_df.iterrows():
+        label_df.at[idx, 'weights'] = (row[labels[0]]) * 1 / counts[labels[0]] + (
+            row[labels[1]]) * 1 / \
+                                      counts[labels[1]] + (row[labels[2]]) * 1 / counts[labels[2]] + (
+                                              row[labels[0]] == row[labels[1]] == row[labels[2]] == 0) * 1 / (
+                                              len(label_df) - counts[labels[0]] - counts[labels[1]] - counts[labels[2]])
+    return torch.DoubleTensor(label_df.weights.values)
 
 
 def get_ds_stats():
@@ -103,11 +107,11 @@ def get_data_loaders(args, dataset, which_set: str, clf_training: bool = False):
     else:
         sampler = None
         num_workers = args.dataloader_workers
-    if clf_training and which_set == 'train' and args.weighted_sampler:
-        label_counts = get_label_counts()
-        weights = calculateWeights(label_counts, dataset)
-        weights = torch.DoubleTensor(weights)
-        sampler = torch.utils.data.sampler.WeightedRandomSampler(weights, args.batch_size, replacement=True)
+    if which_set == 'train' and args.weighted_sampler:
+        labels_df = dataset.labels
+        label_counts = labels_df[labels_df == 1].count()
+        weights = calculateWeights(labels_df, label_counts)
+        sampler = torch.utils.data.sampler.WeightedRandomSampler(weights, len(weights), replacement=True)
     d_loader = DataLoader(dataset, batch_size=args.batch_size,
                           shuffle=(sampler is None),
                           num_workers=num_workers,
