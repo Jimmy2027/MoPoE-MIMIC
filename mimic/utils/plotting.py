@@ -9,9 +9,8 @@ from mimic.utils.utils import OnlyOnce
 
 def generate_plots(exp, epoch):
     plots = {}
-    # temp
-    if False:
-        # if exp.flags.factorized_representation:
+
+    if exp.flags.factorized_representation:
         # mnist to mnist: swapping content and style intra modal
         swapping_figs = generate_swapping_plot(exp, epoch)
         plots['swapping'] = swapping_figs
@@ -122,7 +121,7 @@ def generate_conditional_fig_M(exp, epoch: int, M: int, log_text: bool = True, n
 
 
 def generate_cond_imgs(M, exp, log_text, mods, subsets) -> dict:
-    nbr_samples = 5
+    nbr_samples = 10
     samples = exp.test_samples
     model = exp.mm_vae
 
@@ -142,7 +141,7 @@ def generate_cond_imgs(M, exp, log_text, mods, subsets) -> dict:
                 mod_out = mods[m_key_out]
                 plot_key = s_key + '__' + mod_out.name
                 rec = torch.zeros(exp.plot_img_size,
-                                  dtype=torch.float32).repeat(25 + M * nbr_samples, 1, 1, 1)
+                                  dtype=torch.float32).repeat(100 + M * nbr_samples, 1, 1, 1)
                 for m, sample in enumerate(samples):
                     for n, mod_in in enumerate(s_in):
                         c_in = mod_in.plot_data(exp, sample[mod_in.name])
@@ -150,10 +149,8 @@ def generate_cond_imgs(M, exp, log_text, mods, subsets) -> dict:
                 cond_plots[plot_key] = rec
 
             # style transfer
-            for i in range(5):
-            # for i in range(len(samples)):
-                for j in range(5):
-                # for j in range(len(samples)):
+            for i in range(len(samples)):
+                for j in range(len(samples)):
                     i_batch = {
                         mod.name: samples[j][mod.name].unsqueeze(0)
                         for mod in s_in
