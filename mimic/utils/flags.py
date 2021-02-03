@@ -39,6 +39,8 @@ parser.add_argument('--only_text_modality', type=str2bool, default=False,
 parser.add_argument('--undersample_dataset', type=str2bool, default=False,
                     help="flag to indicate if the dataset should be undersampled such that there are "
                          "the same number of datapoints that have no label than datapoints that have a label")
+parser.add_argument('--weighted_sampler', type=bool, default=False,
+                    help="If a weighted sampler should be used for the dataloader.")
 
 # Text Dependent
 parser.add_argument('--text_encoding', type=str, default='char',
