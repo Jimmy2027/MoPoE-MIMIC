@@ -1,3 +1,4 @@
+import collections
 import itertools
 import json
 import os
@@ -5,6 +6,7 @@ import subprocess as sp
 from collections.abc import MutableMapping
 from contextlib import contextmanager
 from pathlib import Path
+from typing import Iterable
 from typing import Optional
 
 import numpy as np
@@ -16,7 +18,6 @@ from torch.autograd import Variable
 from mimic import log
 from mimic.utils.exceptions import CudaOutOfMemory
 from mimic.utils.exceptions import NaNInLatent
-from typing import Iterable
 
 
 # Print iterations progress
@@ -52,9 +53,10 @@ def reweight_weights(w):
 
 
 def mixture_component_selection(flags, mus, logvars, w_modalities=None, num_samples=None):
-    # if not defined, take pre-defined weights
     num_components = mus.shape[0]
+    # num_samples is the batch_size
     num_samples = mus.shape[1]
+    # if not defined, take pre-defined weights
     if w_modalities is None:
         w_modalities = torch.Tensor(flags.alpha_modalities).to(flags.device)
     idx_start = []
@@ -317,3 +319,18 @@ class OnlyOnce:
             return False
         self.myset.add(arg)
         return True
+
+
+def imshow(img):
+    import matplotlib.pyplot as plt
+    img = img.squeeze()
+    plt.imshow(np.transpose(img, (1, 2, 0)))
+    plt.show()
+
+
+def json_file_to_pyobj(filename: str):
+    def _json_object_hook(d): return collections.namedtuple('X', d.keys())(*d.values())
+
+    def json2obj(data): return json.loads(data, object_hook=_json_object_hook)
+
+    return json2obj(open(filename).read())
