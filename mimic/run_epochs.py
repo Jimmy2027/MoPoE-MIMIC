@@ -191,7 +191,6 @@ def test(epoch, exp, test_loader: DataLoader):
 
         test_results['lr_eval'] = None
         if (epoch + 1) % exp.flags.eval_freq == 0 or (epoch + 1) == exp.flags.end_epoch:
-
             log.info('generating plots')
             plots = generate_plots(exp, epoch)
             tb_logger.write_plots(plots, epoch)
@@ -246,7 +245,8 @@ def run_epochs(rank: any, exp: MimicExperiment) -> None:
         utils.set_up_process_group(args.world_size, rank)
         exp.mm_vae = DDP(exp.mm_vae, device_ids=[exp.flags.device])
 
-    train_sampler, train_loader = get_data_loaders(args, exp.dataset_train, which_set='train')
+    train_sampler, train_loader = get_data_loaders(args, exp.dataset_train, which_set='train',
+                                                   weighted_sampler=args.weighted_sampler)
     test_sampler, test_loader = get_data_loaders(args, exp.dataset_test, which_set='eval')
 
     callbacks = Callbacks(exp)

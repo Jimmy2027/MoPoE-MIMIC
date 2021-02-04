@@ -2,6 +2,7 @@ import argparse
 import os
 import shutil
 from datetime import datetime
+from pathlib import Path
 from shutil import copyfile
 
 import mimic
@@ -32,16 +33,16 @@ def create_dir_structure_testing(exp):
 def create_dir_structure(flags: argparse.ArgumentParser(), train: bool = True) -> argparse.ArgumentParser:
     str_experiments = get_str_experiments(flags)
     if train:
-        flags.dir_experiment_run = os.path.join(os.path.expanduser(flags.dir_experiment), str_experiments)
+        flags.dir_experiment_run = Path(flags.dir_experiment).expanduser() / str_experiments
         flags.str_experiment = str_experiments
     else:
-        flags.dir_experiment_run = os.path.expanduser(flags.dir_experiment)
+        flags.dir_experiment_run = Path(flags.dir_experiment).expanduser()
         flags.experiment_uid = get_str_experiments(flags)
     log.info(f'dir_experiment_run: {flags.dir_experiment_run}')
     if train:
         create_dir(flags.dir_experiment_run)
 
-    flags.dir_checkpoints = os.path.join(os.path.expanduser(flags.dir_experiment_run), 'checkpoints')
+    flags.dir_checkpoints = Path(flags.dir_experiment_run) / 'checkpoints'
     if train:
         create_dir(os.path.expanduser(flags.dir_checkpoints))
         copyfile(get_config_path(flags), os.path.join(flags.dir_experiment_run, 'config.json'), follow_symlinks=True)
