@@ -40,18 +40,17 @@ from mimic.utils.utils import init_twolevel_nested_dict
 class MimicExperiment(BaseExperiment):
     def __init__(self, flags):
         super().__init__(flags)
-        self.labels = ['Lung Opacity', 'Pleural Effusion', 'Support Devices']
+        self.labels = self.get_str_labels()
         self.flags = flags
         self.experiment_uid = flags.str_experiment
         self.dataset = flags.dataset
         self.plot_img_size = torch.Size((1, 128, 128))
-        # font will be set with "self.set_dataset()"
-        self.font = None
+
         if self.flags.text_encoding == 'char':
             self.alphabet = get_alphabet()
             self.flags.num_features = len(self.alphabet)
 
-        self.dataset_train, self.dataset_test = self.set_dataset()
+        self.dataset_train, self.dataset_test, self.font = self.set_dataset()
         self.modalities: typing.Mapping[str, Modality] = self.set_modalities()
         self.num_modalities = len(self.modalities.keys())
         self.subsets = self.set_subsets()
@@ -71,6 +70,12 @@ class MimicExperiment(BaseExperiment):
         self.restart_experiment = False  # if true and the model returns nans, the workflow gets started again
         self.number_restarts = 0
         self.tb_logger = None
+
+    def get_str_labels(self):
+        if self.flags.binary_labels:
+            return ['Finding']
+        else:
+            return ['Lung Opacity', 'Pleural Effusion', 'Support Devices']
 
     def set_model(self):
         if self.flags.only_text_modality:
@@ -93,8 +98,8 @@ class MimicExperiment(BaseExperiment):
             return {mod1.name: mod1, mod2.name: mod2, mod3.name: mod3}
 
     def set_dataset(self):
-        self.font = ImageFont.truetype(str(Path(__file__).parent.parent / 'FreeSerif.ttf'),
-                                       20) if not self.flags.distributed else None
+        font = ImageFont.truetype(str(Path(__file__).parent.parent / 'FreeSerif.ttf'),
+                                  20) if not self.flags.distributed else None
         log.info('setting dataset')
         # used for faster unittests i.e. a dummy dataset
         if self.dataset == 'testing':
@@ -109,7 +114,7 @@ class MimicExperiment(BaseExperiment):
             else:
                 d_train = Mimic(self.flags, self.labels, split='train')
                 d_eval = Mimic(self.flags, self.labels, split='eval')
-        return d_train, d_eval
+        return d_train, d_eval, font
 
     def set_clf_transforms(self) -> dict:
         if self.flags.text_clf_type == 'word':
@@ -332,21 +337,25 @@ class Callbacks:
 
         self.losses.append(loss)
 
-        if epoch % self.exp.flags.eval_freq == self.exp.flags.eval_freq - 1:
+        if (epoch + 1) % self.args.eval_freq == 0 or (epoch + 1) == self.args.end_epoch:
             # plot evolution of metrics every Nth epochs
             self.plot_results_lr()
 
         return stop_early
 
     def plot_results_lr(self):
-        if not os.path.exists(self.exp.flags.dir_checkpoints):
-            os.mkdir(self.exp.flags.dir_checkpoints)
+        if not self.exp.flags.dir_experiment_run.is_dir():
+            os.mkdir(self.exp.flags.dir_experiment_run)
         for label, d_label in self.results_lr.items():
             for subset, values in d_label.items():
                 plt.plot(values, label=subset)
             plt.title(label)
             plt.legend()
-            plt.savefig(os.path.join(self.exp.flags.dir_checkpoints, f"{label.replace(' ', '_')}.png"))
+            out_path = self.exp.flags.dir_experiment_run / f"{label.replace(' ', '_')}.png"
+            if out_path.is_file():
+                out_path.unlink()
+            plt.savefig(out_path)
+            log.debug(f"Saving plot to {out_path}")
             plt.close()
 
     def _update_results_lr(self, results_lr):

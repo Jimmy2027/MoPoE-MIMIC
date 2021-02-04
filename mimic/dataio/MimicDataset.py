@@ -39,13 +39,10 @@ class Mimic(Dataset):
         fn_findings = os.path.join(dir_dataset, split + '_findings.csv')
         fn_labels = os.path.join(dir_dataset, split + '_labels.csv')
 
-        self.labels = pd.read_csv(fn_labels)[str_labels].fillna(0)
         self.imgs_pa = torch.load(fn_img_pa)
         self.imgs_lat = torch.load(fn_img_lat)
         self.report_findings = pd.read_csv(fn_findings)['findings']
-        # need to filter out labels that contain the label "-1"
-        self.labels = filter_labels(self.labels, args.undersample_dataset, split)
-
+        self.labels = self._get_labels(fn_labels)
         self._verify_dataset()
 
         if self.args.text_encoding == 'char':
@@ -67,6 +64,13 @@ class Mimic(Dataset):
             self.get_vec = self.get_word_text_vec
         else:
             raise NotImplementedError(f'{self.args.text_encoding} has to be either char or word')
+
+    def _get_labels(self, fn_labels):
+        labels = pd.read_csv(fn_labels)[self.str_labels].fillna(0)
+        # need to filter out labels that contain the label "-1"
+        labels = filter_labels(labels, which_labels=self.str_labels,
+                               undersample_dataset=self.args.undersample_dataset, split=self.split)
+        return labels
 
     def __getitem__(self, label_index) -> typing.Tuple[typing.Mapping[str, Tensor], Tensor]:
         try:
@@ -117,7 +121,7 @@ class Mimic(Dataset):
         """
         labels = self.labels.values
         assert len(np.unique(labels)) == 2, \
-            'labels should contain 2 classes, might need to remove -1 labels'
+            f'labels should contain 2 classes, but contains labels {np.unique(labels)}. Might need to remove -1 labels'
         assert self.imgs_pa.shape[0] == self.imgs_lat.shape[0] == len(
             self.report_findings), f'all modalities must have the same length. len(imgs_pa): {self.imgs_pa.shape[0]},' \
                                    f' len(imgs_lat): {self.imgs_lat.shape[0]},' \
@@ -145,7 +149,8 @@ class MimicText(Dataset):
 
         self.report_findings = pd.read_csv(fn_findings)['findings']
         # need to filter out labels that contain the label "-1"
-        self.labels = filter_labels(self.labels, args.undersample_dataset, split=split)
+        self.labels = filter_labels(self.labels, which_labels=self.str_labels,
+                                    undersample_dataset=args.undersample_dataset, split=split)
 
         if self.args.text_encoding == 'char':
             self.args.alphabet = get_alphabet()

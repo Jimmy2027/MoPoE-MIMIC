@@ -1,4 +1,5 @@
 import os
+import typing
 from timeit import default_timer as timer
 from typing import Optional
 from typing import Protocol
@@ -6,21 +7,25 @@ from typing import Protocol
 import numpy as np
 import pandas as pd
 import torch
+from matplotlib import pyplot as plt
+from sklearn.metrics import average_precision_score
 from torch.autograd import Variable
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
+from mimic import log
 from mimic.networks.CheXNet import CheXNet
 from mimic.networks.ConvNetworkImgClf import ClfImg
 from mimic.networks.ConvNetworkTextClf import ClfText
 from mimic.utils.filehandling import create_dir
 from mimic.utils.filehandling import expand_paths
 from mimic.utils.filehandling import get_str_experiments
-import typing
-from sklearn.metrics import average_precision_score
-from mimic import log
-from matplotlib import pyplot as plt
 
-LABELS = ['Lung Opacity', 'Pleural Effusion', 'Support Devices']
+
+def get_labels(binary_labels: bool = False):
+    if binary_labels:
+        return ['Finding']
+    else:
+        return ['Lung Opacity', 'Pleural Effusion', 'Support Devices']
 
 
 class ExperimentDfProto(Protocol):
@@ -79,6 +84,7 @@ class CallbacksProto(Protocol):
     clf_save_m3: Optional[str]
     dir_clf: str
     dir_logs_clf: str
+    binary_labels: bool
 
 
 class Callbacks:
@@ -111,7 +117,8 @@ class Callbacks:
 
     def update_epoch(self, epoch: int, loss, val_results: typing.Dict[str, torch.Tensor], model, elapsed_time):
         # calculate metrics
-        metrics = Metrics(val_results['predictions'], val_results['ground_truths'])
+        metrics = Metrics(val_results['predictions'], val_results['ground_truths'],
+                          str_labels=get_labels(self.flags.binary_labels))
         metrics_dict = metrics.evaluate()
         metrics_dict['eval_loss'] = [loss]
         early_stop_crit_val = metrics_dict[self.early_stopping_crit][0]
@@ -194,6 +201,7 @@ class GetModelsProto(Protocol):
     img_clf_type: str
     distributed: bool
     fixed_extractor: bool
+    binary_labels: bool
 
 
 def get_models(flags: GetModelsProto, modality: str):
@@ -208,14 +216,14 @@ def get_models(flags: GetModelsProto, modality: str):
 
     if modality in ['PA', 'Lateral']:
         if flags.img_clf_type == 'densenet':
-            model = CheXNet(len(LABELS), flags.fixed_extractor).cuda()
+            model = CheXNet(len(get_labels(flags.binary_labels)), flags.fixed_extractor).cuda()
         elif flags.img_clf_type == 'resnet':
-            model = ClfImg(flags, LABELS).to(flags.device)
+            model = ClfImg(flags, get_labels(flags.binary_labels)).to(flags.device)
         else:
             raise NotImplementedError(f'{flags.img_clf_type} is not implemented, chose between "densenet" and "resnet"')
 
     elif modality == 'text':
-        model = ClfText(flags, LABELS).to(flags.device)
+        model = ClfText(flags, get_labels(flags.binary_labels)).to(flags.device)
     if flags.distributed and torch.cuda.device_count() > 1:
         print(f'Training with {torch.cuda.device_count()} GPUs')
         model = torch.nn.DataParallel(model)
@@ -272,19 +280,20 @@ class Metrics(object):
     Modified version of https://github.com/ParGG/MasterThesisOld/blob/44f7b93214fa16494ebaeef7763ff81943b5ffc3/losses.py#L142
     """
 
-    def __init__(self, prediction: torch.Tensor, groundtruth: torch.Tensor):
+    def __init__(self, prediction: torch.Tensor, groundtruth: torch.Tensor, str_labels):
         """
         params:
             prediction: Tensor which is given as output of the network
             groundtruth: Tensor which resembles the goundtruth
         """
+        self.str_labels = str_labels
         self.prediction = prediction
         self.groundtruth = groundtruth
         self.prediction_bin: torch.Tensor = (prediction > 0.5) * 1
         self.groundtruth_bin: torch.Tensor = (groundtruth > 0.5) * 1
         # classwise binarized predictions
-        self.class_pred_bin: dict = {LABELS[i]: self.prediction_bin[:, i] for i in range(len(LABELS))}
-        self.class_gt_bin: dict = {LABELS[i]: self.groundtruth_bin[:, i] for i in range(len(LABELS))}
+        self.class_pred_bin: dict = {str_labels[i]: self.prediction_bin[:, i] for i in range(len(str_labels))}
+        self.class_gt_bin: dict = {str_labels[i]: self.groundtruth_bin[:, i] for i in range(len(str_labels))}
 
     def evaluate(self) -> typing.Dict[str, list]:
         """
@@ -369,16 +378,18 @@ class Metrics(object):
         """
         Computes the mean average precision
         """
-        ap_values = {f'mean_AP_{LABELS[i]}': [average_precision_score((self.prediction[:, i].numpy().ravel() > 0.5) * 1,
+        ap_values = {
+            f'mean_AP_{self.str_labels[i]}': [average_precision_score((self.prediction[:, i].numpy().ravel() > 0.5) * 1,
                                                                       (self.groundtruth[:,
                                                                        i].numpy().ravel() > 0.5) * 1)] for i in
-                     range(len(LABELS))}
+            range(len(self.str_labels))}
         ap_values['mean_AP_total'] = [average_precision_score(self.prediction_bin.cpu().data.numpy().ravel(),
                                                               self.groundtruth_bin.cpu().data.numpy().ravel())]
         return ap_values
 
     def counts(self) -> dict:
-        predicted_counts = {f'pred_count_{label}': [self.class_pred_bin[label].sum().item()] for label in LABELS}
-        gt_counts = {f'gt_count_{label}': [self.class_gt_bin[label].sum().item()] for label in LABELS}
+        predicted_counts = {f'pred_count_{label}': [self.class_pred_bin[label].sum().item()] for label in
+                            self.str_labels}
+        gt_counts = {f'gt_count_{label}': [self.class_gt_bin[label].sum().item()] for label in self.str_labels}
 
         return {**predicted_counts, **gt_counts}

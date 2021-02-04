@@ -3,7 +3,7 @@ import shutil
 import zipfile
 from glob import glob
 from typing import Tuple
-
+from pathlib import Path
 import PIL.Image as Image
 import numpy as np
 import pandas as pd
@@ -19,6 +19,8 @@ class CreateTensorDataset:
     """
     Makes a tensor dataset of the Mimic-cxr dataset by first resizing the image to the wanted image size
     and then saving them as torch tensors.
+    If the resized images are found as a zipped directory, they are extracted to the $TMPDIR folder and are then used to
+    create the tensor dataset.
     """
 
     def __init__(self, dir_base_resize: str, dir_mimic: str, dir_out: str, img_size: Tuple,
@@ -45,6 +47,10 @@ class CreateTensorDataset:
         self.df_test = pd.read_csv(self.fn_test)
         self.max_it = max_it
         self.img_size = img_size
+        self.str_labels = ['Atelectasis', 'Cardiomegaly',
+                           'Consolidation', 'Edema', 'Enlarged Cardiomediastinum', 'Fracture',
+                           'Lung Lesion', 'Lung Opacity', 'Pleural Effusion',
+                           'Pleural Other', 'Pneumonia', 'Pneumothorax', 'Support Devices']
 
     def __call__(self):
         splits = ['test', 'eval', 'train']
@@ -89,9 +95,8 @@ class CreateTensorDataset:
         imgs_pa = torch.Tensor(num_samples, self.img_size[0], self.img_size[0])
         imgs_lat = torch.Tensor(num_samples, self.img_size[0], self.img_size[0])
         ind = torch.Tensor(num_samples)  # tensor that indicates the images that were found
-        labels = df.filter(
-            ['Atelectasis', 'Cardiomegaly', 'Lung Opacity', 'Pleural Effusion', 'Support Devices', 'No Finding', 'uid'],
-            axis=1)
+
+        labels = df.filter([*self.str_labels, 'uid'], axis=1)
         findings = df.filter(['findings', 'uid'])
         impressions = df.filter(['impression', 'uid'])
         for index, row in tqdm(df.iterrows(), postfix=split):
@@ -149,11 +154,22 @@ class CreateTensorDataset:
         log.info(findings.shape)
         findings[:self.max_it].to_csv(fn_findings_out)
         impressions[:self.max_it].to_csv(fn_impressions_out)
+        # create binary labels
+        labels = self.create_binary_labels(labels)
         labels[:self.max_it].to_csv(fn_labels_out)
 
-        assert imgs_pa.shape[0] == imgs_lat.shape[0] == len(labels[:self.max_it]) == len(
-            findings[
-            :self.max_it]), f'all modalities must have the same length. len(imgs_pa): {imgs_pa.shape[0]}, len(imgs_lat): {imgs_lat.shape[0]}, len(labels): {len(labels[:self.max_it])}, len(report_findings): {len(findings[:self.max_it])}'
+        assert imgs_pa.shape[0] == imgs_lat.shape[0] == len(labels[:self.max_it]) == len(findings[:self.max_it]), \
+            f'all modalities must have the same length. len(imgs_pa): {imgs_pa.shape[0]}, ' \
+            f'len(imgs_lat): {imgs_lat.shape[0]}, len(labels): {len(labels[:self.max_it])}, ' \
+            f'len(report_findings): {len(findings[:self.max_it])}'
+
+    def create_binary_labels(self, labels_df):
+        """
+        Adds the label 'Finding' to the labels dataframe. This label is one if any of the other labels is 1.
+        """
+        for idx, row in labels_df.iterrows():
+            labels_df.at[idx, 'Finding'] = int(row[[*self.str_labels]].sum() > 0)
+        return labels_df
 
     def _fast_scandir(self, dirname: str):
         subfolders = [f.path for f in os.scandir(dirname) if f.is_dir()]
@@ -171,12 +187,10 @@ class CreateTensorDataset:
         bottom = (height + new_height) / 2
         # Crop the center of the image
         img_crop = img.crop((left, top, right, bottom))
-        img_resized = img_crop.resize(self.img_size, Image.ANTIALIAS)
-        return img_resized
+        return img_crop.resize(self.img_size, Image.ANTIALIAS)
 
     def _compute_total_folders(self, path: str):
-        total_folders = len(list(os.walk(path)))
-        return total_folders
+        return len(list(os.walk(path)))
 
     def _resize_all(self):
         """
@@ -211,22 +225,24 @@ class CreateTensorDataset:
 
     def _load_image(self, fn_img):
         img = Image.open(fn_img)
-        img_t = trans1(img)
-        return img_t
+        return trans1(img)
 
 
 if __name__ == '__main__':
     # img_size = (256, 256)
-    img_size = (128, 128)
+    # img_size = (128, 128)
+    for img_size in [(128, 128), (256, 256)]:
+        log.info(f'Creating tensor dataset for img size {img_size}.')
+        dir_mimic = '/cluster/work/vogtlab/Projects/mimic-cxr/physionet.org/files/mimic-cxr-jpg/2.0.0'
+        dir_out = os.path.expanduser(f'~/klugh/files_small_{img_size[0]}')
+        log.info(f'Tensor dataset will be saved at: {dir_out}')
+        dir_base_resized_compressed = Path('~/klugh/').expanduser()
+        assert os.path.exists(os.path.expandvars('$TMPDIR'))
+        assert os.path.exists(dir_base_resized_compressed)
 
-    dir_mimic = '/cluster/work/vogtlab/Projects/mimic-cxr/physionet.org/files/mimic-cxr-jpg/2.0.0'
-    dir_out = os.path.expanduser(f'~/klugh/files_small_{img_size[0]}')
-    dir_base_resized_compressed = '/cluster/work/vogtlab/Projects/mimic-cxr/physionet.org/files/mimic-cxr-jpg/2.0.0/'
-    assert os.path.exists(os.path.expandvars('$TMPDIR'))
-    assert os.path.exists(dir_base_resized_compressed)
+        dir_base_resize = os.path.join(os.path.expandvars('$TMPDIR'), f'files_small_{img_size[0]}')
 
-    dir_base_resize = os.path.join(os.path.expandvars('$TMPDIR'), f'files_small_{img_size[0]}')
-
-    dataset_creator = CreateTensorDataset(dir_base_resize=dir_base_resize, dir_mimic=dir_mimic, dir_out=dir_out,
-                                          img_size=img_size, dir_base_resized_compressed=dir_base_resized_compressed)
-    dataset_creator()
+        dataset_creator = CreateTensorDataset(dir_base_resize=dir_base_resize, dir_mimic=dir_mimic, dir_out=dir_out,
+                                              img_size=img_size,
+                                              dir_base_resized_compressed=dir_base_resized_compressed)
+        dataset_creator()

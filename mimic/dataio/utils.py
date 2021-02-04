@@ -4,6 +4,7 @@ import torch
 import PIL.Image as Image
 import json
 import pandas as pd
+from typing import List
 
 
 class CustomTransforms:
@@ -71,18 +72,22 @@ def get_crops_transform(args) -> transforms:
     elif args.n_crops == 5:
         return transforms.FiveCrop(224)
     else:
-        # ugly...
         return transforms.Lambda(lambda x: x)
 
 
-def calculateWeights(label_df, counts):
+def calculateWeights(label_df, counts, binary_labels):
     labels = counts.keys()
-    for idx, row in label_df.iterrows():
-        label_df.at[idx, 'weights'] = (row[labels[0]]) * 1 / counts[labels[0]] + (
-            row[labels[1]]) * 1 / \
-                                      counts[labels[1]] + (row[labels[2]]) * 1 / counts[labels[2]] + (
-                                              row[labels[0]] == row[labels[1]] == row[labels[2]] == 0) * 1 / (
-                                              len(label_df) - counts[labels[0]] - counts[labels[1]] - counts[labels[2]])
+    if binary_labels:
+        for idx, row in label_df.iterrows():
+            label_df.at[idx, 'weights'] = int(row[labels[0]] == 1) * 1 / counts[labels[0]] + \
+                                          int(row[labels[0]] == 0) * 1 / (len(label_df) - counts[labels[0]])
+    else:
+        for idx, row in label_df.iterrows():
+            label_df.at[idx, 'weights'] = (row[labels[0]]) * 1 / counts[labels[0]] + (
+                row[labels[1]]) * 1 / counts[labels[1]] + (row[labels[2]]) * 1 / counts[labels[2]] + (
+                                                  row[labels[0]] == row[labels[1]] == row[labels[2]] == 0) * 1 / (
+                                                  len(label_df) - counts[labels[0]] - counts[labels[1]] - counts[
+                                              labels[2]])
     return torch.DoubleTensor(label_df.weights.values), label_df
 
 
@@ -115,7 +120,7 @@ def get_data_loaders(args, dataset, which_set: str, weighted_sampler: bool = Fal
         # todo shuffle set
         labels_df = dataset.labels
         label_counts = labels_df[labels_df == 1].count()
-        weights, label_weights_df = calculateWeights(labels_df, label_counts)
+        weights, label_weights_df = calculateWeights(labels_df, label_counts, args.binary_labels)
         if nbr_samples_4_sampler == -1:
             nbr_samples_4_sampler = len(weights)
         sampler = torch.utils.data.sampler.WeightedRandomSampler(weights, nbr_samples_4_sampler, replacement=True)
@@ -143,15 +148,15 @@ def get_undersample_indices(labels_df: pd.DataFrame):
     return [*df_class_1.index.to_list(), *df_class_0_under.index.to_list()]
 
 
-def filter_labels(labels: pd.DataFrame, undersample_dataset: bool, split: str):
+def filter_labels(labels: pd.DataFrame, which_labels: List[str], undersample_dataset: bool, split: str):
     """
+    which_labels: for which labels the class (-1) will be removed.
     Need to remove all cases where the labels have 3 classes.
     The 3rd class (-1) represents "uncertain" and can be removed from the dataset.
     """
     indices = []
-    indices += labels.index[(labels['Lung Opacity'] == -1)].tolist()
-    indices += labels.index[(labels['Pleural Effusion'] == -1)].tolist()
-    indices += labels.index[(labels['Support Devices'] == -1)].tolist()
+    for cl in which_labels:
+        indices += labels.index[(labels[cl] == -1)].tolist()
     indices = list(set(indices))
     labels = labels.drop(indices)
     if undersample_dataset and split == 'train':
