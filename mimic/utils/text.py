@@ -49,8 +49,8 @@ def seq2text(exp, seq: Iterable[int]) -> List[str]:
 
 def tensor_to_text(exp, gen_t: torch.Tensor, one_hot=True) -> Union[List[List[str]], List[str]]:
     """
-    Converts a one hot encoded tensor to sentences
-    gen_t: tensor of shape (bs, length_sent, num_features)
+    Converts a one hot encoded tensor or an array of indices to sentences
+    gen_t: tensor of shape (bs, length_sent, num_features) if one_hot else (bs, length_sent)
     one_hot: if one_hot is True, gen_t needs to be a one-hot-encoded matrix. The maximum along every axis is taken
     to create a list of indices.
     """
