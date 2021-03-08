@@ -14,6 +14,7 @@ from mimic.utils.experiment import MimicExperiment
 from mimic.utils.utils import dict_to_device
 from mimic.utils.utils import init_twolevel_nested_dict
 from mimic.utils.utils import stdout_if_verbose
+from mimic.networks.classifiers.utils import Metrics
 
 
 def train_clf_lr_all_subsets(exp: MimicExperiment):
@@ -88,7 +89,7 @@ def get_random_labels(n_samples, n_train_samples, all_labels, max_tries=1000):
     return labels, rand_ind_train
 
 
-def test_clf_lr_all_subsets(epoch: int, clf_lr, exp) -> typing.Mapping[str, typing.Mapping[str, float]]:
+def test_clf_lr_all_subsets(clf_lr, exp) -> typing.Mapping[str, typing.Mapping[str, float]]:
     """
     Test the classifiers that were trained on latent representations.
 

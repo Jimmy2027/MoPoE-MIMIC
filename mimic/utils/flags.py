@@ -50,6 +50,8 @@ parser.add_argument('--text_encoding', type=str, default='char',
 parser.add_argument('--len_sequence', type=int, default=1024, help="length of sequence")
 parser.add_argument('--word_min_occ', type=int, default=3,
                     help="min occurence of a word in the dataset such that it is added to the vocabulary.")
+parser.add_argument('--text_gen_lastlayer', type=str, default='softmax',
+                    help="Last layer of the text generator. Chose between none, softmax and sigmoid.")
 
 parser.add_argument('--style_pa_dim', type=int, default=0, help="dimension of varying factor latent space")
 parser.add_argument('--style_lat_dim', type=int, default=0, help="dimension of varying factor latent space")
@@ -142,6 +144,7 @@ def setup_flags(flags, testing=False):
     """
     import torch
     from pathlib import Path
+    import numpy as np
     if flags.config_path:
         flags = update_flags_with_config(config_path=flags.config_path, testing=testing)
     flags = expand_paths(flags)
@@ -158,6 +161,10 @@ def setup_flags(flags, testing=False):
         # create param dict from all the params of old_flags that are not paths
         params = {k: v for k, v in old_flags.item() if ('dir' not in v) and ('path' not in v)}
         flags.__dict__.update(params)
+
+    if not flags.seed:
+        # set a random seed
+        flags.seed = np.random.randint(0, 10000)
 
     return flags
 

@@ -14,10 +14,9 @@ from tqdm import tqdm
 
 from mimic import log
 from mimic.dataio.utils import get_data_loaders, samplers_set_epoch
-from mimic.evaluation.eval_metrics.coherence import test_generation
+from mimic.evaluation.eval_metrics.coherence import test_generation, flatten_cond_gen_values
 from mimic.evaluation.eval_metrics.likelihood import estimate_likelihoods
-from mimic.evaluation.eval_metrics.representation import test_clf_lr_all_subsets
-from mimic.evaluation.eval_metrics.representation import train_clf_lr_all_subsets
+from mimic.evaluation.eval_metrics.representation import test_clf_lr_all_subsets, train_clf_lr_all_subsets
 from mimic.evaluation.eval_metrics.sample_quality import calc_prd_score
 from mimic.evaluation.losses import calc_log_probs, calc_klds, calc_klds_style, calc_poe_loss, calc_joint_elbo_loss
 from mimic.utils import utils
@@ -27,13 +26,12 @@ from mimic.utils.experiment import Callbacks, MimicExperiment
 from mimic.utils.plotting import generate_plots
 from mimic.utils.utils import check_latents, at_most_n, get_items_from_dict
 
-# global variables
-SEED = None
-SAMPLE1 = None
-if SEED is not None:
-    np.random.seed(SEED)
-    torch.manual_seed(SEED)
-    random.seed(SEED)
+
+# set the seed for reproducibility
+def set_random_seed(seed: int):
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    random.seed(seed)
 
 
 @contextmanager
@@ -198,15 +196,15 @@ def test(epoch, exp, test_loader: DataLoader):
             if exp.flags.eval_lr:
                 log.info('evaluation of latent representation')
                 clf_lr = train_clf_lr_all_subsets(exp)
-                lr_eval = test_clf_lr_all_subsets(epoch, clf_lr, exp)
+                lr_eval = test_clf_lr_all_subsets(clf_lr, exp)
                 tb_logger.write_lr_eval(lr_eval)
                 test_results['lr_eval'] = lr_eval
 
             if exp.flags.use_clf:
                 log.info('test generation')
-                gen_eval = test_generation(epoch, exp)
+                gen_eval = test_generation(exp)
                 tb_logger.write_coherence_logs(gen_eval)
-                test_results['gen_eval'] = gen_eval
+                test_results['gen_eval'] = flatten_cond_gen_values(gen_eval)
 
             if exp.flags.calc_nll:
                 log.info('estimating likelihoods')
@@ -235,6 +233,9 @@ def run_epochs(rank: any, exp: MimicExperiment) -> None:
     rank: is int if multiprocessing and torch.device otherwise
     """
     log.info('running epochs')
+
+    set_random_seed(exp.flags.seed)
+
     exp.set_optimizer()
     exp.mm_vae = exp.mm_vae.to(rank)
     args = exp.flags

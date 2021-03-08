@@ -11,7 +11,7 @@ from matplotlib import pyplot as plt
 from sklearn.metrics import average_precision_score
 from torch.autograd import Variable
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-
+from pathlib import Path
 from mimic import log
 from mimic.networks.CheXNet import CheXNet
 from mimic.networks.ConvNetworkImgClf import ClfImg
@@ -19,6 +19,16 @@ from mimic.networks.ConvNetworkTextClf import ClfText
 from mimic.utils.filehandling import create_dir
 from mimic.utils.filehandling import expand_paths
 from mimic.utils.filehandling import get_str_experiments
+
+
+def save_flags(flags, modality, epoch):
+    if modality == 'text':
+        save_name = f'flags_clf_{modality}_vocabsize_{flags.vocab_size}' \
+                    f'{"_bin_label" if flags.binary_labels else ""}_{epoch}.rar'
+    else:
+        save_name = f'flags_clf_{modality}_{epoch}.rar'
+
+    torch.save(flags, Path(flags.dir_clf) / save_name)
 
 
 def get_labels(binary_labels: bool = False):
@@ -85,6 +95,7 @@ class CallbacksProto(Protocol):
     dir_clf: str
     dir_logs_clf: str
     binary_labels: bool
+    vocab_size: int
 
 
 class Callbacks:
@@ -135,16 +146,12 @@ class Callbacks:
             self.logger.add_scalars(f'eval_clf_{self.modality}/{k}', {self.modality: v}, epoch)
         self.logger.add_scalars(f'eval_clf_{self.modality}/mean_loss', {self.modality: loss}, epoch)
 
-        if epoch < 1:
-            # start early stopping after epoch 1
-            return False
-
         # evaluate progress
-        max_eval_metric = max(self.metrics[self.early_stopping_crit][1:])
-        epoch_max_eval_metric = np.argmax(self.metrics[self.early_stopping_crit][1:])
+        max_eval_metric = max(self.metrics[self.early_stopping_crit])
+        epoch_max_eval_metric = np.argmax(self.metrics[self.early_stopping_crit])
 
         print(f'current eval loss: {loss}, metrics: {metrics_dict}')
-        if epoch > self.start_early_stopping_epoch and early_stop_crit_val >= max_eval_metric:
+        if epoch >= self.start_early_stopping_epoch and early_stop_crit_val >= max_eval_metric:
             print(
                 f'current {self.early_stopping_crit} {early_stop_crit_val} improved from {max_eval_metric}'
                 f' at epoch {epoch_max_eval_metric}')
@@ -171,8 +178,6 @@ class Callbacks:
     def _update_metrics(self, metrics_dict: typing.Dict[str, list]):
         if not self.metrics:
             self.metrics = metrics_dict
-            # initialize early_stopping_crit metric with -inf
-            # self.metrics[self.early_stopping_crit].insert(0, [-float('inf')])
         else:
             for k, v in metrics_dict.items():
                 self.metrics[k].extend(v)
@@ -186,13 +191,14 @@ class Callbacks:
         elif self.modality == 'Lateral':
             filename = self.flags.clf_save_m2
         else:
-            filename = self.flags.clf_save_m3
+            filename = self.flags.clf_save_m3 + \
+                       f'vocabsize_{self.flags.vocab_size}{"_bin_label" if self.flags.binary_labels else ""}'
 
         for file in os.listdir(self.flags.dir_clf):
             if file.startswith(filename):
                 print(f'deleting old checkpoint: {os.path.join(self.flags.dir_clf, file)}')
                 os.remove(os.path.join(self.flags.dir_clf, file))
-        print('saving model to {}'.format(os.path.join(self.flags.dir_clf, filename + f'_{epoch}')))
+        log.info('saving model to {}'.format(os.path.join(self.flags.dir_clf, filename + f'_{epoch}')))
         torch.save(state_dict, os.path.join(self.flags.dir_clf, filename + f'_{epoch}'))
 
 
@@ -240,14 +246,16 @@ def set_clf_paths(flags):
     """
     flags.exp_str_prefix = f'clf_{flags.modality}' + f'{flags.exp_str_prefix}' * bool(flags.exp_str_prefix)
     flags.experiment_uid = get_str_experiments(flags)
-    flags.dir_logs_clf = os.path.join(os.path.expanduser(flags.dir_clf), 'logs', flags.experiment_uid)
+    # flags.dir_logs_clf = os.path.join(os.path.expanduser(flags.dir_clf), 'logs', flags.experiment_uid)
+    flags.dir_logs_clf = Path(flags.dir_clf).expanduser() / f'logs/{flags.experiment_uid}'
     create_dir(flags.dir_logs_clf)
     # change dir_clf
     if flags.modality in ['PA', 'Lateral']:
         flags.dir_clf = os.path.expanduser(
-            os.path.join(flags.dir_clf, f'Mimic{flags.img_size}_{flags.img_clf_type}'))
+            os.path.join(flags.dir_clf,
+                         f'Mimic{flags.img_size}_{flags.img_clf_type}{"_bin_label" if flags.binary_labels else ""}'))
     else:
-        flags.dir_clf = os.path.expanduser(flags.dir_clf)
+        flags.dir_clf = Path(flags.dir_clf).expanduser()
     if not os.path.exists(flags.dir_clf):
         os.makedirs(flags.dir_clf)
 

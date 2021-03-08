@@ -8,6 +8,7 @@ parser = argparse.ArgumentParser()
 # parser.add_argument('--dataset', type=str, default='SVHN_MNIST_text', help="name of the dataset")
 
 # TRAINING
+parser.add_argument('--seed', type=int, default=None, help="Random seed for reproducibility. If None, will be set randomly.")
 parser.add_argument('--distributed', type=bool, default=False,
                     help="flag to indicate if torch.nn.DataParallel is used")
 parser.add_argument('--batch_size', type=int, default=256, help="batch size for training")

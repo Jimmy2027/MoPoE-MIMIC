@@ -6,6 +6,7 @@ import pandas as pd
 
 from mimic.utils.filehandling import get_config_path
 from pathlib import Path
+import glob
 
 
 def clean_mmvae_exp_df(exp_df_path: Path = Path('experiments_dataframe.csv'), min_epoch_exp_dir: int = 140,
@@ -108,12 +109,23 @@ def clean_clf_Exp_dirs(config: dict):
                                 print(f'removing dir {experiment_dir}')
 
 
+def clean_early_checkpoints(parent_folder: Path):
+    for experiment_dir in parent_folder.iterdir():
+        checkpoints_dir = parent_folder / experiment_dir / 'checkpoints/0*'
+        checkpoints = glob.glob(checkpoints_dir.__str__())
+        checkpoint_epochs = sorted([Path(checkpoint).stem for checkpoint in checkpoints])
+        for checkpoint in checkpoints:
+            if Path(checkpoint).stem != checkpoint_epochs[-1]:
+                shutil.rmtree(checkpoint)
+
+
 if __name__ == '__main__':
-    clean_clf_exp_df()
-    clean_mmvae_exp_df()
-    config_path = get_config_path()
-    with open(config_path, 'rt') as json_file:
-        config = json.load(json_file)
-    clean_fids(config)
-    clean_exp_dirs(config)
-    clean_clf_Exp_dirs(config)
+    # clean_clf_exp_df()
+    # clean_mmvae_exp_df()
+    # config_path = get_config_path()
+    # with open(config_path, 'rt') as json_file:
+    #     config = json.load(json_file)
+    # clean_fids(config)
+    # clean_exp_dirs(config)
+    # clean_clf_Exp_dirs(config)
+    clean_early_checkpoints(Path('~/klugh/mimic/moe/test_beta_bigsearch').expanduser())

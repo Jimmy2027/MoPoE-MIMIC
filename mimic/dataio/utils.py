@@ -1,3 +1,4 @@
+from pathlib import Path
 from torch.utils.data import DataLoader
 from torchvision import transforms
 import torch
@@ -5,6 +6,8 @@ import PIL.Image as Image
 import json
 import pandas as pd
 from typing import List
+
+from mimic import log
 
 
 class CustomTransforms:
@@ -30,7 +33,7 @@ def get_transform_img(args: any, img_clf_type: str, clf_training=False):
         transforms.ToTensor(),
     ]
     if clf_training and args.normalization:
-        stats = get_ds_stats()
+        stats = get_ds_stats(args)
         transforms.Normalize(*stats, inplace=True)
 
     return transforms.Compose(tfs)
@@ -91,8 +94,12 @@ def calculateWeights(label_df, counts, binary_labels):
     return torch.DoubleTensor(label_df.weights.values), label_df
 
 
-def get_ds_stats():
-    path = 'dataset_stats.json'
+def get_ds_stats(args):
+    path = Path(__file__).parent.parent / 'data/dataset_stats.json'
+    if not path.exists():
+        from mimic.dataio.find_dataset_stats import get_mean_std
+        log.info("Dataset statistics not found, need to create them. This may take a while.")
+        get_mean_std(out_path=path, args=args)
     with open(path, 'r') as jsonfile:
         data = json.load(jsonfile)
     return data['PA_mean'], data['PA_std']
@@ -171,3 +178,10 @@ def undersample(labels: pd.DataFrame):
     """
     undersample_indices = get_undersample_indices(labels)
     return labels[labels.index.isin(undersample_indices)]
+
+
+def get_str_labels(binary_labels):
+    if binary_labels:
+        return ['Finding']
+    else:
+        return ['Lung Opacity', 'Pleural Effusion', 'Support Devices']

@@ -7,8 +7,8 @@ import pandas as pd
 from torch.utils.data import DataLoader
 
 from mimic import log
-from mimic.dataio.MimicDataset import Mimic
-from mimic.networks.classifiers.utils import LABELS
+
+from mimic.dataio.utils import get_str_labels
 from mimic.utils.filehandling import get_config_path
 from mimic.utils.flags import parser
 from mimic.utils.flags import update_flags_with_config
@@ -24,9 +24,14 @@ def write_results_to_json(results: dict, path: str = 'dataset_stats.json'):
         json.dump(results, outfile)
 
 
-def get_mean_std(d_loader):
+def get_mean_std(out_path, args):
     # taken from https://discuss.pytorch.org/t/computing-the-mean-and-std-of-dataset/34949/2
-
+    # set normalization to False to initialise the dataset
+    args.normalization = False
+    from mimic.dataio.MimicDataset import Mimic
+    trainset = Mimic(args, get_str_labels(FLAGS.binary_labels), split='train', clf_training=False)
+    d_loader = DataLoader(trainset, batch_size=50, shuffle=False, num_workers=0)
+    args.normalization = True
     for mod in ['PA', 'Lateral']:
         mean = 0.
         std = 0.
@@ -41,13 +46,13 @@ def get_mean_std(d_loader):
         std /= len(d_loader.dataset)
         stats = {f'{mod}_mean': mean.item(), f'{mod}_std': std.item()}
         log.info(stats)
-        write_results_to_json(results=stats)
+        write_results_to_json(results=stats, path=out_path)
 
 
 def get_label_counts(args):
     dir_dataset = os.path.join(args.dir_data, 'files_small_128')
     train_labels_path = os.path.join(dir_dataset, 'train_labels.csv')
-    train_labels_df = pd.read_csv(train_labels_path)[LABELS].fillna(0)
+    train_labels_df = pd.read_csv(train_labels_path)[get_str_labels(args.binary_labels)].fillna(0)
     indices = []
     indices += train_labels_df.index[(train_labels_df['Lung Opacity'] == -1)].tolist()
     indices += train_labels_df.index[(train_labels_df['Pleural Effusion'] == -1)].tolist()
@@ -59,7 +64,7 @@ def get_label_counts(args):
 
 
 if __name__ == '__main__':
-    FLAGS = parser.parse_args()
+    FLAGS = parser.parse_args([])
 
     config_path = get_config_path(FLAGS)
     FLAGS = update_flags_with_config(config_path)
@@ -67,7 +72,4 @@ if __name__ == '__main__':
 
     get_label_counts(FLAGS)
 
-    trainset = Mimic(FLAGS, LABELS, split='train', clf_training=False)
-    trainset_loader = DataLoader(trainset, batch_size=50, shuffle=False, num_workers=0)
-
-    get_mean_std(trainset_loader)
+    get_mean_std(FLAGS)

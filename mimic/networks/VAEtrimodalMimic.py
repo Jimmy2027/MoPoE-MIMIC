@@ -56,7 +56,7 @@ class VAEtrimodalMimic(BaseMMVae, nn.Module):
                 elif m_key == 'PA':
                     rec = self.lhood_pa(*self.decoder_pa(s_emb, class_embeddings))
                 elif m_key == 'text':
-                    rec = self.lhood_text(*self.decoder_text(s_emb, class_embeddings))
+                    rec = self.lhood_text(logits=self.decoder_text(s_emb, class_embeddings)[0])
                 results_rec[m_key] = rec
         results['rec'] = results_rec
         return results
@@ -147,10 +147,11 @@ class VAEtrimodalMimic(BaseMMVae, nn.Module):
         style_pa = latents['style']['PA']
         style_lat = latents['style']['Lateral']
         style_text = latents['style']['text']
-        content = latents['content']
+        content: dict = latents['content']
         cond_gen_m1 = self.lhood_pa(*self.decoder_pa(style_pa, content))
         cond_gen_m2 = self.lhood_lat(*self.decoder_lat(style_lat, content))
-        cond_gen_m3 = self.lhood_text(*self.decoder_text(style_text, content))
+        cond_gen_m3 = self.lhood_text(logits=self.decoder_text(style_text, content)[0])
+
         return {'PA': cond_gen_m1, 'Lateral': cond_gen_m2, 'text': cond_gen_m3}
 
     def save_networks(self):

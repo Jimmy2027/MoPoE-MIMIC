@@ -13,9 +13,9 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from mimic.dataio.MimicDataset import Mimic, Mimic_testing
-from mimic.dataio.utils import get_data_loaders
+from mimic.dataio.utils import get_data_loaders, get_str_labels
 from mimic.networks.classifiers.utils import get_input
-from mimic.networks.classifiers.utils import set_clf_paths, ExperimentDf, get_models, get_labels, Callbacks
+from mimic.networks.classifiers.utils import set_clf_paths, ExperimentDf, get_models, Callbacks
 from mimic.utils.exceptions import CudaOutOfMemory
 from mimic.utils.filehandling import get_config_path
 from mimic.utils.flags import parser
@@ -177,8 +177,8 @@ def run_training_procedure_clf(flags):
     set_clf_paths(flags)
 
     # This will overwrite old classifiers!!
-    mimic_train = Mimic(flags, get_labels(flags.binary_labels), split='train', clf_training=True)
-    mimic_eval = Mimic(flags, get_labels(flags.binary_labels), split='eval', clf_training=True)
+    mimic_train = Mimic(flags, get_str_labels(flags.binary_labels), split='train', clf_training=True)
+    mimic_eval = Mimic(flags, get_str_labels(flags.binary_labels), split='eval', clf_training=True)
     print(f'Training image classifier {flags.img_clf_type} with modality: {flags.modality} '
           f'for images of size {flags.img_size} and with batch_size {flags.batch_size}')
     print(f'clf_log_dir: {flags.dir_logs_clf}')

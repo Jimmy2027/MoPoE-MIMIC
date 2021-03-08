@@ -37,6 +37,8 @@ class TBLogger():
 
     def write_lr_eval(self, lr_eval):
         for s, l_key in enumerate(sorted(lr_eval.keys())):
+            # lr_scores = {f'{s_key}' :s['mean_AP_'] for s_key}
+
             self.writer.add_scalars(f'Latent Representation/{l_key}', lr_eval[l_key], self.step)
 
     def write_coherence_logs(self, gen_eval):

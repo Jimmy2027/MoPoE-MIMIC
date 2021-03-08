@@ -156,10 +156,9 @@ def get_clf_path(clf_dir: str, clf_name: str) -> Optional[str]:
     found by scanning the directory.
     """
     for file in os.listdir(clf_dir):
-        if file.startswith(clf_name):
+        filename = '_'.join(file.split('_')[:-1])
+        if filename == clf_name:
             return os.path.join(clf_dir, file)
-    if clf_name.startswith('clf_text_'):
-        return None
     else:
         raise FileNotFoundError(f'No {clf_name} classifier was found in {clf_dir}')
 
@@ -334,3 +333,6 @@ def json_file_to_pyobj(filename: str):
     def json2obj(data): return json.loads(data, object_hook=_json_object_hook)
 
     return json2obj(open(filename).read())
+
+
+

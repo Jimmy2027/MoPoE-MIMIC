@@ -10,17 +10,18 @@ parser.add_argument('--which_grid', type=str, default='imgs', choices=['resnet',
                     help="modality on which to train the image classifier, chose between PA and Lateral")
 
 params_seach_space_img = {
-    'exp_str_prefix': [['weighted_sampler', 'img_clf_type', 'initial_learning_rate']],
+    'exp_str_prefix': [['weighted_sampler', 'img_clf_type', 'initial_learning_rate', 'binary_labels']],
     'n_crops': [1],
     'img_clf_type': ['resnet'],
     'clf_loss': ['dice'],
     'img_size': [256],
-    'modality': ['PA'],
+    'modality': ['PA', 'Lateral'],
     'fixed_extractor': [True],
+    'binary_labels': [True, False],
     'normalization': [False],
-    'weighted_sampler': [True, False],
+    'weighted_sampler': [True],
     "undersample_dataset": [False],
-    "initial_learning_rate": [0.0001, 0.001, 0.1]
+    "initial_learning_rate": [0.0001]
 }
 
 params_seach_space_PA = {
@@ -31,10 +32,15 @@ params_seach_space_PA = {
 }
 
 params_seach_space_text = {
+    'exp_str_prefix': [['weighted_sampler', 'initial_learning_rate', 'binary_labels']],
     'text_encoding': ['word'],
     'clf_loss': ['binary_crossentropy'],
     'modality': ['text'],
-    'reduce_lr_on_plateau': [True]
+    'reduce_lr_on_plateau': [True],
+    'binary_labels': [True],
+    'normalization': [False],
+    'weighted_sampler': [True],
+    "initial_learning_rate": [0.0001]
 }
 
 blacklist = [
@@ -46,7 +52,7 @@ blacklist = [
 
 grids = {
     'imgs': params_seach_space_img,
-    # 'text': params_seach_space_text
+    'text': params_seach_space_text
 }
 
 FLAGS = parser.parse_args()
@@ -70,7 +76,7 @@ for params in ParameterGrid(grids[FLAGS.which_grid]):
 
         FLAGS.feature_extractor_img = FLAGS.img_clf_type
 
-        FLAGS.dir_clf += '_newgridsearch'
+        # FLAGS.dir_clf += '_final'
         FLAGS.distributed = False
         run_training_procedure_clf(FLAGS)
         print('\n**********************\n\n')

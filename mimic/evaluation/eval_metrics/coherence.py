@@ -192,7 +192,7 @@ def calc_coherence_random_gen(exp, mm_vae, iteration: int, gen_perf: typing.Mapp
     for j, l_key in enumerate(exp.labels):
         gen_perf['random'][l_key].append(coherence_random[l_key])
 
-    if (exp.flags.batch_size * iteration) < exp.flags.num_samples_fid:
+    if (exp.flags.batch_size * iteration) < exp.flags.num_samples_fid and args.save_figure:
         # saving generated samples to dir_fid
         save_generated_samples(exp, rand_gen, iteration, batch_d)
 
@@ -201,7 +201,7 @@ def calc_coherence_random_gen(exp, mm_vae, iteration: int, gen_perf: typing.Mapp
 
 def eval_classified_gen_samples(exp, subsets, mods, cond_gen_classified, gen_perf, batch_labels):
     """
-    HK, 15.12.20
+    Computes the eval metric of the predicted classes.
     """
     gen_perf_cond = {}
     # compare the classification on the generated samples with the ground truth
@@ -221,7 +221,7 @@ def eval_classified_gen_samples(exp, subsets, mods, cond_gen_classified, gen_per
     return gen_perf
 
 
-def test_generation(epoch, exp):
+def test_generation(exp, dataset=None):
     """
     Generates random and conditioned samples and evaluates coherence.
     """
@@ -232,15 +232,25 @@ def test_generation(epoch, exp):
     subsets = exp.subsets
     if '' in subsets:
         del subsets['']
-    labels = exp.labels
 
-    gen_perf = init_gen_perf(labels, subsets, mods)
-
-    d_loader = DataLoader(exp.dataset_test,
+    d_loader = DataLoader(exp.dataset_test if not dataset else dataset,
                           batch_size=args.batch_size,
                           shuffle=True,
-                          num_workers=exp.flags.dataloader_workers, drop_last=True)
+                          num_workers=exp.flags.dataloader_workers, drop_last=False)
 
+    batch_labels, gen_perf, cond_gen_classified = classify_generated_samples(args, d_loader, exp, mm_vae,
+                                                                                       mods, subsets)
+
+    gen_perf['cond']: Mapping[str, Mapping[str, Mapping[str, float]]]
+    return eval_classified_gen_samples(exp, subsets, mods, cond_gen_classified, gen_perf, batch_labels)
+
+
+def classify_generated_samples(args, d_loader, exp, mm_vae, mods, subsets):
+    """
+    Generates and classifies samples.
+    """
+    labels = exp.labels
+    gen_perf = init_gen_perf(labels, subsets, mods)
     total_steps = None if args.steps_per_training_epoch < 0 else args.steps_per_training_epoch
     # all labels accumulated over batches:
     batch_labels = torch.Tensor()
@@ -271,6 +281,17 @@ def test_generation(epoch, exp):
                 cond_gen_classified[subset][mod] = torch.cat((cond_gen_classified[subset][mod], clf_cg[mod]), 0)
             if (exp.flags.batch_size * iteration) < exp.flags.num_samples_fid and exp.flags.save_figure:
                 save_generated_samples_singlegroup(exp, iteration, subset, cond_val)
+    return batch_labels, gen_perf, cond_gen_classified
 
-    gen_perf['cond']: Mapping[str, Mapping[str, Mapping[str, float]]]
-    return eval_classified_gen_samples(exp, subsets, mods, cond_gen_classified, gen_perf, batch_labels)
+
+def flatten_cond_gen_values(gen_eval: dict):
+    """
+    Converts the coherence evaluation results into a flattened dict
+    """
+    flattened_dict = {}
+    for j, l_key in enumerate(sorted(gen_eval['cond'].keys())):
+        for k, s_key in enumerate(gen_eval['cond'][l_key].keys()):
+            for g_key in gen_eval['cond'][l_key][s_key]:
+                key = l_key + '_' + s_key + '__' + g_key
+                flattened_dict[key] = gen_eval['cond'][l_key][s_key][g_key]
+    return flattened_dict

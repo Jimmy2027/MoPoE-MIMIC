@@ -60,7 +60,7 @@ def test_main(img_size, text_encoding, feature_extractor_img, only_text_modality
         clean_experiment_df(main.flags.str_experiment)
 
 
-def test_main_densenet(img_size=256, text_encoding='char', feature_extractor_img='densenet', only_text_modality=False):
+def test_main_densenet(img_size=128, text_encoding='word', feature_extractor_img='resnet', only_text_modality=False):
     with tempfile.TemporaryDirectory() as tmpdirname:
         config = {
             "img_size": img_size,
@@ -72,15 +72,21 @@ def test_main_densenet(img_size=256, text_encoding='char', feature_extractor_img
             "end_epoch": 2,
             "calc_nll": True,
             "eval_lr": True,
-            "calc_prd": True,
+            "calc_prd": False,
             "use_clf": True,
-            "batch_size": 100,
-            "eval_freq": 1,
-            "eval_freq_fid": 1,
+            "batch_size": 20,
+            "eval_freq": 3,
+            "eval_freq_fid": 2,
             "dir_experiment": tmpdirname,
             "dir_fid": tmpdirname,
             "distributed": False,
-            "only_text_modality": only_text_modality
+            "only_text_modality": only_text_modality,
+            "rec_weight_m1": 0.25,
+            "rec_weight_m2": 0.25,
+            "rec_weight_m3": 0.5,
+            "weighted_sampler": True,
+            "dataloader_workers": 0,
+            "binary_labels": True
         }
 
         flags = parser.parse_args([])

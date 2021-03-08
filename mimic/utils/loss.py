@@ -76,19 +76,7 @@ def get_clf_loss(which_loss: str):
     elif which_loss == 'dice':
         return dice_loss
     else:
-        raise NotImplementedError(f'{args.clf_loss} is not implemented yet')
-
-
-def get_clf_crit(args):
-    if args.clf_loss == 'binary_crossentropy':
-        return F.binary_cross_entropy
-    elif args.clf_loss == 'crossentropy':
-        return F.cross_entropy
-    elif args.clf_loss == 'bce_with_logits':
-        loss = torch.nn.BCEWithLogitsLoss()(estimate, gt)
-    else:
-        raise NotImplementedError(f'{args.clf_loss} is not implemented yet')
-    return loss
+        raise NotImplementedError(f'{which_loss} is not implemented yet')
 
 
 def l1_loss(input, target):

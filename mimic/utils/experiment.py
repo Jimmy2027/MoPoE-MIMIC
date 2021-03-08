@@ -18,7 +18,7 @@ from torch.utils.tensorboard import SummaryWriter
 from mimic import log
 from mimic.dataio.MimicDataset import Mimic, Mimic_testing
 from mimic.dataio.MimicDataset import MimicText as MimicTextDataset
-from mimic.dataio.utils import get_transform_img
+from mimic.dataio.utils import get_transform_img, get_str_labels
 from mimic.modalities.MimicLateral import MimicLateral
 from mimic.modalities.MimicPA import MimicPA
 from mimic.modalities.MimicText import MimicText
@@ -40,7 +40,7 @@ from mimic.utils.utils import init_twolevel_nested_dict
 class MimicExperiment(BaseExperiment):
     def __init__(self, flags):
         super().__init__(flags)
-        self.labels = self.get_str_labels()
+        self.labels = get_str_labels(flags.binary_labels)
         self.flags = flags
         self.experiment_uid = flags.str_experiment
         self.dataset = flags.dataset
@@ -71,12 +71,6 @@ class MimicExperiment(BaseExperiment):
         self.number_restarts = 0
         self.tb_logger = None
 
-    def get_str_labels(self):
-        if self.flags.binary_labels:
-            return ['Finding']
-        else:
-            return ['Lung Opacity', 'Pleural Effusion', 'Support Devices']
-
     def set_model(self):
         if self.flags.only_text_modality:
             return VAETextMimic(self.flags, self.modalities, self.subsets)
@@ -98,7 +92,7 @@ class MimicExperiment(BaseExperiment):
             return {mod1.name: mod1, mod2.name: mod2, mod3.name: mod3}
 
     def set_dataset(self):
-        font = ImageFont.truetype(str(Path(__file__).parent.parent / 'FreeSerif.ttf'),
+        font = ImageFont.truetype(str(Path(__file__).parent.parent / 'data/FreeSerif.ttf'),
                                   20) if not self.flags.distributed else None
         log.info('setting dataset')
         # used for faster unittests i.e. a dummy dataset
@@ -149,13 +143,14 @@ class MimicExperiment(BaseExperiment):
                 if mod in ['PA', 'Lateral']:
                     # finding the directory of the classifier
                     dir_img_clf = os.path.join(self.flags.dir_clf,
-                                               f'Mimic{self.flags.img_size}_{self.flags.img_clf_type}')
+                                               f'Mimic{self.flags.img_size}_{self.flags.img_clf_type}'
+                                               f'{"_bin_label" if self.flags.binary_labels else ""}')
                     dir_img_clf = os.path.expanduser(dir_img_clf)
                     # finding and loading state dict
                     clf = ClfImg(self.flags, self.labels) if self.flags.img_clf_type == 'resnet' else CheXNet(
                         len(self.labels))
                     clf_path = get_clf_path(dir_img_clf, clf_save_names[mod])
-                    clf.load_state_dict(torch.load(clf_path))
+                    clf.load_state_dict(torch.load(clf_path, map_location=self.flags.device))
                     clfs[mod] = clf.to(self.flags.device)
                 elif mod == 'text':
                     # create temporary args to set the word encoding of the classifier to text_clf_type.
@@ -163,9 +158,10 @@ class MimicExperiment(BaseExperiment):
                     temp_args = Namespace(**vars(self.flags))
                     temp_args.text_encoding = self.flags.text_clf_type
                     clf = ClfText(temp_args, self.labels)
-                    clf_path = get_clf_path(self.flags.dir_clf, f'clf_text_{self.flags.text_clf_type}_encoding')
+                    clf_path = get_clf_path(self.flags.dir_clf, clf_save_names[
+                        mod] + f'vocabsize_{self.flags.vocab_size}{"_bin_label" if self.flags.binary_labels else ""}')
 
-                    clf.load_state_dict(torch.load(clf_path))
+                    clf.load_state_dict(torch.load(clf_path, map_location=self.flags.device))
                     clfs[mod] = clf.to(self.flags.device)
                 else:
                     raise NotImplementedError
@@ -252,16 +248,17 @@ class MimicExperiment(BaseExperiment):
         Updates the values in experiments dataframe with the new values from the values_dict and saves it if the
         experiment is not a test run
         """
-        log.info(f"writing to experiment df: {values_dict}")
+        log.info(f"writing to experiment df with uid {self.experiment_uid}: {values_dict}")
         # load dataframe every time in order not to overwrite other writers
         if os.path.exists('experiments_dataframe.csv'):
             self.experiments_dataframe = pd.read_csv('experiments_dataframe.csv')
-        for key in values_dict:
+        for key, value in values_dict.items():
             self.experiments_dataframe.loc[
-                self.experiments_dataframe['experiment_uid'] == self.experiment_uid, key] = values_dict[key]
+                self.experiments_dataframe['experiment_uid'] == self.experiment_uid, key] = value
 
         if self.flags.dataset != 'testing':
             self.experiments_dataframe.to_csv('experiments_dataframe.csv', index=False)
+
 
     def init_summary_writer(self):
         log.info(f'setting up summary writer for device {self.flags.device}')
@@ -349,13 +346,13 @@ class Callbacks:
         for label, d_label in self.results_lr.items():
             for subset, values in d_label.items():
                 plt.plot(values, label=subset)
-            plt.title(label)
+            plt.title(f'{label}, eval freq: {self.args.eval_freq} epochs')
             plt.legend()
             out_path = self.exp.flags.dir_experiment_run / f"{label.replace(' ', '_')}.png"
             if out_path.is_file():
                 out_path.unlink()
             plt.savefig(out_path)
-            log.debug(f"Saving plot to {out_path}")
+            log.info(f"Saving plot to {out_path}")
             plt.close()
 
     def _update_results_lr(self, results_lr):
@@ -368,7 +365,7 @@ class Callbacks:
     def save_checkpoint(self, epoch):
         # save checkpoints every 5 epochs
         # when using DDP, the model is the same over all devices, only need to save it for one process
-        if ((epoch + 1) % 5 == 0 or (
+        if ((epoch + 1) % 50 == 0 or (
                 epoch + 1) == self.exp.flags.end_epoch) and (
                 not self.args.distributed or self.exp.flags.device % self.exp.flags.world_size == 0):
             dir_network_epoch = os.path.join(self.exp.flags.dir_checkpoints, str(epoch).zfill(4))

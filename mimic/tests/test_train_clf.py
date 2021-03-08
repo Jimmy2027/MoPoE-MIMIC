@@ -37,6 +37,7 @@ class TestTraining(TestCase):
         FLAGS.distributed = False
         FLAGS.clf_loss = 'bce_with_logits'
         FLAGS.experiment_uid = 'test'
+        FLAGS.binary_labels =True
         FLAGS.dir_clf = os.path.expanduser(
             os.path.join(FLAGS.dir_clf, f'Mimic{FLAGS.img_size}_{FLAGS.img_clf_type}'))
         FLAGS = expand_paths(FLAGS)
