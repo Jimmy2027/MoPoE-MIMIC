@@ -17,7 +17,7 @@ from mimic.utils.utils import stdout_if_verbose
 from mimic.networks.classifiers.utils import Metrics
 
 
-def train_clf_lr_all_subsets(exp: MimicExperiment):
+def train_clf_lr_all_subsets(exp: MimicExperiment, weighted_sampler: bool = True):
     """
     Encodes samples from the training set and train line classifiers from them.
     """
@@ -29,8 +29,8 @@ def train_clf_lr_all_subsets(exp: MimicExperiment):
     if '' in subsets:
         del subsets['']
     n_train_samples = exp.flags.num_training_samples_lr
-    _, train_loader = get_data_loaders(args, exp.dataset_train, which_set='train', weighted_sampler=True,
-                                       nbr_samples_4_sampler=n_train_samples*2)
+    _, train_loader = get_data_loaders(args, exp.dataset_train, which_set='train', weighted_sampler=weighted_sampler,
+                                       nbr_samples_4_sampler=n_train_samples * 2)
 
     if exp.flags.steps_per_training_epoch > 0:
         training_steps = exp.flags.steps_per_training_epoch
@@ -60,7 +60,6 @@ def train_clf_lr_all_subsets(exp: MimicExperiment):
         all_labels = torch.cat((all_labels, batch_l), 0)
         for key in lr_subsets:
             data_train[key] = torch.cat((data_train[key], lr_subsets[key][0].cpu()), 0)
-
 
     # get random labels such that it contains both classes
     labels, rand_ind_train = get_random_labels(all_labels.shape[0], n_train_samples, all_labels)
@@ -92,7 +91,6 @@ def get_random_labels(n_samples, n_train_samples, all_labels, max_tries=1000):
 def test_clf_lr_all_subsets(clf_lr, exp) -> typing.Mapping[str, typing.Mapping[str, float]]:
     """
     Test the classifiers that were trained on latent representations.
-
     """
     args = exp.flags
     mm_vae = exp.mm_vae
