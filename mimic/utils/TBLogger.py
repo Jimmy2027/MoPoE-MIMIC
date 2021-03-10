@@ -36,10 +36,10 @@ class TBLogger():
                                     self.step)
 
     def write_lr_eval(self, lr_eval):
-        for s, l_key in enumerate(sorted(lr_eval.keys())):
-            # lr_scores = {f'{s_key}' :s['mean_AP_'] for s_key}
-
-            self.writer.add_scalars(f'Latent Representation/{l_key}', lr_eval[l_key], self.step)
+        for l_key in sorted(lr_eval.keys()):
+            mean_AP_keys = [k for k in lr_eval[l_key] if k.startswith('mean_AP')]
+            results = {k: v for k, v in lr_eval[l_key].items() if k in ['dice', 'accuracy', *mean_AP_keys]}
+            self.writer.add_scalars(f'Latent Representation/{l_key}', results, self.step)
 
     def write_coherence_logs(self, gen_eval):
         for j, l_key in enumerate(sorted(gen_eval['cond'].keys())):
@@ -113,4 +113,5 @@ class TBLogger():
     def write_tensor_to_text(self, text_tensor, exp, log_tag: str):
         sep = ' ' if exp.flags.text_encoding == 'word' else ''
         one_hot = exp.flags.text_encoding == 'char'
-        self.writer.add_text(log_tag, sep.join(tensor_to_text(exp, text_tensor, one_hot=one_hot)), global_step=self.step)
+        self.writer.add_text(log_tag, sep.join(tensor_to_text(exp, text_tensor, one_hot=one_hot)),
+                             global_step=self.step)

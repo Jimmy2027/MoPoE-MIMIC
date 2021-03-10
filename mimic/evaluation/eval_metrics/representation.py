@@ -17,7 +17,7 @@ from mimic.utils.utils import stdout_if_verbose
 from mimic.networks.classifiers.utils import Metrics
 
 
-def train_clf_lr_all_subsets(exp: MimicExperiment, weighted_sampler: bool = True):
+def train_clf_lr_all_subsets(exp: MimicExperiment, weighted_sampler: bool = False):
     """
     Encodes samples from the training set and train line classifiers from them.
     """
@@ -88,7 +88,7 @@ def get_random_labels(n_samples, n_train_samples, all_labels, max_tries=1000):
     return labels, rand_ind_train
 
 
-def test_clf_lr_all_subsets(clf_lr, exp) -> typing.Mapping[str, typing.Mapping[str, float]]:
+def test_clf_lr_all_subsets(clf_lr, exp):
     """
     Test the classifiers that were trained on latent representations.
     """
@@ -98,13 +98,9 @@ def test_clf_lr_all_subsets(clf_lr, exp) -> typing.Mapping[str, typing.Mapping[s
     subsets = exp.subsets
     if '' in subsets:
         del subsets['']
-    labels = exp.labels
 
-    lr_eval = init_twolevel_nested_dict(exp.labels, subsets, [])
-
-    d_loader = DataLoader(exp.dataset_test, batch_size=exp.flags.batch_size,
-                          shuffle=True,
-                          num_workers=exp.flags.dataloader_workers, drop_last=True)
+    d_loader = DataLoader(exp.dataset_test, batch_size=exp.flags.batch_size, shuffle=False,
+                          num_workers=exp.flags.dataloader_workers, drop_last=False)
 
     if exp.flags.steps_per_training_epoch > 0:
         training_steps = exp.flags.steps_per_training_epoch
@@ -113,7 +109,8 @@ def test_clf_lr_all_subsets(clf_lr, exp) -> typing.Mapping[str, typing.Mapping[s
     log.info(f'Creating {training_steps} batches of latent representations for classifier testing '
              f'with a batch_size of {exp.flags.batch_size}.')
 
-    clf_predictions = init_twolevel_nested_dict(exp.labels, subsets, [], copy_init_val=True)
+    clf_predictions = {subset: torch.Tensor() for subset in subsets}
+
     batch_labels = torch.Tensor()
 
     for iteration, (batch_d, batch_l) in enumerate(d_loader):
@@ -130,16 +127,22 @@ def test_clf_lr_all_subsets(clf_lr, exp) -> typing.Mapping[str, typing.Mapping[s
         clf_predictions_batch = classify_latent_representations(exp, clf_lr, data_test)
         clf_predictions_batch: Mapping[str, Mapping[str, np.array]]
 
-        for label in labels:
-            for subset in subsets:
-                clf_predictions[label][subset].append(clf_predictions_batch[label][subset])
+        for subset in subsets:
+            clf_predictions_batch_subset = torch.cat(tuple(
+                torch.tensor(clf_predictions_batch[label][subset]).unsqueeze(1) for label in
+                exp.labels), 1)
 
-    for l_idx, l_key in enumerate(labels):
-        for s_key in subsets:
-            lr_eval[l_key][s_key]: float = exp.eval_metric(batch_labels[:, l_idx],
-                                                           np.array(clf_predictions[l_key][s_key]).ravel())
-    return lr_eval
+            clf_predictions[subset] = torch.cat([clf_predictions[subset], clf_predictions_batch_subset], 0)
 
+    results = {}
+    for subset in clf_predictions:
+        # calculate metrics
+        metrics = Metrics(clf_predictions[subset], batch_labels, str_labels=exp.labels)
+        metrics_dict = metrics.evaluate()
+        results[subset] = metrics.extract_values(metrics_dict)
+    log.info(f'Lr eval results: {results}')
+
+    return results
 
 def classify_latent_representations(exp, clf_lr: Mapping[str, Mapping[str, LogisticRegression]], data) \
         -> Mapping[str, Mapping[str, np.array]]:
