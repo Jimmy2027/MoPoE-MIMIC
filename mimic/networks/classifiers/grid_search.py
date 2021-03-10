@@ -10,17 +10,18 @@ parser.add_argument('--which_grid', type=str, default='imgs', choices=['resnet',
                     help="modality on which to train the image classifier, chose between PA and Lateral")
 
 params_seach_space_img = {
-    'exp_str_prefix': [['weighted_sampler', 'img_clf_type', 'initial_learning_rate', 'binary_labels']],
+    'exp_str_prefix': [['undersample_dataset', 'img_clf_type', 'clf_loss', 'binary_labels']],
     'n_crops': [1],
-    'img_clf_type': ['resnet'],
-    'clf_loss': ['dice'],
+    'img_clf_type': ['resnet', 'densenet'],
+    'clf_loss': ['dice', 'binary_crossentropy'],
     'img_size': [256],
-    'modality': ['PA', 'Lateral'],
+    # 'modality': ['PA', 'Lateral'],
+    'modality': ['PA'],
     'fixed_extractor': [True],
-    'binary_labels': [True, False],
+    'binary_labels': [True],
     'normalization': [False],
-    'weighted_sampler': [True],
-    "undersample_dataset": [False],
+    'weighted_sampler': [False],
+    "undersample_dataset": [True, False],
     "initial_learning_rate": [0.0001]
 }
 
