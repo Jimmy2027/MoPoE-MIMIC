@@ -1,5 +1,6 @@
 import os
 import typing
+from pathlib import Path
 from timeit import default_timer as timer
 from typing import Optional
 from typing import Protocol
@@ -11,7 +12,7 @@ from matplotlib import pyplot as plt
 from sklearn.metrics import average_precision_score
 from torch.autograd import Variable
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-from pathlib import Path
+
 from mimic import log
 from mimic.networks.CheXNet import CheXNet
 from mimic.networks.ConvNetworkImgClf import ClfImg
@@ -293,6 +294,8 @@ class Metrics(object):
         params:
             prediction: Tensor which is given as output of the network
             groundtruth: Tensor which resembles the goundtruth
+        >>> import torch
+        >>> metrics = Metrics(torch.ones((10,1)), torch.ones((10,1)), str_labels=['my_labels'])
         """
         self.str_labels = str_labels
         self.prediction = prediction
@@ -321,6 +324,16 @@ class Metrics(object):
         },
                 **self.mean_AP(), **self.counts()
                 }
+
+    def extract_values(self, results: dict):
+        """
+        Extract first values from list for each metric result.
+        >>> import torch
+        >>> metrics = Metrics(torch.ones((10,1)), torch.ones((10,1)), str_labels=['my_labels'])
+        >>> metrics.extract_values(results={'accuracy':[0.9], 'f1': [0.8], 'recall':[0.6]})
+        {'accuracy': 0.9, 'f1': 0.8, 'recall': 0.6}
+        """
+        return {k: v[0] for k, v in results.items()}
 
     def accuracy(self) -> float:
         """
@@ -362,25 +375,19 @@ class Metrics(object):
         """
         Computes the f1 score (same as dice)
         """
-        F1 = 2 * (self.RC * self.PC) / (self.RC + self.PC + 1e-6)
-
-        return F1
+        return 2 * (self.RC * self.PC) / (self.RC + self.PC + 1e-6)
 
     def jaccard(self) -> float:
         """
         Computes the jaccard score
         """
-        JS = float(self.INTER) / (float(self.INTER + self.FP + self.FN) + 1e-6)
-
-        return JS
+        return float(self.INTER) / (float(self.INTER + self.FP + self.FN) + 1e-6)
 
     def dice(self):
         """
         Computes the dice score (same as f1)
         """
-        DC = 2 * float(self.INTER) / (float(2 * self.INTER + self.FP + self.FN) + 1e-6)
-
-        return DC
+        return 2 * float(self.INTER) / (float(2 * self.INTER + self.FP + self.FN) + 1e-6)
 
     def mean_AP(self) -> dict:
         """
