@@ -259,7 +259,6 @@ class MimicExperiment(BaseExperiment):
         if self.flags.dataset != 'testing':
             self.experiments_dataframe.to_csv('experiments_dataframe.csv', index=False)
 
-
     def init_summary_writer(self):
         log.info(f'setting up summary writer for device {self.flags.device}')
         # initialize summary writer
@@ -298,7 +297,7 @@ class Callbacks:
         self.patience_idx = 1
         self.scheduler = ReduceLROnPlateau(optimizer, 'min', patience=5, verbose=True)
         self.elapsed_times = []
-        self.results_lr = init_twolevel_nested_dict(exp.labels, exp.subsets.keys(), init_val=[], copy_init_val=True)
+        self.results_lr = None
 
     def update_epoch(self, epoch, loss, elapsed_time, results_lr):
         self._update_results_lr(results_lr)
@@ -341,26 +340,31 @@ class Callbacks:
         return stop_early
 
     def plot_results_lr(self):
+        """Plot the lr eval results. Make a plot for every metric."""
         if not self.exp.flags.dir_experiment_run.is_dir():
             os.mkdir(self.exp.flags.dir_experiment_run)
-        for label, d_label in self.results_lr.items():
-            for subset, values in d_label.items():
-                plt.plot(values, label=subset)
-            plt.title(f'{label}, eval freq: {self.args.eval_freq} epochs')
-            plt.legend()
-            out_path = self.exp.flags.dir_experiment_run / f"{label.replace(' ', '_')}.png"
-            if out_path.is_file():
-                out_path.unlink()
-            plt.savefig(out_path)
-            log.info(f"Saving plot to {out_path}")
-            plt.close()
+        for subset, sub_results in self.results_lr.items():
+            for metric, value in sub_results.items():
+                plt.plot(value, label=subset)
+                plt.title(f'{metric}, eval freq: {self.args.eval_freq} epochs')
+                plt.legend()
+                out_path = self.exp.flags.dir_experiment_run / f"{metric.replace(' ', '_')}.png"
+                if out_path.is_file():
+                    out_path.unlink()
+                plt.savefig(out_path)
+                log.info(f"Saving plot to {out_path}")
+                plt.close()
 
     def _update_results_lr(self, results_lr):
-        # update values only if results_lr is non None, (the test metrics are only evaluated every Nth epoch)
+        """Save the lr eval results such that they can be plotted."""
+        # update values only if results_lr is not None, (the eval metrics are only evaluated every Nth epoch)
         if results_lr:
-            for label, d_label in results_lr.items():
-                for subset in d_label:
-                    self.results_lr[label][subset].append(results_lr[label][subset])
+            if not self.results_lr:
+                self.results_lr = init_twolevel_nested_dict(results_lr.keys(), results_lr[list(results_lr.keys())[0]].keys(),
+                                                            init_val=[], copy_init_val=True)
+            for subset, results_sub in results_lr:
+                for metric in results_sub:
+                    self.results_lr[subset][metric].append(results_sub[metric])
 
     def save_checkpoint(self, epoch):
         # save checkpoints every 5 epochs
