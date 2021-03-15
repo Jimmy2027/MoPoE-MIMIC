@@ -10,6 +10,7 @@ from torchvision.utils import save_image
 
 from mimic.utils import text as text
 from mimic import log
+from pathlib import Path
 
 
 def create_fig(fn, img_data, num_img_row, save_figure=False):
@@ -50,6 +51,7 @@ def text_to_pil(exp, t, imgsize, font, w=128, h=256, linewidth: int = 27, max_nb
     if log_tag:
         log.info(f"logging to {log_tag}: {text_sample}")
         exp.tb_logger.write_text(log_tag, text_sample)
+        text_sample_to_file(log_tag, text_sample, epoch=exp.tb_logger.step, exp_path=exp.flags.dir_experiment_run)
 
     lines = textwrap.wrap(text_sample, width=linewidth)
     lines = lines[:max_nbr_lines]
@@ -63,3 +65,13 @@ def text_to_pil(exp, t, imgsize, font, w=128, h=256, linewidth: int = 27, max_nb
     else:
         return transforms.ToTensor()(pil_img.resize((imgsize[1], imgsize[2]),
                                                     Image.ANTIALIAS).convert('L'))
+
+
+def text_sample_to_file(log_tag: str, text_sample: str, epoch: int, exp_path: Path):
+    """Write the generated text sample to a file with name log_tag."""
+    base_path = exp_path / 'text_gen'
+    if not base_path.exists():
+        base_path.mkdir()
+    file_path = base_path / log_tag
+    with open(file_path, 'a') as textfile:
+        textfile.write(f'\n{"*" * 20}\n Epoch: {epoch}\n{text_sample}\n{"*" * 20}')
