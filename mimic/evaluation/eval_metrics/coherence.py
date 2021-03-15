@@ -2,6 +2,8 @@ import typing
 from contextlib import contextmanager
 from itertools import product
 from typing import Mapping
+from mimic.utils import text as text
+from nltk.translate.bleu_score import SmoothingFunction, corpus_bleu, sentence_bleu
 
 import numpy as np
 import torch
@@ -238,11 +240,13 @@ def test_generation(exp, dataset=None):
                           shuffle=True,
                           num_workers=exp.flags.dataloader_workers, drop_last=False)
 
-    batch_labels, gen_perf, cond_gen_classified = classify_generated_samples(args, d_loader, exp, mm_vae,
-                                                                                       mods, subsets)
+    batch_labels, gen_perf, cond_gen_classified, text_gen_eval_results = classify_generated_samples(args, d_loader, exp,
+                                                                                                    mm_vae,
+                                                                                                    mods, subsets)
 
     gen_perf['cond']: Mapping[str, Mapping[str, Mapping[str, float]]]
-    return eval_classified_gen_samples(exp, subsets, mods, cond_gen_classified, gen_perf, batch_labels)
+    return eval_classified_gen_samples(exp, subsets, mods, cond_gen_classified, gen_perf,
+                                       batch_labels), text_gen_eval_results
 
 
 def classify_generated_samples(args, d_loader, exp, mm_vae, mods, subsets):
@@ -256,7 +260,9 @@ def classify_generated_samples(args, d_loader, exp, mm_vae, mods, subsets):
     batch_labels = torch.Tensor()
     cond_gen_classified = init_twolevel_nested_dict(subsets, mods, init_val=torch.Tensor())
     cond_gen_classified: Mapping[subsets, Mapping[mods, Tensor]]
-
+    text_gen_eval_results = {}
+    text_gen = {k: torch.Tensor() for k in subsets}
+    text_batch = {k: torch.Tensor() for k in subsets}
     for iteration, (batch_d, batch_l) in tqdm(enumerate(at_most_n(d_loader, total_steps)),
                                               total=len(d_loader), postfix='test_generation'):
 
@@ -273,15 +279,36 @@ def classify_generated_samples(args, d_loader, exp, mm_vae, mods, subsets):
         lr_subsets = inferred['subsets']
         cg = mm_vae.module.cond_generation(lr_subsets) if args.distributed else mm_vae.cond_generation(lr_subsets)
         cg: typing.Mapping[subsets, typing.Mapping[mods, Tensor]]
-
         # classify the cond. generated samples
         for subset, cond_val in cg.items():
+            # save the generated text samples to evaluate them afterwards
+            text_gen[subset] = torch.cat((text_gen[subset], cond_val['text'].cpu()), 0)
+            text_batch[subset] = torch.cat((text_batch[subset], batch_d['text'].cpu()), 0)
             clf_cg: Mapping[mods, Tensor] = classify_cond_gen_samples(exp, batch_l, cond_val)
             for mod in mods:
                 cond_gen_classified[subset][mod] = torch.cat((cond_gen_classified[subset][mod], clf_cg[mod]), 0)
             if (exp.flags.batch_size * iteration) < exp.flags.num_samples_fid and exp.flags.save_figure:
                 save_generated_samples_singlegroup(exp, iteration, subset, cond_val)
-    return batch_labels, gen_perf, cond_gen_classified
+    text_gen_eval_results = evaluate_generated_text(exp, text_gen, text_ref=text_batch)
+    return batch_labels, gen_perf, cond_gen_classified, text_gen_eval_results
+
+
+def evaluate_generated_text(exp, text_gen: dict, text_ref: dict):
+    """Evaluate the generated text."""
+    text_gen_eval_results = {}
+    for subset in text_gen:
+        gen_sample = text.tensor_to_text(exp, text_gen[subset], one_hot=len(text_gen[subset].shape) > 2)
+        ref_sample = text.tensor_to_text(exp, text_ref[subset], one_hot=len(text_ref[subset].shape) > 2)
+        cc = SmoothingFunction()
+        text_gen_eval_results[subset] = {
+            'nbr_common_words': np.mean([len(set(ref_sample[i]) & set(gen_sample[i])) for i in range(len(ref_sample))]),
+            'bleu1': corpus_bleu(ref_sample, gen_sample, weights=(1, 0, 0, 0), smoothing_function=cc.method4),
+            'bleu2': corpus_bleu(ref_sample, gen_sample, weights=(0, 1, 0, 0), smoothing_function=cc.method4),
+            'bleu3': corpus_bleu(ref_sample, gen_sample, weights=(0, 0, 1, 0), smoothing_function=cc.method4),
+            'bleu4': corpus_bleu(ref_sample, gen_sample, weights=(0, 0, 0, 1), smoothing_function=cc.method4),
+            'bleu': corpus_bleu(ref_sample, gen_sample, smoothing_function=cc.method4),
+        }
+    return text_gen_eval_results
 
 
 def flatten_cond_gen_values(gen_eval: dict):
