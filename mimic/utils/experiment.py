@@ -298,9 +298,13 @@ class Callbacks:
         self.scheduler = ReduceLROnPlateau(optimizer, 'min', patience=5, verbose=True)
         self.elapsed_times = []
         self.results_lr = None
+        self.results = {}
 
-    def update_epoch(self, epoch, loss, elapsed_time, results_lr):
-        self._update_results_lr(results_lr)
+    def update_epoch(self, epoch, test_results, elapsed_time):
+        """Evaluate the progress (i.e. if the performance is increasing) using the test results and save them to the
+        experiment dataframe. Return True if the metrics did not improve for more epochs than the patience_idx."""
+        loss = test_results['total_loss']
+        self._update_results_lr(test_results)
         stop_early = False
         self.elapsed_times.append(elapsed_time)
         self.scheduler.step(loss)
@@ -335,36 +339,51 @@ class Callbacks:
 
         if (epoch + 1) % self.args.eval_freq == 0 or (epoch + 1) == self.args.end_epoch:
             # plot evolution of metrics every Nth epochs
-            self.plot_results_lr()
+            self.plot_results()
 
         return stop_early
 
-    def plot_results_lr(self):
-        """Plot the lr eval results. Make a plot for every metric."""
+    def plot_results(self):
+        """Plot the results. The self.results dict needs to be in the form of {eval_method:{subset:{metrics:value}}}"""
         if not self.exp.flags.dir_experiment_run.is_dir():
             os.mkdir(self.exp.flags.dir_experiment_run)
-        for subset, sub_results in self.results_lr.items():
-            for metric, value in sub_results.items():
-                plt.plot(value, label=subset)
-                plt.title(f'{metric}, eval freq: {self.args.eval_freq} epochs')
-                plt.legend()
-                out_path = self.exp.flags.dir_experiment_run / f"{metric.replace(' ', '_')}.png"
-                if out_path.is_file():
-                    out_path.unlink()
-                plt.savefig(out_path)
-                log.info(f"Saving plot to {out_path}")
-                plt.close()
+        for _, results in self.results.items():
+            for subset, sub_results in results.items():
+                for metric, value in sub_results.items():
+                    plt.plot(value, label=subset)
+                    plt.title(f'{metric}, eval freq: {self.args.eval_freq} epochs')
+                    plt.legend()
+                    out_path = self.exp.flags.dir_experiment_run / f"{metric.replace(' ', '_')}.png"
+                    if out_path.is_file():
+                        out_path.unlink()
+                    plt.savefig(out_path)
+                    log.info(f"Saving plot to {out_path}")
+                    plt.close()
 
-    def _update_results_lr(self, results_lr):
+    def _update_results_lr_(self, results_lr):
         """Save the lr eval results such that they can be plotted."""
         # update values only if results_lr is not None, (the eval metrics are only evaluated every Nth epoch)
         if results_lr:
             if not self.results_lr:
-                self.results_lr = init_twolevel_nested_dict(results_lr.keys(), results_lr[list(results_lr.keys())[0]].keys(),
+                self.results_lr = init_twolevel_nested_dict(results_lr.keys(),
+                                                            results_lr[list(results_lr.keys())[0]].keys(),
                                                             init_val=[], copy_init_val=True)
-            for subset, results_sub in results_lr:
+            for subset, results_sub in results_lr.items():
                 for metric in results_sub:
                     self.results_lr[subset][metric].append(results_sub[metric])
+
+    def _update_results_lr(self, test_results):
+        """Save the lr eval results such that they can be plotted."""
+        # update values only if results_lr is not None, (the eval metrics are only evaluated every Nth epoch)
+        for eval_method, results in test_results.items():
+            if eval_method != 'total_loss':
+                if eval_method not in self.results:
+                    self.results[eval_method] = init_twolevel_nested_dict(results.keys(),
+                                                                          results[list(results.keys())[0]].keys(),
+                                                                          init_val=[], copy_init_val=True)
+                for subset, results_sub in results.items():
+                    for metric in results_sub:
+                        self.results[eval_method][subset][metric].append(results_sub[metric])
 
     def save_checkpoint(self, epoch):
         # save checkpoints every 5 epochs

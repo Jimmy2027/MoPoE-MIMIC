@@ -187,7 +187,6 @@ def test(epoch, exp, test_loader: DataLoader):
         training_batch_size = exp.flags.batch_size
         exp.flags.batch_size = 30
 
-        test_results['lr_eval'] = None
         if (epoch + 1) % exp.flags.eval_freq == 0 or (epoch + 1) == exp.flags.end_epoch:
             log.info('generating plots')
             plots = generate_plots(exp, epoch)
@@ -202,9 +201,10 @@ def test(epoch, exp, test_loader: DataLoader):
 
             if exp.flags.use_clf:
                 log.info('test generation')
-                gen_eval = test_generation(exp)
+                gen_eval, text_gen_eval_results = test_generation(exp)
                 tb_logger.write_coherence_logs(gen_eval)
                 test_results['gen_eval'] = flatten_cond_gen_values(gen_eval)
+                test_results['text_gen_eval'] = text_gen_eval_results
 
             if exp.flags.calc_nll:
                 log.info('estimating likelihoods')
@@ -225,7 +225,7 @@ def test(epoch, exp, test_loader: DataLoader):
 
         # setting batch size back to training batch size
         exp.flags.batch_size = training_batch_size
-        return test_results['total_loss'], test_results['lr_eval']
+        return {k: v for k, v in test_results.items() if k in ['total_loss', 'lr_eval', 'text_gen_eval']}
 
 
 def run_epochs(rank: any, exp: MimicExperiment) -> None:
@@ -260,9 +260,10 @@ def run_epochs(rank: any, exp: MimicExperiment) -> None:
         exp.tb_logger.set_epoch(epoch)
         # one epoch of training and testing
         train(exp, train_loader)
-        mean_eval_loss, results_lr = test(epoch, exp, test_loader)
+        # mean_eval_loss, results_lr = test(epoch, exp, test_loader)
+        test_results = test(epoch, exp, test_loader)
 
-        if callbacks.update_epoch(epoch, mean_eval_loss, time.time() - end, results_lr):
+        if callbacks.update_epoch(epoch, test_results, time.time() - end):
             break
 
     if exp.tb_logger:
