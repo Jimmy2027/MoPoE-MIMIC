@@ -417,9 +417,8 @@ class Mimic_testing(Dataset):
             sample['text'] = torch.randint(0, 3517, (1, self.flags.len_sequence)).view(self.flags.len_sequence).float()
         elif self.flags.text_encoding == 'char':
             sample['text'] = torch.rand(self.flags.len_sequence, self.flags.num_features).float()
-
-        label = torch.tensor([random.randint(0, 1), random.randint(0, 1), random.randint(0, 1)]).float()
-
+        nbr_labels = 1 if self.flags.binary_labels else 3
+        label = torch.tensor([random.randint(0, 1) for _ in range(nbr_labels)]).float()
         return sample, label
 
     def get_images(self) -> dict:
