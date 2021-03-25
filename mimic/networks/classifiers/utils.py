@@ -391,15 +391,18 @@ class Metrics(object):
 
     def mean_AP(self) -> dict:
         """
-        Computes the mean average precision
+        Compute the mean average precision.
+        >>> import torch
+        >>> metrics = Metrics(torch.tensor([0, 0, 1, 1]).unsqueeze(-1), torch.tensor([0.1, 0.4, 0.35, 0.8]).unsqueeze(-1), str_labels=['my_labels'])
+        >>> metrics.mean_AP()
+        {'mean_AP_my_labels': [0.8333333333333333], 'mean_AP_total': [0.8333333333333333]}
         """
         ap_values = {
-            f'mean_AP_{self.str_labels[i]}': [average_precision_score((self.prediction[:, i].numpy().ravel() > 0.5) * 1,
-                                                                      (self.groundtruth[:,
-                                                                       i].numpy().ravel() > 0.5) * 1)] for i in
-            range(len(self.str_labels))}
-        ap_values['mean_AP_total'] = [average_precision_score(self.prediction_bin.cpu().data.numpy().ravel(),
-                                                              self.groundtruth_bin.cpu().data.numpy().ravel())]
+            f'mean_AP_{self.str_labels[i]}': [
+                average_precision_score(self.prediction[:, i].numpy().ravel(), self.groundtruth[:, i].numpy().ravel())]
+            for i in range(len(self.str_labels))}
+        ap_values['mean_AP_total'] = [average_precision_score(self.prediction.cpu().data.numpy().ravel(),
+                                                              self.groundtruth.cpu().data.numpy().ravel())]
         return ap_values
 
     def counts(self) -> dict:
