@@ -1,7 +1,7 @@
 # MoPoE-MIMIC
 This repository contains the code for the framework in Multimodal Generative Learning on the MIMIC-CXR Database (see [paper](https://openreview.net/forum?id=ZVqjoKVbYMl)).
 
-It is based on the framework used in Generalized Multimodal ELBO (see [paper](https://openreview.net/forum?id=5Y21V0RDBV)). 
+It is based on the framework used in Generalized Multimodal ELBO (see [paper](https://openreview.net/forum?id=5Y21V0RDBV), [code](https://github.com/thomassutter/joint_elbo)). 
 
 ## Installation
 
