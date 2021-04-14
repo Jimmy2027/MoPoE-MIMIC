@@ -160,7 +160,6 @@ class BaseMMVae(ABC, nn.Module):
                                                     enc_mods[mod.name][1].unsqueeze(0)),
                                                    dim=0)
                     else:
-                        # todo was ist mods_avail? wenn eine modality fehlt? was passiert dann?
                         mods_avail = False
                 if mods_avail:
                     # normalize latents by number of modalities in subset
